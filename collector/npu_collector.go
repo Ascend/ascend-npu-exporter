@@ -17,6 +17,7 @@ package collector
 
 var globalVar = 1
 
+// AddSomeValue add some value
 func AddSomeValue(a int) int {
 	return a + globalVar
 }

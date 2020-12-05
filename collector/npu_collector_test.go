@@ -19,6 +19,7 @@ import (
 	"testing"
 )
 
+// TestAddSomeValue1 test for method
 func TestAddSomeValue1(t *testing.T) {
 	tests := []struct {
 		name string
