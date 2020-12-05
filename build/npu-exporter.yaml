@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: npu-exporter
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: exporter-network-policy
+  namespace: npu-exporter
+spec:
+  podSelector:
+    matchLabels:
+      app: npu-exporter
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              app: prometheus
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              app: prometheus
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: npu-exporter
+  namespace: npu-exporter
+spec:
+  selector:
+    matchLabels:
+      app: npu-exporter
+  template:
+    metadata:
+      labels:
+        app: npu-exporter
+    spec:
+      nodeSelector:
+        workerselector: dls-worker-node
+      containers:
+      - name: npu-exporter
+        image: npu-exporter:beta
+        resources:
+          requests:
+              memory: 300Mi
+              cpu: 500m
+          limits:
+              memory: 300Mi
+              cpu: 500m
+        imagePullPolicy: Never
+        command: [ "/bin/bash", "-c", "--"]
+        args: ["umask 027;npu-exporter -port=8082 -updateTime=5 -logtostderr=false -log_dir=/var/log/npu-exporter
+              -log_file=/var/log/npu-exporter/npu-exporter.log  -stderrthreshold=2 -v=3" ]
+        securityContext:
+          privileged: true
+        ports:
+          - name: http
+            containerPort: 8082
+            protocol: TCP
+        volumeMounts:
+          - name: log-npu-exporter
+            mountPath: /var/log/npu-exporter
+          - name: localtime
+            mountPath: /etc/localtime
+            readOnly: true
+          - name: ascend-dirver
+            mountPath: /usr/local/Ascend/driver
+            readOnly: true
+      volumes:
+        - name: log-npu-exporter
+          hostPath:
+            path: /var/log/npu-exporter
+        - name: localtime
+          hostPath:
+            path: /etc/localtime
+        - name: ascend-dirver
+          hostPath:
+            path: /usr/local/Ascend/driver
