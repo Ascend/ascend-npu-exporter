@@ -145,11 +145,13 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 	obj, found := n.cache.Get(key)
+	// if get cache failed, rebuild cache, generally triggered at the beginning of the program
 	if !found {
 		klog.Warning("no cache, start to get npulist and rebuild cache")
 		npuInfo := getNPUInfo(dsmi.GetDeviceManager())
 		n.cache.Set(key, npuInfo, n.cacheTime)
 		klog.Warning("rebuild cache successfully")
+		obj = npuInfo
 	}
 	npuList, ok := obj.([]HuaWeiNPUDevice)
 	if !ok {
