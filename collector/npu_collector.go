@@ -23,6 +23,7 @@ import (
 	"k8s.io/klog"
 	"math"
 	"os"
+	"reflect"
 	"strconv"
 	"time"
 )
@@ -30,7 +31,7 @@ import (
 var (
 	versionInfoDesc               = prometheus.NewDesc("npu_exporter_version_info", "exporter version with value '1'", []string{"exporterVersion"}, nil)
 	machineInfoNPUDesc            = prometheus.NewDesc("machine_npu_nums", "Amount of npu installed on the machine.", nil, nil)
-	npuChipInfDescNpuName         = prometheus.NewDesc("npu_chip_info_name", "the Ascent npu name with value '1'", []string{"id", "name"}, nil)
+	npuChipInfoDescNpuName        = prometheus.NewDesc("npu_chip_info_name", "the Ascend npu name with value '1'", []string{"id", "name"}, nil)
 	npuChipInfoDescUtil           = prometheus.NewDesc("npu_chip_info_utilization", "the ai core utilization", []string{"id"}, nil)
 	npuChipInfoDescTemp           = prometheus.NewDesc("npu_chip_info_temperature", "the npu temperature", []string{"id"}, nil)
 	npuChipInfoDescPower          = prometheus.NewDesc("npu_chip_info_power", "the npu power", []string{"id"}, nil)
@@ -40,7 +41,7 @@ var (
 	npuChipInfoDescHealthStatus   = prometheus.NewDesc("npu_chip_info_health_status", "the npu health status", []string{"id"}, nil)
 	npuChipInfoDescHbmUsedMemory  = prometheus.NewDesc("npu_chip_info_hbm_used_memory", "the npu hbm used memory", []string{"id"}, nil)
 	npuChipInfoDescHbmTotalMemory = prometheus.NewDesc("npu_chip_info_hbm_total_memory", "the npu hbm total memory", []string{"id"}, nil)
-	npuChipInfDescErrorCode       = prometheus.NewDesc("npu_chip_info_error_code", "the npu error code", []string{"id"}, nil)
+	npuChipInfoDescErrorCode      = prometheus.NewDesc("npu_chip_info_error_code", "the npu error code", []string{"id"}, nil)
 )
 
 type npuCollector struct {
@@ -134,8 +135,8 @@ func (n *npuCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- npuChipInfoDescHbmTotalMemory
 	ch <- npuChipInfoDescTotalMemory
 	ch <- npuChipInfoDescUsedMemory
-	ch <- npuChipInfDescErrorCode
-	ch <- npuChipInfDescNpuName
+	ch <- npuChipInfoDescErrorCode
+	ch <- npuChipInfoDescNpuName
 }
 
 // Collect implements prometheus.Collector
@@ -161,7 +162,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(versionInfoDesc, prometheus.GaugeValue, 1, []string{BuildVersion}...)
 	ch <- prometheus.MustNewConstMetric(machineInfoNPUDesc, prometheus.GaugeValue, float64(len(npuList)))
 	for _, npu := range npuList {
-		if len(npu.DeviceList) < 0 {
+		if len(npu.DeviceList) <= 0 {
 			continue
 		}
 		for _, chip := range npu.DeviceList {
@@ -174,7 +175,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func updateNPUOtherInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUDevice, chip *HuaWeiAIChip) {
-	if !validate(ch, npu, chip) {
+	if !validate(ch, npu, chip, chip.ChipIfo) {
 		klog.Error("Invalid param in function updateNPUOtherInfo")
 		return
 	}
@@ -184,11 +185,11 @@ func updateNPUOtherInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUDevice, chip 
 			float64(getHealthCode(chip.HealthStatus)), []string{strconv.FormatInt(int64(npu.CardID), base)}...))
 	ch <- prometheus.NewMetricWithTimestamp(
 		npu.Timestamp,
-		prometheus.MustNewConstMetric(npuChipInfDescErrorCode, prometheus.GaugeValue, float64(chip.ErrorCode),
+		prometheus.MustNewConstMetric(npuChipInfoDescErrorCode, prometheus.GaugeValue, float64(chip.ErrorCode),
 			[]string{strconv.FormatInt(int64(npu.CardID), base)}...))
 	ch <- prometheus.NewMetricWithTimestamp(
 		npu.Timestamp,
-		prometheus.MustNewConstMetric(npuChipInfDescNpuName, prometheus.GaugeValue, 1,
+		prometheus.MustNewConstMetric(npuChipInfoDescNpuName, prometheus.GaugeValue, 1,
 			[]string{strconv.FormatInt(int64(npu.CardID), base),
 				fmt.Sprintf("%s-%s-%s", chip.ChipIfo.ChipName, chip.ChipIfo.ChipType, chip.ChipIfo.ChipVer)}...))
 }
@@ -198,7 +199,7 @@ func validate(ch chan<- prometheus.Metric, objs ...interface{}) bool {
 		return false
 	}
 	for _, v := range objs {
-		if v == nil {
+		if reflect.ValueOf(v).IsNil() {
 			return false
 		}
 	}
@@ -206,7 +207,7 @@ func validate(ch chan<- prometheus.Metric, objs ...interface{}) bool {
 }
 
 func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUDevice, chip *HuaWeiAIChip) {
-	if !validate(ch, npu, chip) {
+	if !validate(ch, npu, chip, chip.HbmInfo, chip.Meminf) {
 		klog.Error("Invalid param in function updateNPUMemoryInfo")
 		return
 	}

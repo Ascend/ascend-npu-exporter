@@ -37,7 +37,7 @@ unset GOPATH
 #go get github.com/matm/gocov-html
 CUR_DIR=$(dirname "$(readlink -f "$0")")
 TOP_DIR=$(realpath "${CUR_DIR}"/..)
-MOCK_TOP=${TOP_DIR}/pkg/ring-controller/controller
+
 file_input='testExporter.txt'
 file_detail_output='exporterCoverageReport.html'
 

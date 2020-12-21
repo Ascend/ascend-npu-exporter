@@ -228,7 +228,7 @@ type DeviceMgrInterface interface {
 	GetDeviceHealth(logicID int32) (int32, error)
 	// GetDeviceUtilizationRate get npu device utilization
 	GetDeviceUtilizationRate(logicID int32, deviceType DeviceType) (int32, error)
-	// GetDeviceTemperature get npu device tempetature
+	// GetDeviceTemperature get npu device temperature
 	GetDeviceTemperature(logicID int32) (int32, error)
 	// GetDeviceVoltage get npu device voltage
 	GetDeviceVoltage(logicID int32) (float32, error)
@@ -327,7 +327,7 @@ func (d *baseDeviceManager) GetDeviceList() (int32, []int32, error) {
 func (d *baseDeviceManager) GetDeviceHealth(logicID int32) (int32, error) {
 	var health C.uint
 	if err := C.dsmi_get_device_health(C.int(logicID), &health); err != 0 {
-		errInfo := fmt.Errorf("get device %d health state failed, error code: %d", logicID, int32(err))
+		errInfo := fmt.Errorf("get device%d health state failed, error code: %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
@@ -341,7 +341,7 @@ func (d *baseDeviceManager) GetDeviceUtilizationRate(logicID int32, deviceType D
 	var utilRate C.uint
 	err := C.dsmi_get_device_utilization_rate(C.int(logicID), C.int(deviceType), &utilRate)
 	if err != 0 {
-		klog.Errorf("Get Device utilize rate failed, error code: %d, try again ... ", int32(err))
+		klog.Errorf("get device%d utilize rate failed, error code: %d, try again ... ", logicID, int32(err))
 		for i := 0; i < 3; i++ {
 			klog.Errorf("try again %d", i)
 			err = C.dsmi_get_device_utilization_rate(C.int(logicID), C.int(deviceType), &utilRate)
@@ -349,8 +349,7 @@ func (d *baseDeviceManager) GetDeviceUtilizationRate(logicID int32, deviceType D
 				return int32(utilRate), nil
 			}
 		}
-		return retError, fmt.Errorf("get Device utilize rate failed, error code: %d", int32(err))
-
+		return retError, fmt.Errorf("get device%d utilize rate failed, error code: %d", logicID, int32(err))
 	}
 	return int32(utilRate), nil
 }
@@ -359,7 +358,7 @@ func (d *baseDeviceManager) GetDeviceUtilizationRate(logicID int32, deviceType D
 func (d *baseDeviceManager) GetPhyIDFromLogicID(logicID uint32) (int32, error) {
 	var phyID C.uint
 	if err := C.dsmi_get_phyid_from_logicid(C.uint(logicID), &phyID); err != 0 {
-		errInfo := fmt.Errorf("get phy id failed ,error code is: %d", int32(err))
+		errInfo := fmt.Errorf("get device%d phy id failed ,error code is: %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
@@ -370,7 +369,7 @@ func (d *baseDeviceManager) GetPhyIDFromLogicID(logicID uint32) (int32, error) {
 func (d *baseDeviceManager) GetLogicIDFromPhyID(phyID uint32) (int32, error) {
 	var logicID C.uint
 	if err := C.dsmi_get_logicid_from_phyid(C.uint(phyID), &logicID); err != 0 {
-		errInfo := fmt.Errorf("get logic id failed ,error code is : %d", int32(err))
+		errInfo := fmt.Errorf("get device%d logic id failed ,error code is : %d", phyID, int32(err))
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
@@ -381,8 +380,7 @@ func (d *baseDeviceManager) GetLogicIDFromPhyID(phyID uint32) (int32, error) {
 func (d *baseDeviceManager) GetDeviceTemperature(logicID int32) (int32, error) {
 	var temp C.int
 	if err := C.dsmi_get_device_temperature(C.int(logicID), &temp); err != 0 {
-		errInfo := fmt.Errorf("get temperature failed ,error code is : %d", int32(err))
-		klog.Error(errInfo)
+		errInfo := fmt.Errorf("get device%d temperature failed ,error code is : %d", logicID, int32(err))
 		return retError, errInfo
 	}
 	return int32(temp), nil
@@ -392,7 +390,7 @@ func (d *baseDeviceManager) GetDeviceTemperature(logicID int32) (int32, error) {
 func (d *baseDeviceManager) GetDeviceVoltage(logicID int32) (float32, error) {
 	var vol C.uint
 	if err := C.dsmi_get_device_voltage(C.int(logicID), &vol); err != 0 {
-		errInfo := fmt.Errorf("get temperature failed ,error code is : %d", int32(err))
+		errInfo := fmt.Errorf("get device%d temperature failed ,error code is : %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
@@ -404,7 +402,7 @@ func (d *baseDeviceManager) GetDeviceVoltage(logicID int32) (float32, error) {
 func (d *baseDeviceManager) GetDevicePower(logicID int32) (float32, error) {
 	var cpower C.struct_dsmi_power_info_stru
 	if err := C.dsmi_get_device_power_info(C.int(logicID), &cpower); err != 0 {
-		errInfo := fmt.Errorf("get device power failed, error code: %d", int32(err))
+		errInfo := fmt.Errorf("get device%d power failed, error code: %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
@@ -420,7 +418,7 @@ func (d *baseDeviceManager) GetDevicePower(logicID int32) (float32, error) {
 func (d *baseDeviceManager) GetDeviceFrequency(logicID int32, subType DeviceType) (int32, error) {
 	var cFrequency C.uint
 	if err := C.dsmi_get_device_frequency(C.int(logicID), C.int(subType), &cFrequency); err != 0 {
-		errInfo := fmt.Errorf("get device frequency failed, error code: %d", int32(err))
+		errInfo := fmt.Errorf("get device%d frequency failed, error code: %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
@@ -431,7 +429,7 @@ func (d *baseDeviceManager) GetDeviceFrequency(logicID int32, subType DeviceType
 func (d *deviceManager910) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
 	var cHbmInfo C.struct_dsmi_hbm_info_stru
 	if err := C.dsmi_get_hbm_info(C.int(logicID), &cHbmInfo); err != 0 {
-		errInfo := fmt.Errorf("get device HBM information failed, error code: %d", int32(err))
+		errInfo := fmt.Errorf("get device%d HBM information failed, error code: %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return nil, errInfo
 	}
@@ -451,7 +449,7 @@ func (d *deviceManager310) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
 func (d *baseDeviceManager) GetDeviceMemoryInfo(logicID int32) (*MemoryInfo, error) {
 	var cmInfo C.struct_dsmi_memory_info_stru
 	if err := C.dsmi_get_memory_info(C.int(logicID), &cmInfo); err != 0 {
-		errInfo := fmt.Errorf("get device memory information failed, error code: %d", int32(err))
+		errInfo := fmt.Errorf("get device%d memory information failed, error code: %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return nil, errInfo
 	}
@@ -471,7 +469,7 @@ func (d *baseDeviceManager) GetDeviceErrCode(logicID int32) (int32, int32, error
 	var errCount C.int
 	var errCode C.uint
 	if err := C.dsmi_get_device_errorcode(C.int(logicID), &errCount, &errCode); err != 0 {
-		errInfo := fmt.Errorf("get device error code failed, error code: %d", int32(err))
+		errInfo := fmt.Errorf("get device%d error code failed, error code: %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return retError, retError, errInfo
 	}
@@ -482,7 +480,7 @@ func (d *baseDeviceManager) GetDeviceErrCode(logicID int32) (int32, int32, error
 func (d *baseDeviceManager) GetChipInfo(logicID int32) (*ChipInfo, error) {
 	var chipInfo C.struct_dsmi_chip_info_stru
 	if err := C.dsmi_get_chip_info(C.int(logicID), &chipInfo); err != 0 {
-		errInfo := fmt.Errorf("get device HBM information failed, error code: %d", int32(err))
+		errInfo := fmt.Errorf("get device%d HBM information failed, error code: %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return nil, errInfo
 	}
@@ -528,7 +526,7 @@ func (d *baseDeviceManager) GetNPUMajorID() (string, error) {
 		}
 	}
 	if err := cmd.Wait(); err != nil {
-		klog.Errorf("command exec failed，%v", err)
+		klog.Errorf("command exec failed,%v", err)
 		return "", err
 	}
 	if firstResult == "" {
