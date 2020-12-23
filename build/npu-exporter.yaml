@@ -70,7 +70,7 @@ spec:
           - name: localtime
             mountPath: /etc/localtime
             readOnly: true
-          - name: ascend-dirver
+          - name: ascend-driver
             mountPath: /usr/local/Ascend/driver
             readOnly: true
       volumes:
@@ -80,6 +80,6 @@ spec:
         - name: localtime
           hostPath:
             path: /etc/localtime
-        - name: ascend-dirver
+        - name: ascend-driver
           hostPath:
             path: /usr/local/Ascend/driver

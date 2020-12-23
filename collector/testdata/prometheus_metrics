@@ -41,7 +41,7 @@ npu_chip_info_health_status{id="4"} 1 1606402000
 npu_chip_info_health_status{id="5"} 1 1606402000
 npu_chip_info_health_status{id="6"} 1 1606402000
 npu_chip_info_health_status{id="7"} 1 1606402000
-# HELP npu_chip_info_name the Ascent npu name with value '1'
+# HELP npu_chip_info_name the Ascend npu name with value '1'
 # TYPE npu_chip_info_name gauge
 npu_chip_info_name{id="0",name="910Awn-Ascend-V1"} 1 1606402000
 npu_chip_info_name{id="1",name="910Awn-Ascend-V1"} 1 1606402000
