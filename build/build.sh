@@ -8,7 +8,7 @@ TOP_DIR=$(realpath "${CUR_DIR}"/..)
 export GO111MODULE="on"
 unset GOPATH
 VER_FILE="${TOP_DIR}"/service_config.ini
-build_version="beta"
+build_version="v20.2.0"
 if [ -f "$VER_FILE" ]; then
   line=$(sed -n '5p' "$VER_FILE" 2>&1)
   #cut the chars after ':'

@@ -390,7 +390,7 @@ func (d *baseDeviceManager) GetDeviceTemperature(logicID int32) (int32, error) {
 func (d *baseDeviceManager) GetDeviceVoltage(logicID int32) (float32, error) {
 	var vol C.uint
 	if err := C.dsmi_get_device_voltage(C.int(logicID), &vol); err != 0 {
-		errInfo := fmt.Errorf("get device%d temperature failed ,error code is : %d", logicID, int32(err))
+		errInfo := fmt.Errorf("get device%d voltage failed ,error code is : %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
@@ -480,7 +480,7 @@ func (d *baseDeviceManager) GetDeviceErrCode(logicID int32) (int32, int32, error
 func (d *baseDeviceManager) GetChipInfo(logicID int32) (*ChipInfo, error) {
 	var chipInfo C.struct_dsmi_chip_info_stru
 	if err := C.dsmi_get_chip_info(C.int(logicID), &chipInfo); err != 0 {
-		errInfo := fmt.Errorf("get device%d HBM information failed, error code: %d", logicID, int32(err))
+		errInfo := fmt.Errorf("get device%d ChipInfo information failed, error code: %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return nil, errInfo
 	}
