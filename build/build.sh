@@ -36,9 +36,11 @@ function clear_env() {
 
 function build() {
   cd "${TOP_DIR}"
-  go build -ldflags "-X huawei.com/npu-exporter/collector.BuildName=${OUTPUT_NAME} \
+  CGO_CFLAGS="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -O2 -fPIC -ftrapv"
+  CGO_CPPFLAGS="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -O2 -fPIC -ftrapv"
+  go build -buildmode=pie -ldflags "-s -extldflags=-Wl,-z,now  -X huawei.com/npu-exporter/collector.BuildName=${OUTPUT_NAME} \
             -X huawei.com/npu-exporter/collector.BuildVersion=${build_version}" \
-    -o ${OUTPUT_NAME}
+            -o ${OUTPUT_NAME}
   ls ${OUTPUT_NAME}
   if [ $? -ne 0 ]; then
     echo "fail to find npu-exporter"
