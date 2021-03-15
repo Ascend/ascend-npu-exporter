@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// package collector for Prometheus
+// Package collector for Prometheus
 package collector
 
 import (
@@ -72,26 +72,15 @@ var getNPUInfo = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 	for _, cardID := range cards {
 		deviceNum, err := dmgr.GetDeviceNumOnCard(cardID)
 		if err != nil {
+			klog.Errorf("Can't get the device count on the card %d", cardID)
 			continue
 		}
 		var deviceList []*HuaWeiAIChip
 		for i := int32(0); i < deviceNum; i++ {
-			phyID, err := dmgr.GetPhyIDFromLogicID(uint32(logicID))
-			// check cardId, convert it to int type later
-			if phyID > math.MaxInt8 || err != nil {
-				continue
+			chipInfo := assembleNPUInfoV2(cardID, logicID, dmgr)
+			if chipInfo != nil {
+				deviceList = append(deviceList, chipInfo)
 			}
-			chipInfo := packChipInfo(logicID, dmgr)
-			chipInfo.DeviceID = int(phyID)
-			if dsmi.GetChipTypeNow() == dsmi.Ascend710 {
-				cardPower, err := dmgr.GetCardPower(cardID)
-				if err != nil {
-					cardPower = dsmi.DefaultErrorValue
-				}
-				// Ascend710 use cardPower to replace chipPower
-				chipInfo.Power = cardPower
-			}
-			deviceList = append(deviceList, chipInfo)
 			logicID++
 		}
 		npuCard := HuaWeiNPUCard{
@@ -102,6 +91,25 @@ var getNPUInfo = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 		npuList = append(npuList, npuCard)
 	}
 	return npuList
+}
+
+func assembleNPUInfoV2(cardID int32, logicID int32, dmgr dsmi.DeviceMgrInterface) *HuaWeiAIChip {
+	phyID, err := dmgr.GetPhyIDFromLogicID(uint32(logicID))
+	// check cardId, convert it to int type later
+	if phyID > math.MaxInt8 || err != nil {
+		return nil
+	}
+	chipInfo := packChipInfo(logicID, dmgr)
+	chipInfo.DeviceID = int(phyID)
+	if dsmi.GetChipTypeNow() == dsmi.Ascend710 {
+		cardPower, err := dmgr.GetCardPower(cardID)
+		if err != nil {
+			cardPower = dsmi.DefaultErrorValue
+		}
+		// Ascend710 use cardPower to replace chipPower
+		chipInfo.Power = cardPower
+	}
+	return chipInfo
 }
 
 var assembleNPUInfoV1 = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
@@ -304,7 +312,7 @@ func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 }
 
 var packChipInfo = func(logicID int32, dmgr dsmi.DeviceMgrInterface) *HuaWeiAIChip {
-	freq, err := dmgr.GetDeviceFrequency(logicID, dsmi.AI_Core)
+	freq, err := dmgr.GetDeviceFrequency(logicID, dsmi.AICore)
 	if err != nil {
 		freq = dsmi.DefaultErrorValue
 	}
@@ -332,7 +340,7 @@ var packChipInfo = func(logicID int32, dmgr dsmi.DeviceMgrInterface) *HuaWeiAICh
 	if err != nil {
 		hbmInfo = &dsmi.HbmInfo{}
 	}
-	util, err := dmgr.GetDeviceUtilizationRate(logicID, dsmi.AI_Core)
+	util, err := dmgr.GetDeviceUtilizationRate(logicID, dsmi.AICore)
 	if err != nil {
 		util = dsmi.DefaultErrorValue // valid data range 0-100
 	}

@@ -32,161 +32,187 @@ void *dcmiHandle;
 #define FUNCTION_NOT_FOUND -99998
 #define SUCCESS 0
 #define ERROR_UNKNOWN -99997
-#define CALL_FUNC(func_name,...)					\
-	if(func_name##_func == NULL){					\
-		return FUNCTION_NOT_FOUND;					\
-	}												\
-	return func_name##_func(__VA_ARGS__);			\
+#define CALL_FUNC(func_name, ...)                    \
+	if (func_name##_func == NULL){                   \
+		return FUNCTION_NOT_FOUND;					 \
+	}                                                \
+	return func_name##_func(__VA_ARGS__);            \
 
 int (*dsmi_get_device_count_func)(int *device_count);
+
 int dsmi_get_device_count(int *device_count){
-    CALL_FUNC(dsmi_get_device_count,device_count)
+	CALL_FUNC(dsmi_get_device_count, device_count)
 }
 
 int (*dsmi_list_device_func)(int device_id_list[], int count);
+
 int dsmi_list_device(int device_id_list[], int count){
-	CALL_FUNC(dsmi_list_device,device_id_list,count)
+
+	CALL_FUNC(dsmi_list_device, device_id_list, count)
 }
 
 int (*dsmi_get_device_health_func)(int device_id, unsigned int *phealth);
+
 int dsmi_get_device_health(int device_id, unsigned int *phealth){
-	CALL_FUNC(dsmi_get_device_health,device_id,phealth)
+
+	CALL_FUNC(dsmi_get_device_health, device_id, phealth)
 }
 
 int (*dsmi_get_device_utilization_rate_func)(int device_id, int device_type, unsigned int *putilization_rate);
-int dsmi_get_device_utilization_rate(int device_id,int device_type, unsigned int *putilization_rate){
-	CALL_FUNC(dsmi_get_device_utilization_rate,device_id, device_type,putilization_rate)
+
+int dsmi_get_device_utilization_rate(int device_id, int device_type, unsigned int *putilization_rate){
+
+	CALL_FUNC(dsmi_get_device_utilization_rate, device_id, device_type, putilization_rate)
 }
 
 int (*dsmi_get_phyid_from_logicid_func)(unsigned int logicid, unsigned int *phyid);
+
 int dsmi_get_phyid_from_logicid(unsigned int logicid, unsigned int *phyid){
-	CALL_FUNC(dsmi_get_phyid_from_logicid,logicid,phyid)
+
+	CALL_FUNC(dsmi_get_phyid_from_logicid, logicid, phyid)
 }
 
 int (*dsmi_get_logicid_from_phyid_func)(unsigned int phyid, unsigned int *logicid);
+
 int dsmi_get_logicid_from_phyid(unsigned int phyid, unsigned int *logicid){
-	CALL_FUNC(dsmi_get_logicid_from_phyid,phyid,logicid)
+
+	CALL_FUNC(dsmi_get_logicid_from_phyid, phyid, logicid)
 }
 
 int (*dsmi_get_device_temperature_func)(int device_id,  int *ptemperature);
-int dsmi_get_device_temperature(int device_id,  int *ptemperature){
-	CALL_FUNC(dsmi_get_device_temperature,device_id,ptemperature)
+
+int dsmi_get_device_temperature(int device_id, int *ptemperature){
+
+	CALL_FUNC(dsmi_get_device_temperature, device_id, ptemperature)
 }
 
 int (*dsmi_get_device_voltage_func)(int device_id, unsigned int *pvoltage);
+
 int dsmi_get_device_voltage(int device_id, unsigned int *pvoltage){
-	CALL_FUNC(dsmi_get_device_voltage,device_id,pvoltage)
+
+	CALL_FUNC(dsmi_get_device_voltage, device_id, pvoltage)
 }
 
 int (*dsmi_get_device_power_info_func)(int device_id, struct dsmi_power_info_stru *pdevice_power_info);
+
 int dsmi_get_device_power_info(int device_id, struct dsmi_power_info_stru *pdevice_power_info){
-	CALL_FUNC(dsmi_get_device_power_info,device_id,pdevice_power_info)
+
+	CALL_FUNC(dsmi_get_device_power_info, device_id, pdevice_power_info)
 }
 
-int (*dsmi_get_device_frequency_func)(int device_id, int device_type,unsigned int *pfrequency);
-int dsmi_get_device_frequency(int device_id, int device_type,unsigned int *pfrequency){
-	CALL_FUNC(dsmi_get_device_frequency,device_id,device_type,pfrequency)
+int (*dsmi_get_device_frequency_func)(int device_id, int device_type, unsigned int *pfrequency);
+
+int dsmi_get_device_frequency(int device_id, int device_type, unsigned int *pfrequency){
+	CALL_FUNC(dsmi_get_device_frequency, device_id, device_type, pfrequency)
 }
 
 int (*dsmi_get_hbm_info_func)(int device_id, struct dsmi_hbm_info_stru *pdevice_hbm_info);
+
 int dsmi_get_hbm_info(int device_id, struct dsmi_hbm_info_stru *pdevice_hbm_info){
-	CALL_FUNC(dsmi_get_hbm_info,device_id,pdevice_hbm_info)
+	CALL_FUNC(dsmi_get_hbm_info, device_id, pdevice_hbm_info)
 }
 
 int (*dsmi_get_memory_info_func)(int device_id, struct dsmi_memory_info_stru *pdevice_memory_info);
+
 int dsmi_get_memory_info(int device_id, struct dsmi_memory_info_stru *pdevice_memory_info){
-	CALL_FUNC(dsmi_get_memory_info,device_id,pdevice_memory_info)
+	CALL_FUNC(dsmi_get_memory_info, device_id, pdevice_memory_info)
 }
 
-int (*dsmi_get_device_errorcode_func)(int device_id, int *errorcount,unsigned int *perrorcode);
+int (*dsmi_get_device_errorcode_func)(int device_id, int *errorcount, unsigned int *perrorcode);
+
 int dsmi_get_device_errorcode(int device_id, int *errorcount,unsigned int *perrorcode){
-	CALL_FUNC(dsmi_get_device_errorcode,device_id,errorcount,perrorcode)
+	CALL_FUNC(dsmi_get_device_errorcode, device_id, errorcount, perrorcode)
 }
 
 int (*dsmi_get_chip_info_func)(int device_id, struct dsmi_chip_info_stru *chip_info);
+
 int dsmi_get_chip_info(int device_id, struct dsmi_chip_info_stru *chip_info){
-	CALL_FUNC(dsmi_get_chip_info,device_id,chip_info)
+	CALL_FUNC(dsmi_get_chip_info, device_id, chip_info)
 }
 //dcmi
 
 int (*dcmi_init_func)();
+
 int dcmi_init(){
 	CALL_FUNC(dcmi_init)
 }
 
 int (*dcmi_get_card_num_list_func)(int *card_num, int *card_list, int list_length);
+
 int dcmi_get_card_num_list(int *card_num, int *card_list, int list_length){
-	CALL_FUNC(dcmi_get_card_num_list,card_num,card_list,list_length)
+	CALL_FUNC(dcmi_get_card_num_list, card_num, card_list, list_length)
 }
 
 int (*dcmi_get_device_num_in_card_func)(int card_id, int *device_num);
+
 int dcmi_get_device_num_in_card(int card_id, int *device_num){
-	CALL_FUNC(dcmi_get_device_num_in_card,card_id,device_num)
+	CALL_FUNC(dcmi_get_device_num_in_card, card_id, device_num)
 }
 
 int (*dcmi_mcu_get_power_info_func)(int card_id,int *power);
-int dcmi_mcu_get_power_info(int card_id,int *power){
-	CALL_FUNC(dcmi_mcu_get_power_info,card_id,power)
+
+int dcmi_mcu_get_power_info(int card_id, int *power){
+	CALL_FUNC(dcmi_mcu_get_power_info, card_id, power)
 }
 
 // load .so files and functions
 int dsmiInit_dl(void){
-	dsmiHandle = dlopen("libdrvdsmi_host.so",RTLD_LAZY | RTLD_GLOBAL);
+dsmiHandle = dlopen("libdrvdsmi_host.so", RTLD_LAZY | RTLD_GLOBAL);
 	if (dsmiHandle == NULL){
-		return SO_NOT_FOUND;
-	}
+	return SO_NOT_FOUND;
+}
 
-	dsmi_list_device_func = dlsym(dsmiHandle,"dsmi_list_device");
+dsmi_list_device_func = dlsym(dsmiHandle, "dsmi_list_device");
 
-	dsmi_get_device_count_func = dlsym(dsmiHandle,"dsmi_get_device_count");
+dsmi_get_device_count_func = dlsym(dsmiHandle, "dsmi_get_device_count");
 
-	dsmi_get_device_health_func = dlsym(dsmiHandle,"dsmi_get_device_health");
+dsmi_get_device_health_func = dlsym(dsmiHandle, "dsmi_get_device_health");
 
-	dsmi_get_device_utilization_rate_func = dlsym(dsmiHandle,"dsmi_get_device_utilization_rate");
+dsmi_get_device_utilization_rate_func = dlsym(dsmiHandle, "dsmi_get_device_utilization_rate");
 
-	dsmi_get_phyid_from_logicid_func = dlsym(dsmiHandle,"dsmi_get_phyid_from_logicid");
+dsmi_get_phyid_from_logicid_func = dlsym(dsmiHandle, "dsmi_get_phyid_from_logicid");
 
-	dsmi_get_logicid_from_phyid_func = dlsym(dsmiHandle,"dsmi_get_logicid_from_phyid");
+dsmi_get_logicid_from_phyid_func = dlsym(dsmiHandle, "dsmi_get_logicid_from_phyid");
 
-	dsmi_get_device_temperature_func = dlsym(dsmiHandle,"dsmi_get_device_temperature");
+dsmi_get_device_temperature_func = dlsym(dsmiHandle, "dsmi_get_device_temperature");
 
-	dsmi_get_device_voltage_func = dlsym(dsmiHandle,"dsmi_get_device_voltage");
+dsmi_get_device_voltage_func = dlsym(dsmiHandle,"dsmi_get_device_voltage");
 
-	dsmi_get_device_power_info_func = dlsym(dsmiHandle,"dsmi_get_device_power_info");
+dsmi_get_device_power_info_func = dlsym(dsmiHandle, "dsmi_get_device_power_info");
 
-	dsmi_get_device_frequency_func = dlsym(dsmiHandle,"dsmi_get_device_frequency");
+dsmi_get_device_frequency_func = dlsym(dsmiHandle, "dsmi_get_device_frequency");
 
-	dsmi_get_hbm_info_func = dlsym(dsmiHandle,"dsmi_get_hbm_info");
+dsmi_get_hbm_info_func = dlsym(dsmiHandle, "dsmi_get_hbm_info");
 
-	dsmi_get_memory_info_func = dlsym(dsmiHandle,"dsmi_get_memory_info");
+dsmi_get_memory_info_func = dlsym(dsmiHandle, "dsmi_get_memory_info");
 
-	dsmi_get_device_errorcode_func = dlsym(dsmiHandle,"dsmi_get_device_errorcode");
+dsmi_get_device_errorcode_func = dlsym(dsmiHandle, "dsmi_get_device_errorcode");
 
-	dsmi_get_chip_info_func = dlsym(dsmiHandle,"dsmi_get_chip_info");
+dsmi_get_chip_info_func = dlsym(dsmiHandle, "dsmi_get_chip_info");
 
-	dlopen("libm.so",RTLD_LAZY | RTLD_GLOBAL);
-	dcmiHandle = dlopen("libdcmi.so",RTLD_LAZY | RTLD_GLOBAL);
-	if (dcmiHandle == NULL){
-		fprintf (stderr,"%s",dlerror());
-		return SO_NOT_FOUND;
-	}
+dlopen("libm.so", RTLD_LAZY | RTLD_GLOBAL);
+dcmiHandle = dlopen("libdcmi.so", RTLD_LAZY | RTLD_GLOBAL);
+if (dcmiHandle == NULL){
+	fprintf (stderr, "%s", dlerror());
+	return SO_NOT_FOUND;
+}
 
-	dcmi_init_func = dlsym(dcmiHandle,"dcmi_init");
+dcmi_init_func = dlsym(dcmiHandle, "dcmi_init");
 
-	dcmi_get_card_num_list_func = dlsym(dcmiHandle,"dcmi_get_card_num_list");
+dcmi_get_card_num_list_func = dlsym(dcmiHandle, "dcmi_get_card_num_list");
 
-	dcmi_get_device_num_in_card_func = dlsym(dcmiHandle,"dcmi_get_device_num_in_card");
+dcmi_get_device_num_in_card_func = dlsym(dcmiHandle, "dcmi_get_device_num_in_card");
 
-	dcmi_mcu_get_power_info_func = dlsym(dcmiHandle,"dcmi_mcu_get_power_info");
+dcmi_mcu_get_power_info_func = dlsym(dcmiHandle, "dcmi_mcu_get_power_info");
 
 	return SUCCESS;
 }
 
 int dsmiShutDown(void){
-	if (dsmiHandle == NULL && dcmiHandle == NULL){
-		return SUCCESS;
-	}
-	return (dlclose(dsmiHandle) && dlclose(dcmiHandle) ? ERROR_UNKNOWN : SUCCESS);
+if (dsmiHandle == NULL && dcmiHandle == NULL){
+	return SUCCESS;
+}
+	return (dlclose(dsmiHandle) && dlclose(dcmiHandle) ? ERROR_UNKNOWN: SUCCESS);
 }
 */
 import "C"
@@ -484,7 +510,7 @@ func (d *baseDeviceManager) GetDevicePower(logicID int32) (float32, error) {
 // GetDeviceFrequency get device frequency, unit MHz
 // Ascend910 1,6,7,9
 // Ascend310 1,2,3,4,5
-// subType enum:  Memory,6HBM,AI_Core_Current_Fre,AI_Core_Normal_Fre(1,6,7,9)    see DeviceType
+// subType enum:  Memory,6HBM,AICoreCurrentFreq,AICoreNormalFreq(1,6,7,9)    see DeviceType
 func (d *baseDeviceManager) GetDeviceFrequency(logicID int32, subType DeviceType) (int32, error) {
 	var cFrequency C.uint
 	if err := C.dsmi_get_device_frequency(C.int(logicID), C.int(subType), &cFrequency); err != 0 {
@@ -636,9 +662,9 @@ func (d *baseDeviceManager) GetCardList() (int32, []int32, error) {
 		return retError, nil, errInfo
 	}
 	var cardNum = int32(cNum)
-	var i int32 = 0
+	var i int32
 	var cardIDList []int32
-	for i = 0; i < cardNum; i++ {
+	for i = 0; i < cardNum && i < HIAIMaxCardNum; i++ {
 		cardIDList = append(cardIDList, int32(ids[i]))
 	}
 	return cardNum, cardIDList, nil

@@ -22,20 +22,20 @@ const (
 	// Memory  Ascend310 & Ascend910
 	Memory DeviceType = 1
 	// AICore Ascend310 & Ascend910
-	AI_Core DeviceType = 2
+	AICore DeviceType = 2
 	// AICPU  Ascend310 & Ascend910
-	AI_CPU DeviceType = 3
+	AICPU DeviceType = 3
 	// CTRLCPU  Ascend310 & Ascend910
-	CTRL_CPU DeviceType = 4
+	CTRLCPU DeviceType = 4
 	// MEMBandWidth memory brandwidth  Ascend310 & Ascend910
-	MEM_BandWidth DeviceType = 5
+	MEMBandWidth DeviceType = 5
 	// HBM             Ascend910 only
-	HBM                 DeviceType = 6
-	AI_Core_Current_Fre DeviceType = 7
-	// AICoreNormalFre AI core current frequency  Ascend910 only
-	// AICoreNormalFre AI core normal frequency  Ascend910 only
-	AI_Core_Normal_Fre DeviceType = 9
+	HBM DeviceType = 6
+	// AICoreCurrentFreq AI core current frequency
+	AICoreCurrentFreq DeviceType = 7
+	// AICoreNormalFreq AI core normal frequency  Ascend910 only
+	AICoreNormalFreq DeviceType = 9
 	// HBMBandWidth Ascend910 only
-	HBM_BandWidth DeviceType = 10 // Ascend910 only
+	HBMBandWidth DeviceType = 10 // Ascend910 only
 
 )
