@@ -17,23 +17,26 @@ package dsmi
 
 // #cgo LDFLAGS: -ldl
 /*
- #include <stddef.h>
+#include <stddef.h>
 #include <dlfcn.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "dsmi_common_interface.h"
+#include "dcmi_interface_api.h"
 
 // dsmiHandle is the handle for dynamically loaded libdrvdsmi_host.so
 void *dsmiHandle;
-#define SO_NOT_FOUND  -99999
-#define FUNCTION_NOT_FOUND  -99998
-#define SUCCESS  0
-#define ERROR_UNKNOWN  -99997
-#define CALL_FUNC(func_name, ...) 						\
-	if (func_name##_func == NULL){  					\
-			return FUNCTION_NOT_FOUND; 					\
-		}  												\
-    return func_name##_func(__VA_ARGS__);				\
+void *dcmiHandle;
+#define SO_NOT_FOUND -99999
+#define FUNCTION_NOT_FOUND -99998
+#define SUCCESS 0
+#define ERROR_UNKNOWN -99997
+#define CALL_FUNC(func_name,...)					\
+	if(func_name##_func == NULL){					\
+		return FUNCTION_NOT_FOUND;					\
+	}												\
+	return func_name##_func(__VA_ARGS__);			\
 
 int (*dsmi_get_device_count_func)(int *device_count);
 int dsmi_get_device_count(int *device_count){
@@ -51,8 +54,8 @@ int dsmi_get_device_health(int device_id, unsigned int *phealth){
 }
 
 int (*dsmi_get_device_utilization_rate_func)(int device_id, int device_type, unsigned int *putilization_rate);
-int dsmi_get_device_utilization_rate(int device_id, int device_type, unsigned int *putilization_rate){
-	CALL_FUNC(dsmi_get_device_utilization_rate,device_id,device_type,putilization_rate)
+int dsmi_get_device_utilization_rate(int device_id,int device_type, unsigned int *putilization_rate){
+	CALL_FUNC(dsmi_get_device_utilization_rate,device_id, device_type,putilization_rate)
 }
 
 int (*dsmi_get_phyid_from_logicid_func)(unsigned int logicid, unsigned int *phyid);
@@ -65,8 +68,8 @@ int dsmi_get_logicid_from_phyid(unsigned int phyid, unsigned int *logicid){
 	CALL_FUNC(dsmi_get_logicid_from_phyid,phyid,logicid)
 }
 
-int (*dsmi_get_device_temperature_func)(int device_id, int *ptemperature);
-int dsmi_get_device_temperature(int device_id, int *ptemperature){
+int (*dsmi_get_device_temperature_func)(int device_id,  int *ptemperature);
+int dsmi_get_device_temperature(int device_id,  int *ptemperature){
 	CALL_FUNC(dsmi_get_device_temperature,device_id,ptemperature)
 }
 
@@ -80,8 +83,8 @@ int dsmi_get_device_power_info(int device_id, struct dsmi_power_info_stru *pdevi
 	CALL_FUNC(dsmi_get_device_power_info,device_id,pdevice_power_info)
 }
 
-int (*dsmi_get_device_frequency_func)(int device_id, int device_type, unsigned int *pfrequency);
-int dsmi_get_device_frequency(int device_id, int device_type, unsigned int *pfrequency){
+int (*dsmi_get_device_frequency_func)(int device_id, int device_type,unsigned int *pfrequency);
+int dsmi_get_device_frequency(int device_id, int device_type,unsigned int *pfrequency){
 	CALL_FUNC(dsmi_get_device_frequency,device_id,device_type,pfrequency)
 }
 
@@ -95,8 +98,8 @@ int dsmi_get_memory_info(int device_id, struct dsmi_memory_info_stru *pdevice_me
 	CALL_FUNC(dsmi_get_memory_info,device_id,pdevice_memory_info)
 }
 
-int (*dsmi_get_device_errorcode_func)(int device_id, int *errorcount, unsigned int *perrorcode);
-int dsmi_get_device_errorcode(int device_id, int *errorcount, unsigned int *perrorcode){
+int (*dsmi_get_device_errorcode_func)(int device_id, int *errorcount,unsigned int *perrorcode);
+int dsmi_get_device_errorcode(int device_id, int *errorcount,unsigned int *perrorcode){
 	CALL_FUNC(dsmi_get_device_errorcode,device_id,errorcount,perrorcode)
 }
 
@@ -104,11 +107,32 @@ int (*dsmi_get_chip_info_func)(int device_id, struct dsmi_chip_info_stru *chip_i
 int dsmi_get_chip_info(int device_id, struct dsmi_chip_info_stru *chip_info){
 	CALL_FUNC(dsmi_get_chip_info,device_id,chip_info)
 }
+//dcmi
+
+int (*dcmi_init_func)();
+int dcmi_init(){
+	CALL_FUNC(dcmi_init)
+}
+
+int (*dcmi_get_card_num_list_func)(int *card_num, int *card_list, int list_length);
+int dcmi_get_card_num_list(int *card_num, int *card_list, int list_length){
+	CALL_FUNC(dcmi_get_card_num_list,card_num,card_list,list_length)
+}
+
+int (*dcmi_get_device_num_in_card_func)(int card_id, int *device_num);
+int dcmi_get_device_num_in_card(int card_id, int *device_num){
+	CALL_FUNC(dcmi_get_device_num_in_card,card_id,device_num)
+}
+
+int (*dcmi_mcu_get_power_info_func)(int card_id,int *power);
+int dcmi_mcu_get_power_info(int card_id,int *power){
+	CALL_FUNC(dcmi_mcu_get_power_info,card_id,power)
+}
 
 // load .so files and functions
 int dsmiInit_dl(void){
-	dsmiHandle = dlopen("libdrvdsmi_host.so",RTLD_LAZY);
-	if (dsmiHandle == NULL) {
+	dsmiHandle = dlopen("libdrvdsmi_host.so",RTLD_LAZY | RTLD_GLOBAL);
+	if (dsmiHandle == NULL){
 		return SO_NOT_FOUND;
 	}
 
@@ -116,7 +140,7 @@ int dsmiInit_dl(void){
 
 	dsmi_get_device_count_func = dlsym(dsmiHandle,"dsmi_get_device_count");
 
- 	dsmi_get_device_health_func = dlsym(dsmiHandle,"dsmi_get_device_health");
+	dsmi_get_device_health_func = dlsym(dsmiHandle,"dsmi_get_device_health");
 
 	dsmi_get_device_utilization_rate_func = dlsym(dsmiHandle,"dsmi_get_device_utilization_rate");
 
@@ -140,14 +164,29 @@ int dsmiInit_dl(void){
 
 	dsmi_get_chip_info_func = dlsym(dsmiHandle,"dsmi_get_chip_info");
 
+	dlopen("libm.so",RTLD_LAZY | RTLD_GLOBAL);
+	dcmiHandle = dlopen("libdcmi.so",RTLD_LAZY | RTLD_GLOBAL);
+	if (dcmiHandle == NULL){
+		fprintf (stderr,"%s",dlerror());
+		return SO_NOT_FOUND;
+	}
+
+	dcmi_init_func = dlsym(dcmiHandle,"dcmi_init");
+
+	dcmi_get_card_num_list_func = dlsym(dcmiHandle,"dcmi_get_card_num_list");
+
+	dcmi_get_device_num_in_card_func = dlsym(dcmiHandle,"dcmi_get_device_num_in_card");
+
+	dcmi_mcu_get_power_info_func = dlsym(dcmiHandle,"dcmi_mcu_get_power_info");
+
 	return SUCCESS;
 }
 
 int dsmiShutDown(void){
-	if (dsmiHandle == NULL) {
-   	 	return SUCCESS;
-  	}
-	return (dlclose(dsmiHandle) ? ERROR_UNKNOWN : SUCCESS);
+	if (dsmiHandle == NULL && dcmiHandle == NULL){
+		return SUCCESS;
+	}
+	return (dlclose(dsmiHandle) && dlclose(dcmiHandle) ? ERROR_UNKNOWN : SUCCESS);
 }
 */
 import "C"
@@ -163,7 +202,7 @@ import (
 )
 
 const (
-	// the error value when the function failed
+	// the error value  when the function failed
 	retError = -1
 	// max chip name length
 	maxChipName = 32
@@ -232,11 +271,11 @@ type DeviceMgrInterface interface {
 	GetDeviceTemperature(logicID int32) (int32, error)
 	// GetDeviceVoltage get npu device voltage
 	GetDeviceVoltage(logicID int32) (float32, error)
-	// GetDevicePower get npu device power
+	// GetDevicePower  get npu device power
 	GetDevicePower(logicID int32) (float32, error)
 	// GetDeviceFrequency get npu device work frequency
 	GetDeviceFrequency(logicID int32, subType DeviceType) (int32, error)
-	// GetDeviceMemoryInfo get npu device memory information
+	// GetDeviceMemoryInfo get npu memory information
 	GetDeviceMemoryInfo(logicID int32) (*MemoryInfo, error)
 	// GetDeviceHbmInfo get npu HBM module memory and frequency information
 	GetDeviceHbmInfo(logicID int32) (*HbmInfo, error)
@@ -244,12 +283,18 @@ type DeviceMgrInterface interface {
 	GetDeviceErrCode(logicID int32) (int32, int32, error)
 	// GetChipInfo get npu device ascend chip information
 	GetChipInfo(logicID int32) (*ChipInfo, error)
-	// GetPhyIDFromLogicID convert npu device physicalID to logicID
+	// GetPhyIDFromLogicID convert npu device physicalID to logicId
 	GetPhyIDFromLogicID(logicID uint32) (int32, error)
-	// GetLogicIDFromPhyID convert npu device logicID to physicalID
+	// GetLogicIDFromPhyID convert npu device logicId to physicalID
 	GetLogicIDFromPhyID(phyID uint32) (int32, error)
-	// GetNPUMajorID query the NPU majorId from OS
+	// GetNPUMajorID query the MajorID of NPU devices
 	GetNPUMajorID() (string, error)
+	// GetCardList get npu card array
+	GetCardList() (int32, []int32, error)
+	// GetDeviceNumOnCard get device number on the npu card
+	GetDeviceNumOnCard(cardID int32) (int32, error)
+	// GetCardPower get card power
+	GetCardPower(cardID int32) (float32, error)
 }
 
 // please use GetDeviceManager to get the singleton instance of baseDeviceManager
@@ -261,13 +306,21 @@ type baseDeviceManager struct {
 type deviceManager910 struct {
 	baseDeviceManager
 }
-
+type deviceManager710 struct {
+	baseDeviceManager
+}
 type deviceManager310 struct {
 	baseDeviceManager
 }
 
 var instance DeviceMgrInterface
 var once sync.Once
+var chipType = Ascend310
+
+// GetChipTypeNow get the chip type on this machine
+func GetChipTypeNow() ChipType {
+	return chipType
+}
 
 // GetDeviceManager new baseDeviceManager singleton instance
 func GetDeviceManager() DeviceMgrInterface {
@@ -283,9 +336,15 @@ func GetDeviceManager() DeviceMgrInterface {
 			klog.Error(err)
 			return
 		}
+		if IsAscend710(chip.ChipName) {
+			klog.Info("change the instance to deviceManager710")
+			instance = &deviceManager710{}
+			chipType = Ascend710
+		}
 		if IsAscend910(chip.ChipName) {
 			klog.Info("change the instance to deviceManager910")
 			instance = &deviceManager910{}
+			chipType = Ascend910
 		}
 	})
 	return instance
@@ -309,6 +368,7 @@ func (d *baseDeviceManager) GetDeviceList() (int32, []int32, error) {
 	if err != nil {
 		return devNum, devices, err
 	}
+
 	var ids [HiAIMaxDeviceNum]C.int
 	if err := C.dsmi_list_device(&ids[0], C.int(devNum)); err != 0 {
 		errInfo := fmt.Errorf("unable to get device list, return error: %d", int32(err))
@@ -320,17 +380,20 @@ func (d *baseDeviceManager) GetDeviceList() (int32, []int32, error) {
 	for i = 0; i < devNum && i < int32(len(ids)-1); i++ {
 		devices = append(devices, int32(ids[i]))
 	}
+
 	return devNum, devices, nil
 }
 
 // GetDeviceHealth get device health by id
 func (d *baseDeviceManager) GetDeviceHealth(logicID int32) (int32, error) {
 	var health C.uint
+
 	if err := C.dsmi_get_device_health(C.int(logicID), &health); err != 0 {
 		errInfo := fmt.Errorf("get device%d health state failed, error code: %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
+
 	return int32(health), nil
 
 }
@@ -339,6 +402,7 @@ func (d *baseDeviceManager) GetDeviceHealth(logicID int32) (int32, error) {
 // DeviceType  Ascend910 1,2,3,4,5,6,10  Ascend310 1,2,3,4,5
 func (d *baseDeviceManager) GetDeviceUtilizationRate(logicID int32, deviceType DeviceType) (int32, error) {
 	var utilRate C.uint
+
 	err := C.dsmi_get_device_utilization_rate(C.int(logicID), C.int(deviceType), &utilRate)
 	if err != 0 {
 		klog.Errorf("get device%d utilize rate failed, error code: %d, try again ... ", logicID, int32(err))
@@ -351,29 +415,35 @@ func (d *baseDeviceManager) GetDeviceUtilizationRate(logicID int32, deviceType D
 		}
 		return retError, fmt.Errorf("get device%d utilize rate failed, error code: %d", logicID, int32(err))
 	}
+
 	return int32(utilRate), nil
 }
 
 // GetPhyIDFromLogicID get physic id form logic id
 func (d *baseDeviceManager) GetPhyIDFromLogicID(logicID uint32) (int32, error) {
 	var phyID C.uint
+
 	if err := C.dsmi_get_phyid_from_logicid(C.uint(logicID), &phyID); err != 0 {
 		errInfo := fmt.Errorf("get device%d phy id failed ,error code is: %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
+
 	return int32(phyID), nil
 }
 
 // GetLogicIDFromPhyID get logic id form physic id
 func (d *baseDeviceManager) GetLogicIDFromPhyID(phyID uint32) (int32, error) {
 	var logicID C.uint
+
 	if err := C.dsmi_get_logicid_from_phyid(C.uint(phyID), &logicID); err != 0 {
 		errInfo := fmt.Errorf("get device%d logic id failed ,error code is : %d", phyID, int32(err))
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
+
 	return int32(logicID), nil
+
 }
 
 // GetDeviceTemperature get the device temperature
@@ -414,7 +484,7 @@ func (d *baseDeviceManager) GetDevicePower(logicID int32) (float32, error) {
 // GetDeviceFrequency get device frequency, unit MHz
 // Ascend910 1,6,7,9
 // Ascend310 1,2,3,4,5
-// subType enum:  Memory,6HBM,AI_Core_Current_Fre,AI_Core_Normal_Fre(1,6,7,9)    see DeviceType
+// subType enum:  Memory,6HBM,AICoreCurrentFreq,AICoreNormalFreq(1,6,7,9)    see DeviceType
 func (d *baseDeviceManager) GetDeviceFrequency(logicID int32, subType DeviceType) (int32, error) {
 	var cFrequency C.uint
 	if err := C.dsmi_get_device_frequency(C.int(logicID), C.int(subType), &cFrequency); err != 0 {
@@ -443,6 +513,19 @@ func (d *deviceManager910) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
 func (d *deviceManager310) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
 	hbmInfo := NewHbmInfo(0, 0, 0, 0, 0)
 	return hbmInfo, nil
+}
+
+// GetDeviceHbmInfo mock this function on Ascend710
+func (d *deviceManager710) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
+	hbmInfo := NewHbmInfo(0, 0, 0, 0, 0)
+	return hbmInfo, nil
+}
+
+// GetDevicePower mock this function on Ascend710
+func (d *deviceManager710) GetDevicePower(logicID int32) (float32, error) {
+	// Ascend710 not support chip power
+	return 0, nil
+
 }
 
 // GetDeviceMemoryInfo get memory information(310 MB  910 KB)
@@ -480,7 +563,7 @@ func (d *baseDeviceManager) GetDeviceErrCode(logicID int32) (int32, int32, error
 func (d *baseDeviceManager) GetChipInfo(logicID int32) (*ChipInfo, error) {
 	var chipInfo C.struct_dsmi_chip_info_stru
 	if err := C.dsmi_get_chip_info(C.int(logicID), &chipInfo); err != 0 {
-		errInfo := fmt.Errorf("get device%d ChipInfo information failed, error code: %d", logicID, int32(err))
+		errInfo := fmt.Errorf("get device%d ChipIno information failed, error code: %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return nil, errInfo
 	}
@@ -498,7 +581,7 @@ func (d *baseDeviceManager) GetChipInfo(logicID int32) (*ChipInfo, error) {
 	return chip, nil
 }
 
-// GetNPUMajorId query the NPU majorId from OS
+// GetNPUMajorID query the MajorID of NPU devices
 func (d *baseDeviceManager) GetNPUMajorID() (string, error) {
 	command := "ls -al /dev/davinci*"
 	cmd := exec.Command("/bin/sh", "-c", command)
@@ -543,8 +626,49 @@ func (d *baseDeviceManager) GetNPUMajorID() (string, error) {
 	return strings.TrimSuffix(res, ","), nil
 }
 
+// GetCardList get npu card array
+func (d *baseDeviceManager) GetCardList() (int32, []int32, error) {
+	var ids [HIAIMaxCardNum]C.int
+	var cNum C.int
+	if err := C.dcmi_get_card_num_list(&cNum, &ids[0], HIAIMaxCardNum); err != 0 {
+		errInfo := fmt.Errorf("get card list failed, error code: %d", int32(err))
+		klog.Error(errInfo)
+		return retError, nil, errInfo
+	}
+	var cardNum = int32(cNum)
+	var i int32
+	var cardIDList []int32
+	for i = 0; i < cardNum && i < HIAIMaxCardNum; i++ {
+		cardIDList = append(cardIDList, int32(ids[i]))
+	}
+	return cardNum, cardIDList, nil
+}
+
+// GetDeviceNumOnCard get device number on the npu card
+func (d *baseDeviceManager) GetDeviceNumOnCard(cardID int32) (int32, error) {
+	var deviceNum C.int
+	if err := C.dcmi_get_device_num_in_card(C.int(cardID), &deviceNum); err != 0 {
+		errInfo := fmt.Errorf("get device count on the card failed, error code: %d", int32(err))
+		klog.Error(errInfo)
+		return retError, errInfo
+	}
+	return int32(deviceNum), nil
+}
+
+// GetCardPower get card power
+func (d *baseDeviceManager) GetCardPower(cardID int32) (float32, error) {
+	var power C.int
+	if err := C.dcmi_mcu_get_power_info(C.int(cardID), &power); err != 0 {
+		errInfo := fmt.Errorf("get card power failed, error code: %d", int32(err))
+		klog.Error(errInfo)
+		return retError, errInfo
+	}
+	return float32(power) * 0.1, nil
+}
+
 func init() {
 	C.dsmiInit_dl()
+	C.dcmi_init()
 }
 
 func convertToCharArr(charArr []rune, cgoArr [maxChipName]C.uchar) []rune {
@@ -559,6 +683,11 @@ func convertToCharArr(charArr []rune, cgoArr [maxChipName]C.uchar) []rune {
 // IsAscend910 check chipName
 func IsAscend910(chipName string) bool {
 	return strings.Contains(chipName, "910")
+}
+
+// IsAscend710 check chipName
+func IsAscend710(chipName string) bool {
+	return strings.Contains(chipName, "710")
 }
 
 // ShutDown clean the dynamically loaded resource

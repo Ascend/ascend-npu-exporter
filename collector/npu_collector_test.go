@@ -44,27 +44,27 @@ func TestNewNpuCollector(t *testing.T) {
 			name: "should return full list metrics when npuInfo not empty",
 			path: "testdata/prometheus_metrics",
 			mockFunc: func(n *npuCollector, stop <-chan os.Signal) {
-				npuInfp := mockGetNPUInfo(nil)
-				n.cache.Set(key, npuInfp, n.cacheTime)
+				npuInfo := mockGetNPUInfo(nil)
+				n.cache.Set(key, npuInfo, n.cacheTime)
 			},
 		},
 		{
 			name: "should return full list metrics when npuInfo is empty",
 			path: "testdata/prometheus_metrics2",
 			mockFunc: func(n *npuCollector, stop <-chan os.Signal) {
-				npuInfp := []HuaWeiNPUDevice{}
-				n.cache.Set(key, npuInfp, n.cacheTime)
+				var npuInfo []HuaWeiNPUCard
+				n.cache.Set(key, npuInfo, n.cacheTime)
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			excuteTestColletor(t, tt)
+			excuteTestCollector(t, tt)
 		})
 	}
 }
 
-func excuteTestColletor(t *testing.T, tt struct {
+func excuteTestCollector(t *testing.T, tt struct {
 	mockFunc func(n *npuCollector, stop <-chan os.Signal)
 	name     string
 	path     string
@@ -135,32 +135,35 @@ func TestGetHealthCode(t *testing.T) {
 	}
 }
 
-// TestGtNPUInfo  test method of getNPUInfo
+// TestGetNPUInfo test method of getNPUInfo
 func TestGetNPUInfo(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name string
 		args dsmi.DeviceMgrInterface
-		want []HuaWeiNPUDevice
+		want []HuaWeiNPUCard
 	}{
 		{
 			name: "should return at lease one NPUInfo",
 			args: dsmi.NewDeviceManagerMock(),
-			want: []HuaWeiNPUDevice{{
-				CardID:     0,
+			want: []HuaWeiNPUCard{{
 				DeviceList: nil,
 				Timestamp:  time.Time{},
+				CardID:     0,
 			}},
 		},
 		{
 			name: "should return zero NPU",
 			args: dsmi.NewDeviceManagerMockErr(),
-			want: []HuaWeiNPUDevice{},
+			want: []HuaWeiNPUCard{},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getNPUInfo(tt.args); len(got) != len(tt.want) {
-				t.Errorf("getNPUInfo() = %v, want %v", got, tt.want)
+				t.Errorf("getNPUInfo() = %v,want %v", got, tt.want)
+			}
+			if got := assembleNPUInfoV1(tt.args); len(got) != len(tt.want) {
+				t.Errorf("assembleNPUInfoV1() = %v,want %v", got, tt.want)
 			}
 		})
 	}
@@ -182,8 +185,8 @@ func newTestCase(name string, wantErr bool, mockPart interface{}) testCase {
 	}
 }
 
-func mockGetNPUInfo(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUDevice {
-	var npuList []HuaWeiNPUDevice
+func mockGetNPUInfo(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
+	var npuList []HuaWeiNPUCard
 	for phyID := int32(0); phyID < 8; phyID++ {
 		chipInfo := &HuaWeiAIChip{
 			HealthStatus: Healthy,
@@ -211,8 +214,9 @@ func mockGetNPUInfo(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUDevice {
 				MemoryBandWidthUtilRate: 0,
 			},
 		}
-		npuCard := HuaWeiNPUDevice{
-			CardID:     int(phyID), // user phyID
+		chipInfo.DeviceID = int(phyID)
+		npuCard := HuaWeiNPUCard{
+			CardID:     int(phyID),
 			DeviceList: []*HuaWeiAIChip{chipInfo},
 			Timestamp:  time.Unix(timestamp, 0),
 		}

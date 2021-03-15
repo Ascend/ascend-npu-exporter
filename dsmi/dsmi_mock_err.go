@@ -97,12 +97,12 @@ func (d *DeviceManagerMockErr) GetChipInfo(logicID int32) (*ChipInfo, error) {
 	return nil, fmt.Errorf(errorMsg)
 }
 
-// GetPhyIDFromLogicID get physic id form logic id
+// GetPhyIDFromLogicID convert the device physicalID to logicID
 func (d *DeviceManagerMockErr) GetPhyIDFromLogicID(logicID uint32) (int32, error) {
 	return int32(0), fmt.Errorf(errorMsg)
 }
 
-// GetLogicIDFromPhyID get logic id form physic id
+// GetLogicIDFromPhyID convert npu device logicId to physicalID
 func (d *DeviceManagerMockErr) GetLogicIDFromPhyID(phyID uint32) (int32, error) {
 	return int32(0), fmt.Errorf(errorMsg)
 }
@@ -110,4 +110,19 @@ func (d *DeviceManagerMockErr) GetLogicIDFromPhyID(phyID uint32) (int32, error) 
 // GetNPUMajorID query the MajorID of NPU devices
 func (d *DeviceManagerMockErr) GetNPUMajorID() (string, error) {
 	return "", fmt.Errorf(errorMsg)
+}
+
+// GetCardList get npu card array
+func (d *DeviceManagerMockErr) GetCardList() (int32, []int32, error) {
+	return 0, []int32{}, fmt.Errorf(errorMsg)
+}
+
+// GetDeviceNumOnCard get device number on the npu card
+func (d *DeviceManagerMockErr) GetDeviceNumOnCard(cardID int32) (int32, error) {
+	return 1, fmt.Errorf(errorMsg)
+}
+
+// GetCardPower get card power
+func (d *DeviceManagerMockErr) GetCardPower(cardID int32) (float32, error) {
+	return 1, fmt.Errorf(errorMsg)
 }

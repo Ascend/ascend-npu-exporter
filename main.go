@@ -65,25 +65,23 @@ func main() {
 			<head><title>NPU-Exporter</title></head>
 			<body>
 			<h1 align="center">NPU-Exporter</h1>
-			<p align="center">Welcome to use NPU-Exporter,the Prometheus metrics url is http://ip` + portStr + `/metrics:  <a href="./metrics">Metrics</a></p>
+			<p align="center">Welcome to use NPU-Exporter,the Prometheus metrics url is http://ip ` + portStr + `/metrics: <a href="./metrics">Metrics</a></p>
 			</body>
 			</html>`))
 		if err != nil {
 			klog.Error("Write to response error")
 		}
 	})
-
 	if err := http.ListenAndServe(portStr, nil); err != nil {
 		klog.Fatal("Server error and Stopped")
 	}
 }
-
 func validate() {
 	if port < portLeft || port > portRight {
-		klog.Fatalf("the port is invalid ")
+		klog.Fatalf("the port is invalid")
 	}
 	if updateTime > oneMinute || updateTime < 1 {
-		klog.Fatalf("the updateTime is invalid ")
+		klog.Fatalf("the updateTime is invalid")
 	}
 }
 
@@ -95,4 +93,5 @@ func init() {
 		"Interval (seconds) to update the npu metrics cache,range[1-60]")
 	flag.BoolVar(&needGoInfo, "needGoInfo", false,
 		"If true,show golang metrics (default false)")
+
 }

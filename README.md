@@ -1,4 +1,4 @@
-# NPU-Exporter
+﻿# NPU-Exporter
 -   [NPU-Exporter介绍](#NPU-Exporter介绍.md)
 -   [快速上手](#快速上手.md)
 -   [环境依赖](#环境依赖.md)
@@ -140,6 +140,7 @@ npu-exporter
 │   ├── constants.go
 │   ├── devicetype.go
 │   ├── dsmi_common_interface.h
+│   ├── dcmi_interface_api.h
 │   ├── dsmi.go
 │   ├── dsmi_mock_err.go
 │   └── dsmi_mock.go
@@ -149,6 +150,13 @@ npu-exporter
 ├── main.go                                    #程序入口
 └── README.md
 ```
+
+## 版本更新信息
+
+| 版本       | 发布日期   | 修改说明       |
+| ---------- | ---------- | -------------- |
+| v2.0.1 | 2020-3-30 | 适配710 |
+| v20.2.0 | 2020-12-30 | 第一次正式发布 |
 
 ## 附录
 
@@ -193,7 +201,7 @@ npu-exporter
 | machine_npu_name               | 昇腾系列AI处理器名称                                  | N/A              |
 | npu_chip_info_error_code       | 昇腾系列AI处理器错误码                                | N/A              |
 | npu_chip_info_health_status    | 昇腾系列AI处理器健康状态                              | 1：健康0：不健康 |
-| npu_chip_info_power            | 昇腾系列AI处理器功耗                                  | 瓦特（W）        |
+| npu_chip_info_power            | 昇腾系列AI处理器功耗(710板载功耗，910和310为芯片功耗)                                 | 瓦特（W）        |
 | npu_chip_info_temperature      | 昇腾系列AI处理器温度                                  | 摄氏度（℃）      |
 | npu_chip_info_used_memory      | 昇腾系列AI处理器已使用内存                            | MB               |
 | npu_chip_info_total_memory     | 昇腾系列AI处理器总内存                                | MB               |
@@ -202,8 +210,3 @@ npu-exporter
 | npu_chip_info_utilization      | 昇腾系列AI处理器AI Core利用率                         | %                |
 | npu_chip_info_voltage          | 昇腾系列AI处理器电压                                  | 伏特（V）        |
 
-## 版本更新信息
-
-| 版本       | 发布日期   | 修改说明       |
-| ---------- | ---------- | -------------- |
-| v20.2.0 | 2020-12-30 | 第一次正式发布 |
