@@ -111,3 +111,18 @@ func (d *DeviceManagerMockErr) GetLogicIDFromPhyID(phyID uint32) (int32, error) 
 func (d *DeviceManagerMockErr) GetNPUMajorID() (string, error) {
 	return "", fmt.Errorf(errorMsg)
 }
+
+// GetCardList get npu card array
+func (d *DeviceManagerMockErr) GetCardList() (int32, []int32, error) {
+	return 0, []int32{}, fmt.Errorf(errorMsg)
+}
+
+// GetDeviceNumOnCard get device number on the npu card
+func (d *DeviceManagerMockErr) GetDeviceNumOnCard(cardID int32) (int32, error) {
+	return 1, fmt.Errorf(errorMsg)
+}
+
+// GetCardPower get card power
+func (d *DeviceManagerMockErr) GetCardPower(cardID int32) (float32, error) {
+	return 1, fmt.Errorf(errorMsg)
+}

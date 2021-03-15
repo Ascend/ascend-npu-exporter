@@ -28,8 +28,6 @@ const (
 	Healthy HealthEnum = "Healthy"
 	// UnHealthy status of unhealth
 	UnHealthy HealthEnum = "UnHealthy"
-	// when get error code, power,voltage,frequency,utilization... failed, use this value
-	defaultValueWhenQueryFailed = -1
 	// when get temperature failed, use this value
 	defaultTemperatureWhenQueryFailed = -275
 	// convert base
@@ -69,14 +67,16 @@ type HuaWeiAIChip struct {
 	Voltage float32 `json:"voltage"`
 	// the AI core frequency of the chip
 	Frequency int `json:"frequency"`
+	// the chip physic ID
+	DeviceID int `json:"device_id"`
 }
 
-// HuaWeiNPUDevice device
-type HuaWeiNPUDevice struct {
+// HuaWeiNPUCard device
+type HuaWeiNPUCard struct {
 	// The chip list on the card
 	DeviceList []*HuaWeiAIChip `json:"device_list"`
 	// Timestamp
 	Timestamp time.Time `json:"timestamp"`
 	// The id of the NPU card
-	CardID int `json:"device_id"`
+	CardID int `json:"card_id"`
 }

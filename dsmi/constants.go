@@ -15,7 +15,20 @@
 // Package dsmi interface
 package dsmi
 
+// ChipType
+type ChipType string
+
 const (
 	// HiAIMaxDeviceNum the max device num
 	HiAIMaxDeviceNum = 64
+	// HIAIMaxCardNum the max card num
+	HIAIMaxCardNum = 8
+	// Ascend710 Enum
+	Ascend910 ChipType = "Ascend910"
+	// Ascend710 Enum
+	Ascend710 ChipType = "Ascend710"
+	// Ascend710 Enum
+	Ascend310 ChipType = "Ascend310"
+	// DefaultErrorValue
+	DefaultErrorValue = -1
 )

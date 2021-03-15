@@ -114,3 +114,18 @@ func (d *DeviceManagerMock) GetLogicIDFromPhyID(phyID uint32) (int32, error) {
 func (d *DeviceManagerMock) GetNPUMajorID() (string, error) {
 	return "239", nil
 }
+
+// GetCardList get npu card array
+func (d *DeviceManagerMock) GetCardList() (int32, []int32, error) {
+	return int32(1), []int32{0}, nil
+}
+
+// GetDeviceNumOnCard get device number on the npu card
+func (d *DeviceManagerMock) GetDeviceNumOnCard(cardID int32) (int32, error) {
+	return int32(1), nil
+}
+
+// GetCardPower get card power
+func (d *DeviceManagerMock) GetCardPower(cardID int32) (float32, error) {
+	return 1, nil
+}

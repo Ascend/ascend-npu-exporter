@@ -20,11 +20,14 @@ package dsmi
 #include <stddef.h>
 #include <dlfcn.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "dsmi_common_interface.h"
+#include "dcmi_interface_api.h"
 
 // dsmiHandle is the handle for dynamically loaded libdrvdsmi_host.so
 void *dsmiHandle;
+void *dcmiHandle;
 #define SO_NOT_FOUND -99999
 #define FUNCTION_NOT_FOUND -99998
 #define SUCCESS 0
@@ -104,10 +107,31 @@ int (*dsmi_get_chip_info_func)(int device_id, struct dsmi_chip_info_stru *chip_i
 int dsmi_get_chip_info(int device_id, struct dsmi_chip_info_stru *chip_info){
 	CALL_FUNC(dsmi_get_chip_info,device_id,chip_info)
 }
+//dcmi
+
+int (*dcmi_init_func)();
+int dcmi_init(){
+	CALL_FUNC(dcmi_init)
+}
+
+int (*dcmi_get_card_num_list_func)(int *card_num, int *card_list, int list_length);
+int dcmi_get_card_num_list(int *card_num, int *card_list, int list_length){
+	CALL_FUNC(dcmi_get_card_num_list,card_num,card_list,list_length)
+}
+
+int (*dcmi_get_device_num_in_card_func)(int card_id, int *device_num);
+int dcmi_get_device_num_in_card(int card_id, int *device_num){
+	CALL_FUNC(dcmi_get_device_num_in_card,card_id,device_num)
+}
+
+int (*dcmi_mcu_get_power_info_func)(int card_id,int *power);
+int dcmi_mcu_get_power_info(int card_id,int *power){
+	CALL_FUNC(dcmi_mcu_get_power_info,card_id,power)
+}
 
 // load .so files and functions
 int dsmiInit_dl(void){
-	dsmiHandle = dlopen("libdrvdsmi_host.so",RTLD_LAZY);
+	dsmiHandle = dlopen("libdrvdsmi_host.so",RTLD_LAZY | RTLD_GLOBAL);
 	if (dsmiHandle == NULL){
 		return SO_NOT_FOUND;
 	}
@@ -140,14 +164,29 @@ int dsmiInit_dl(void){
 
 	dsmi_get_chip_info_func = dlsym(dsmiHandle,"dsmi_get_chip_info");
 
+	dlopen("libm.so",RTLD_LAZY | RTLD_GLOBAL);
+	dcmiHandle = dlopen("libdcmi.so",RTLD_LAZY | RTLD_GLOBAL);
+	if (dcmiHandle == NULL){
+		fprintf (stderr,"%s",dlerror());
+		return SO_NOT_FOUND;
+	}
+
+	dcmi_init_func = dlsym(dcmiHandle,"dcmi_init");
+
+	dcmi_get_card_num_list_func = dlsym(dcmiHandle,"dcmi_get_card_num_list");
+
+	dcmi_get_device_num_in_card_func = dlsym(dcmiHandle,"dcmi_get_device_num_in_card");
+
+	dcmi_mcu_get_power_info_func = dlsym(dcmiHandle,"dcmi_mcu_get_power_info");
+
 	return SUCCESS;
 }
 
 int dsmiShutDown(void){
-	if (dsmiHandle == NULL){
+	if (dsmiHandle == NULL && dcmiHandle == NULL){
 		return SUCCESS;
 	}
-	return (dlclose(dsmiHandle) ? ERROR_UNKNOWN : SUCCESS);
+	return (dlclose(dsmiHandle) && dlclose(dcmiHandle) ? ERROR_UNKNOWN : SUCCESS);
 }
 */
 import "C"
@@ -250,6 +289,12 @@ type DeviceMgrInterface interface {
 	GetLogicIDFromPhyID(phyID uint32) (int32, error)
 	// GetNPUMajorID query the MajorID of NPU devices
 	GetNPUMajorID() (string, error)
+	// GetCardList get npu card array
+	GetCardList() (int32, []int32, error)
+	// GetDeviceNumOnCard get device number on the npu card
+	GetDeviceNumOnCard(cardID int32) (int32, error)
+	// GetCardPower get card power
+	GetCardPower(cardID int32) (float32, error)
 }
 
 // please use GetDeviceManager to get the singleton instance of baseDeviceManager
@@ -261,12 +306,21 @@ type baseDeviceManager struct {
 type deviceManager910 struct {
 	baseDeviceManager
 }
+type deviceManager710 struct {
+	baseDeviceManager
+}
 type deviceManager310 struct {
 	baseDeviceManager
 }
 
 var instance DeviceMgrInterface
 var once sync.Once
+var chipType = Ascend310
+
+// GetChipTypeNow get the chip type on this machine
+func GetChipTypeNow() ChipType {
+	return chipType
+}
 
 // GetDeviceManager new baseDeviceManager singleton instance
 func GetDeviceManager() DeviceMgrInterface {
@@ -282,9 +336,15 @@ func GetDeviceManager() DeviceMgrInterface {
 			klog.Error(err)
 			return
 		}
+		if IsAscend710(chip.ChipName) {
+			klog.Info("change the instance to deviceManager710")
+			instance = &deviceManager710{}
+			chipType = Ascend710
+		}
 		if IsAscend910(chip.ChipName) {
 			klog.Info("change the instance to deviceManager910")
 			instance = &deviceManager910{}
+			chipType = Ascend910
 		}
 	})
 	return instance
@@ -455,6 +515,19 @@ func (d *deviceManager310) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
 	return hbmInfo, nil
 }
 
+// GetDeviceHbmInfo mock this function on Ascend710
+func (d *deviceManager710) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
+	hbmInfo := NewHbmInfo(0, 0, 0, 0, 0)
+	return hbmInfo, nil
+}
+
+// GetDevicePower mock this function on Ascend710
+func (d *deviceManager710) GetDevicePower(logicID int32) (float32, error) {
+	// Ascend710 not support chip power
+	return 0, nil
+
+}
+
 // GetDeviceMemoryInfo get memory information(310 MB  910 KB)
 func (d *baseDeviceManager) GetDeviceMemoryInfo(logicID int32) (*MemoryInfo, error) {
 	var cmInfo C.struct_dsmi_memory_info_stru
@@ -553,8 +626,49 @@ func (d *baseDeviceManager) GetNPUMajorID() (string, error) {
 	return strings.TrimSuffix(res, ","), nil
 }
 
+// GetCardList get npu card array
+func (d *baseDeviceManager) GetCardList() (int32, []int32, error) {
+	var ids [HIAIMaxCardNum]C.int
+	var cNum C.int
+	if err := C.dcmi_get_card_num_list(&cNum, &ids[0], HIAIMaxCardNum); err != 0 {
+		errInfo := fmt.Errorf("get card list failed, error code: %d", int32(err))
+		klog.Error(errInfo)
+		return retError, nil, errInfo
+	}
+	var cardNum = int32(cNum)
+	var i int32 = 0
+	var cardIDList []int32
+	for i = 0; i < cardNum; i++ {
+		cardIDList = append(cardIDList, int32(ids[i]))
+	}
+	return cardNum, cardIDList, nil
+}
+
+// GetDeviceNumOnCard get device number on the npu card
+func (d *baseDeviceManager) GetDeviceNumOnCard(cardID int32) (int32, error) {
+	var deviceNum C.int
+	if err := C.dcmi_get_device_num_in_card(C.int(cardID), &deviceNum); err != 0 {
+		errInfo := fmt.Errorf("get device count on the card failed, error code: %d", int32(err))
+		klog.Error(errInfo)
+		return retError, errInfo
+	}
+	return int32(deviceNum), nil
+}
+
+// GetCardPower get card power
+func (d *baseDeviceManager) GetCardPower(cardID int32) (float32, error) {
+	var power C.int
+	if err := C.dcmi_mcu_get_power_info(C.int(cardID), &power); err != 0 {
+		errInfo := fmt.Errorf("get card power failed, error code: %d", int32(err))
+		klog.Error(errInfo)
+		return retError, errInfo
+	}
+	return float32(power) * 0.1, nil
+}
+
 func init() {
 	C.dsmiInit_dl()
+	C.dcmi_init()
 }
 
 func convertToCharArr(charArr []rune, cgoArr [maxChipName]C.uchar) []rune {
@@ -569,6 +683,11 @@ func convertToCharArr(charArr []rune, cgoArr [maxChipName]C.uchar) []rune {
 // IsAscend910 check chipName
 func IsAscend910(chipName string) bool {
 	return strings.Contains(chipName, "910")
+}
+
+// IsAscend710 check chipName
+func IsAscend710(chipName string) bool {
+	return strings.Contains(chipName, "710")
 }
 
 // ShutDown clean the dynamically loaded resource
