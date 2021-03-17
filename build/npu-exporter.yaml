@@ -73,6 +73,9 @@ spec:
           - name: ascend-driver
             mountPath: /usr/local/Ascend/driver
             readOnly: true
+          - name: ascend-dcmi
+            mountPath: /usr/local/dcmi
+            readOnly: true
       volumes:
         - name: log-npu-exporter
           hostPath:
@@ -83,3 +86,6 @@ spec:
         - name: ascend-driver
           hostPath:
             path: /usr/local/Ascend/driver
+        - name: ascend-dcmi
+          hostPath:
+            path: /usr/local/dcmi

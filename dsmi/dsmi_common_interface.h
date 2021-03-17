@@ -1,8 +1,17 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2012-2019. All rights reserved.
- * Description:
- * Author: huawei
- * Create: 2019-10-15
+ *  Copyright(C) 2020. Huawei Technologies Co.,Ltd. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http: *www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 #ifndef __DSMI_COMMON_INTERFACE_H__
 #define __DSMI_COMMON_INTERFACE_H__
@@ -89,6 +98,7 @@ int dsmi_get_device_count(int *device_count);
 int dsmi_list_device(int device_id_list[], int count);
 
 
+
 /**
 * @ingroup driver
 * @brief Convert the logical ID of the device to a physical ID
@@ -160,6 +170,7 @@ int dsmi_get_device_temperature(int device_id, int *ptemperature);
 */
 int dsmi_get_device_power_info(int device_id, struct dsmi_power_info_stru *pdevice_power_info);
 
+
 /**
 * @ingroup driver
 * @brief Query the voltage of Sheng AI SOC of ascend AI processor
@@ -195,7 +206,6 @@ int dsmi_get_device_utilization_rate(int device_id, int device_type, unsigned in
 * @note Support:Ascend310,Ascend910
 */
 int dsmi_get_device_frequency(int device_id, int device_type, unsigned int *pfrequency);
-
 
 /**
 * @ingroup driver
