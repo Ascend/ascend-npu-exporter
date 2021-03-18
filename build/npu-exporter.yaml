@@ -46,7 +46,7 @@ spec:
         workerselector: dls-worker-node
       containers:
       - name: npu-exporter
-        image: npu-exporter:v20.2.0
+        image: npu-exporter:v2.0.1
         resources:
           requests:
               memory: 300Mi
@@ -73,6 +73,9 @@ spec:
           - name: ascend-driver
             mountPath: /usr/local/Ascend/driver
             readOnly: true
+          - name: ascend-dcmi
+            mountPath: /usr/local/dcmi
+            readOnly: true
       volumes:
         - name: log-npu-exporter
           hostPath:
@@ -83,3 +86,6 @@ spec:
         - name: ascend-driver
           hostPath:
             path: /usr/local/Ascend/driver
+        - name: ascend-dcmi
+          hostPath:
+            path: /usr/local/dcmi

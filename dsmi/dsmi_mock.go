@@ -67,7 +67,7 @@ func (d *DeviceManagerMock) GetDevicePower(logicID int32) (float32, error) {
 // GetDeviceFrequency get device frequency, unit MHz
 // Ascend910 1,6,7,9
 // Ascend310 1,2,3,4,5
-// subType enum:  Memory,6HBM,AI_Core_Current_Fre,AI_Core_Normal_Fre(1,6,7,9)    see DeviceType
+// subType enum:  Memory,6HBM,AICoreCurrentFreq,AICoreNormalFreq(1,6,7,9)    see DeviceType
 func (d *DeviceManagerMock) GetDeviceFrequency(logicID int32, subType DeviceType) (int32, error) {
 	return int32(1), nil
 }
@@ -101,7 +101,7 @@ func (d *DeviceManagerMock) GetChipInfo(logicID int32) (*ChipInfo, error) {
 }
 
 // GetPhyIDFromLogicID convert the device physicalID to logicId
-func (d *DeviceManagerMock) GetPhyIDFromLogicID(logicId uint32) (int32, error) {
+func (d *DeviceManagerMock) GetPhyIDFromLogicID(logicID uint32) (int32, error) {
 	return int32(1), nil
 }
 
@@ -113,4 +113,19 @@ func (d *DeviceManagerMock) GetLogicIDFromPhyID(phyID uint32) (int32, error) {
 // GetNPUMajorID query the MajorID of NPU devices
 func (d *DeviceManagerMock) GetNPUMajorID() (string, error) {
 	return "239", nil
+}
+
+// GetCardList get npu card array
+func (d *DeviceManagerMock) GetCardList() (int32, []int32, error) {
+	return int32(1), []int32{0}, nil
+}
+
+// GetDeviceNumOnCard get device number on the npu card
+func (d *DeviceManagerMock) GetDeviceNumOnCard(cardID int32) (int32, error) {
+	return int32(1), nil
+}
+
+// GetCardPower get card power
+func (d *DeviceManagerMock) GetCardPower(cardID int32) (float32, error) {
+	return 1, nil
 }

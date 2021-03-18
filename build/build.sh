@@ -1,6 +1,6 @@
 #!/bin/bash
 # Perform  build npu-exporter
-# Copyright @ Huawei Technologies CO., Ltd. 2020-2020. All rights reserved
+# Copyright @ Huawei Technologies CO., Ltd. 2020-2021. All rights reserved
 
 set -e
 CUR_DIR=$(dirname $(readlink -f $0))
@@ -8,7 +8,7 @@ TOP_DIR=$(realpath "${CUR_DIR}"/..)
 export GO111MODULE="on"
 unset GOPATH
 VER_FILE="${TOP_DIR}"/service_config.ini
-build_version="v20.2.0"
+build_version="v2.0.1"
 if [ -f "$VER_FILE" ]; then
   line=$(sed -n '5p' "$VER_FILE" 2>&1)
   #cut the chars after ':'
@@ -35,7 +35,9 @@ function clear_env() {
 
 function build() {
   cd "${TOP_DIR}"
-  go build -ldflags "-X huawei.com/npu-exporter/collector.BuildName=${OUTPUT_NAME} \
+  export CGO_CFLAGS="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -O2 -fPIC -ftrapv"
+  export CGO_CPPFLAGS="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -O2 -fPIC -ftrapv"
+  go build -buildmode=pie -ldflags "-s -extldflags=-Wl,-z,now -X huawei.com/npu-exporter/collector.BuildName=${OUTPUT_NAME} \
             -X huawei.com/npu-exporter/collector.BuildVersion=${build_version}" \
     -o ${OUTPUT_NAME}
   ls ${OUTPUT_NAME}
