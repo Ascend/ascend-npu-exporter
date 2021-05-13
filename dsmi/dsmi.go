@@ -167,7 +167,7 @@ int dsmiInit_dl(void){
 	dlopen("libm.so",RTLD_LAZY | RTLD_GLOBAL);
 	dcmiHandle = dlopen("libdcmi.so",RTLD_LAZY | RTLD_GLOBAL);
 	if (dcmiHandle == NULL){
-		fprintf (stderr,"%s",dlerror());
+		fprintf (stderr,"%s\n",dlerror());
 		return SO_NOT_FOUND;
 	}
 
