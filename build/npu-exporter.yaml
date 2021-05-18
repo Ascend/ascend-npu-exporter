@@ -56,8 +56,11 @@ spec:
               cpu: 500m
         imagePullPolicy: Never
         command: [ "/bin/bash", "-c", "--"]
-        args: ["umask 027;npu-exporter -port=8082 -updateTime=5 -logtostderr=false -log_dir=/var/log/npu-exporter
-              -log_file=/var/log/npu-exporter/npu-exporter.log  -stderrthreshold=2 -v=3" ]
+        args: ["umask 027;npu-exporter -port=8082 -ip=0.0.0.0 -enableHttp=true -updateTime=5 -logtostderr=false -log_dir=/var/log/npu-exporter
+              -log_file=/var/log/npu-exporter/npu-exporter.log   -v=3" ]
+        # use the following args when you want to enable https server, need create certficate and key secret firstly
+        #args: [ "umask 027;npu-exporter -port=8082 -ip=0.0.0.0  -updateTime=5 -logtostderr=false -log_dir=/var/log/npu-exporter
+        #     -log_file=/var/log/npu-exporter/npu-exporter.log   -v=3 -certFile=/etc/certs/tls.crt -keyFile=/etc/certs/tls.key" ]
         securityContext:
           privileged: true
         ports:
@@ -76,6 +79,9 @@ spec:
           - name: ascend-dcmi
             mountPath: /usr/local/dcmi
             readOnly: true
+          # mount certificate secret  when you want enable https
+          #- name: secret-mount
+          #  mountPath: /etc/certs
       volumes:
         - name: log-npu-exporter
           hostPath:
@@ -89,3 +95,8 @@ spec:
         - name: ascend-dcmi
           hostPath:
             path: /usr/local/dcmi
+        # mount certificate secret when you want enable https
+        #- name: secret-mount
+        #  secret:
+        #    secretName: exporter-secret
+
