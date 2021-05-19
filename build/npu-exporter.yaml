@@ -56,7 +56,7 @@ spec:
               cpu: 500m
         imagePullPolicy: Never
         command: [ "/bin/bash", "-c", "--"]
-        args: ["umask 027;npu-exporter -port=8082 -ip=0.0.0.0 -enableHttp=true -updateTime=5 -logtostderr=false -log_dir=/var/log/npu-exporter
+        args: ["umask 027;npu-exporter -port=8082 -ip=0.0.0.0 -enableHTTP=true -updateTime=5 -logtostderr=false -log_dir=/var/log/npu-exporter
               -log_file=/var/log/npu-exporter/npu-exporter.log   -v=3" ]
         # use the following args when you want to enable https server, need create certficate and key secret firstly
         #args: [ "umask 027;npu-exporter -port=8082 -ip=0.0.0.0  -updateTime=5 -logtostderr=false -log_dir=/var/log/npu-exporter
