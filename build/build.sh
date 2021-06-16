@@ -6,7 +6,6 @@ set -e
 CUR_DIR=$(dirname $(readlink -f $0))
 TOP_DIR=$(realpath "${CUR_DIR}"/..)
 export GO111MODULE="on"
-unset GOPATH
 VER_FILE="${TOP_DIR}"/service_config.ini
 build_version="v2.0.2"
 if [ -f "$VER_FILE" ]; then
@@ -51,6 +50,8 @@ function build() {
 function mv_file() {
   mv "${TOP_DIR}"/${OUTPUT_NAME} "${TOP_DIR}"/output
   cp "${TOP_DIR}"/build/npu-exporter.yaml "${TOP_DIR}"/output/npu-exporter-"${build_version}".yaml
+  # need CI prepare so lib before excute build.sh
+  cp -r "${TOP_DIR}"/lib   "${TOP_DIR}"/output/
 
 }
 
@@ -60,7 +61,6 @@ function build_docker_image() {
   docker rmi "${docker_images_name}" || true
   docker build -t "${docker_images_name}" --no-cache .
   docker save "${docker_images_name}" | gzip >"${docker_zip_name}"
-  rm -f ${DOCKER_FILE_NAME}
 }
 
 function main() {

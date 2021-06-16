@@ -16,34 +16,53 @@
 package main
 
 import (
+	"bytes"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"errors"
 	"flag"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"huawei.com/kmc/pkg/adaptor/inbound/api"
+	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc"
+	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc/vo"
+	"huawei.com/kmc/pkg/adaptor/outbound/log"
+	"huawei.com/kmc/pkg/application/gateway"
+	"huawei.com/kmc/pkg/application/gateway/loglevel"
 	"huawei.com/npu-exporter/collector"
 	"io/ioutil"
 	"k8s.io/klog"
+	"math"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
 
 var (
-	port        int
-	updateTime  int
-	needGoInfo  bool
-	certFile    string
-	keyFile     string
-	caFile      string
-	certificate *tls.Certificate
-	ip          string
-	enableHTTP  bool
+	port             int
+	updateTime       int
+	needGoInfo       bool
+	certFile         string
+	keyFile          string
+	caFile           string
+	crlFile          string
+	certificate      *tls.Certificate
+	ip               string
+	enableHTTP       bool
+	caBytes          []byte
+	encryptAlgorithm int
+	k8sSecretMode    bool
 )
 
 const (
@@ -54,6 +73,8 @@ const (
 	portRight       = 40000
 	oneMinute       = 60
 )
+
+var revokedCertificates []pkix.RevokedCertificate
 
 func main() {
 	flag.Parse()
@@ -78,19 +99,16 @@ func main() {
 			MinVersion:   tls.VersionTLS12,
 			CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 		}
-		if caFile != "" {
+		if caBytes != nil && len(caBytes) > 0 {
 			// Two-way SSL
 			pool := x509.NewCertPool()
-			crt, err := ioutil.ReadFile(caFile)
-			if err != nil {
-				klog.Fatalf("load CA file failed")
-			}
-			ok := pool.AppendCertsFromPEM(crt)
+			ok := pool.AppendCertsFromPEM(caBytes)
 			if !ok {
-				klog.Fatalf("append the CA file fialed")
+				klog.Fatalf("append the CA file failed")
 			}
 			tlsConfig.ClientCAs = pool
 			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+
 		} else {
 			// One-way SSL
 			tlsConfig.ClientAuth = tls.NoClientCert
@@ -123,9 +141,67 @@ func validate() {
 	if updateTime > oneMinute || updateTime < 1 {
 		klog.Fatalf("the updateTime is invalid")
 	}
+	if encryptAlgorithm != 7 && encryptAlgorithm != 8 && encryptAlgorithm != 9 {
+		encryptAlgorithm = 9
+	}
 	if (certFile == "" || keyFile == "") && enableHTTP {
 		return
 	}
+	// key file exist and need init kmc
+	handleCert()
+	cc, _ := x509.ParseCertificate(certificate.Certificate[0])
+	err := checkSignatureAlgorithm(cc)
+	if err != nil {
+		klog.Fatalf(err.Error())
+	}
+	err = checkValidDate(cc)
+	if err != nil {
+		klog.Fatalf(err.Error())
+	}
+	go periodCheck(cc)
+	keyLen, keyType, err := checkPrivateKeyLength(cc)
+	if err != nil {
+		klog.Fatalf(err.Error())
+	}
+	// ED25519 private key length is stable and no need to verify
+	if "RSA" == keyType && keyLen < 2048 || "ECC" == keyType && keyLen < 256 {
+		klog.Warning("the private key length is not enough")
+	}
+	loadCRL()
+	if caFile == "" {
+		return
+	}
+	checkCaCert(cc)
+}
+
+func checkCaCert(cc *x509.Certificate) {
+	ca, err := filepath.Abs(caFile)
+	if err != nil {
+		klog.Fatalf("the caFile is invalid")
+	}
+	checkSymlinks(ca)
+	changFileMode(ca)
+	caFile = ca
+	caBytes, err = ioutil.ReadFile(caFile)
+	if err != nil {
+		klog.Fatalf("failed to load caFile")
+	}
+	caCrt, err := loadCertsFromPEM(caBytes)
+	if err != nil {
+		klog.Fatal("convert ca cert failed")
+	}
+	err = cc.CheckSignatureFrom(caCrt)
+	if err != nil {
+		klog.Fatal("check server certificate signature failed")
+	}
+	err = caCrt.CheckSignature(caCrt.SignatureAlgorithm, caCrt.RawTBSCertificate, caCrt.Signature)
+	if err != nil {
+		klog.Fatal("check ca certificate signature failed")
+	}
+	klog.Infof("certificate signature check pass")
+}
+
+func handleCert() {
 	cert, err := filepath.Abs(certFile)
 	if err != nil {
 		klog.Fatalf("the certFile is invalid")
@@ -134,22 +210,77 @@ func validate() {
 	if err != nil {
 		klog.Fatalf("the keyFile is invalid")
 	}
+	checkSymlinks(key)
+	checkSymlinks(cert)
+	certBytes, err := ioutil.ReadFile(cert)
+	if err != nil {
+		klog.Fatal("read certFile failed")
+	}
+	keyBytes, err := ioutil.ReadFile(key)
+	if err != nil {
+		klog.Fatal("read keyFile failed ")
+	}
+	keyBytes = handlePrivateKey(keyBytes, key, cert)
 	certFile = cert
 	keyFile = key
 	// preload cert and key files
-	c, err := tls.LoadX509KeyPair(certFile, keyFile)
+	c, err := tls.X509KeyPair(certBytes, keyBytes)
 	if err != nil {
-		klog.Fatalf("failed to load X509KeyPair")
+		klog.Fatalf("failed to load X509KeyPair,%v", err)
 	}
 	certificate = &c
-	if caFile == "" {
-		return
+}
+
+func handlePrivateKey(keyBytes []byte, key string, cert string) []byte {
+	if k8sSecretMode {
+		return keyBytes
 	}
-	ca, err := filepath.Abs(caFile)
-	if err != nil {
-		klog.Fatalf("the caFile is invalid")
+	kmcInit()
+	suffix := []byte("npu-exporter-encoded")
+	if bytes.HasSuffix(keyBytes, suffix) {
+		klog.Info("got Encrypted key file and start to decrypt")
+		keyBytes = bytes.TrimSuffix(keyBytes, suffix)
+		var err error
+		keyBytes, err = decrypt(0, keyBytes)
+		if err != nil {
+			klog.Info("decrypt failed")
+		}
+		klog.Info("decrypt success")
+	} else {
+		klog.Info("got original key file and start to encrypt")
+		encodeKey, err := encrypt(0, keyBytes)
+		if err != nil {
+			klog.Warning("encrypt failed")
+		}
+		encodeKey = append(encodeKey, suffix...)
+		changFileMode(key)
+		err = ioutil.WriteFile(key, encodeKey, 0600)
+		if err != nil {
+			klog.Fatal("write encrypted key to original file failed ")
+		}
+		changFileMode(cert)
+		klog.Info("encrypt success")
 	}
-	caFile = ca
+
+	return keyBytes
+}
+
+func changFileMode(path string) {
+	if !k8sSecretMode {
+		err := os.Chmod(path, 0600)
+		if err != nil {
+			klog.Fatal("change  file mode failed ")
+		}
+	}
+}
+
+func checkSymlinks(keyFilePath string) {
+	if !k8sSecretMode {
+		keyRealPath, _ := filepath.EvalSymlinks(keyFilePath)
+		if keyFilePath != keyRealPath {
+			klog.Fatalf("please do not use Symlinks")
+		}
+	}
 }
 
 func init() {
@@ -166,12 +297,25 @@ func init() {
 	flag.StringVar(&certFile, "certFile", "", "the certificate file path")
 	flag.StringVar(&keyFile, "keyFile", "",
 		"the key file path,If both the certificate and key file exist,system will enable https")
+	flag.StringVar(&crlFile, "crlFile", "", "the offline CRL file path")
 	flag.BoolVar(&enableHTTP, "enableHTTP", false,
 		"If true, the program will not check certificate files and enable http server")
+	flag.IntVar(&encryptAlgorithm, "encryptAlgorithm", 9, "use 7 for AES256_CBC,8 for AES128_GCM,9 for AES256_GCM(default)")
+	flag.BoolVar(&k8sSecretMode, "k8sSecretMode", false, "If true,program do not change cert and key file")
 }
 
 func interceptor(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if revokedCertificates != nil && len(revokedCertificates) > 0 {
+			for _, revokeCert := range revokedCertificates {
+				for _, cert := range r.TLS.PeerCertificates {
+					if cert != nil && cert.SerialNumber.Cmp(revokeCert.SerialNumber) == 0 {
+						klog.Warningf("revoked certificate SN: %s", cert.SerialNumber)
+						return
+					}
+				}
+			}
+		}
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000")
 		h.ServeHTTP(w, r)
 	})
@@ -188,5 +332,142 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			</html>`))
 	if err != nil {
 		klog.Error("Write to response error")
+	}
+}
+
+var cryptoApi api.CryptoApi
+
+func kmcInit() {
+	defaultLogLevel := loglevel.Info
+	var defaultLogger gateway.CryptoLogger = log.NewDefaultLogger()
+	defaultInitConfig := vo.NewKmcInitConfigVO()
+	defaultInitConfig.PrimaryKeyStoreFile = "/etc/npu-exporter/kmc_primary_keystore/master.ks"
+	defaultInitConfig.StandbyKeyStoreFile = "/etc/npu-exporter/kmc_primary_keystore/backup.ks"
+	defaultInitConfig.SdpAlgId = encryptAlgorithm
+	bootstrap := kmc.NewManualBootstrap(0, defaultLogLevel, &defaultLogger, defaultInitConfig)
+	var err error
+	cryptoApi, err = bootstrap.Start()
+	if err != nil {
+		klog.Fatal("initial kmc failed")
+	}
+}
+
+func encrypt(domainId int, data []byte) ([]byte, error) {
+	return cryptoApi.EncryptByAppId(domainId, data)
+}
+
+func decrypt(domainId int, data []byte) ([]byte, error) {
+	return cryptoApi.DecryptByAppId(domainId, data)
+}
+
+func checkSignatureAlgorithm(cert *x509.Certificate) error {
+	var signAl string = cert.SignatureAlgorithm.String()
+	klog.Infof("SignatureAlgorithm:%s", signAl)
+	if strings.Contains(signAl, "MD2") || strings.Contains(signAl, "MD5") ||
+		strings.Contains(signAl, "SHA1") {
+		return errors.New("the signature algorithm is unsafe,please use safe algorithm ")
+	}
+	return nil
+}
+
+func checkValidDate(cert *x509.Certificate) error {
+
+	if time.Now().After(cert.NotAfter) || time.Now().Before(cert.NotBefore) {
+		return errors.New("the certificate overdue ")
+	}
+	return nil
+}
+
+func checkPrivateKeyLength(cert *x509.Certificate) (int, string, error) {
+	switch cert.PublicKey.(type) {
+	case *rsa.PublicKey:
+		priv, ok := certificate.PrivateKey.(*rsa.PrivateKey)
+		if !ok {
+			return 0, "RSA", errors.New("get rsa key length failed")
+		}
+		return priv.N.BitLen(), "RSA", nil
+	case *ecdsa.PublicKey:
+		priv, ok := certificate.PrivateKey.(*ecdsa.PrivateKey)
+		if !ok {
+			return 0, "ECC", errors.New("get ecdsa key length failed")
+		}
+		return priv.X.BitLen(), "ECC", nil
+	case ed25519.PublicKey:
+		priv, ok := certificate.PrivateKey.(ed25519.PrivateKey)
+		if !ok {
+			return 0, "ED25519", errors.New("get ed25519 key length failed")
+		}
+		return len(priv.Public().(ed25519.PublicKey)), "ED25519", nil
+	default:
+		return 0, "", errors.New("get key length failed")
+	}
+}
+
+func loadCertsFromPEM(pemCerts []byte) (*x509.Certificate, error) {
+	if len(pemCerts) > 0 {
+		var block *pem.Block
+		block, pemCerts = pem.Decode(pemCerts)
+		if block == nil {
+			return nil, errors.New("parse cert failed")
+		}
+		if block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
+			return nil, errors.New("invalid cert bytes")
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, errors.New("parse cert failed")
+		}
+		return cert, nil
+	}
+	return nil, errors.New("wrong input")
+}
+
+func periodCheck(cert *x509.Certificate) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case _, ok := <-ticker.C:
+			if !ok {
+				return
+			}
+			now := time.Now()
+			if now.After(cert.NotAfter) || now.Before(cert.NotBefore) {
+				klog.Warning("the certificate is already overdue")
+				continue
+			}
+			gapHours := cert.NotAfter.Sub(now).Hours()
+			overdueDays := gapHours / 24
+			if overdueDays > math.MaxInt64 {
+				overdueDays = math.MaxInt64
+			}
+			if overdueDays < 100 {
+				klog.Warningf("the certificate will overdue after %d days later", int64(overdueDays))
+			}
+		}
+	}
+}
+
+func loadCRL() {
+	if crlFile == "" {
+		return
+	}
+	crl, err := filepath.Abs(crlFile)
+	if err != nil {
+		klog.Fatalf("the crlFile is invalid")
+	}
+	checkSymlinks(crl)
+	crlBytes, err := ioutil.ReadFile(crl)
+	if err != nil {
+		klog.Fatal("read crlFile failed")
+	}
+	crlList, err := x509.ParseCRL(crlBytes)
+	if err != nil {
+		klog.Fatal("parse crlFile failed")
+	}
+	if crlList != nil {
+		revokedCertificates = crlList.TBSCertList.RevokedCertificates
+		klog.Infof("load CRL success")
 	}
 }
