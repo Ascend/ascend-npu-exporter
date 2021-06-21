@@ -37,7 +37,7 @@ function build() {
   cd "${TOP_DIR}"
   CGO_CFLAGS="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -O2 -fPIC -ftrapv"
   CGO_CPPFLAGS="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -O2 -fPIC -ftrapv"
-  go build -buildmode=pie -ldflags "-s -extldflags=-Wl,-z,now  -X huawei.com/npu-exporter/collector.BuildName=${OUTPUT_NAME} \
+  go build -mod=mod -buildmode=pie -ldflags "-s -extldflags=-Wl,-z,now  -X huawei.com/npu-exporter/collector.BuildName=${OUTPUT_NAME} \
             -X huawei.com/npu-exporter/collector.BuildVersion=${build_version}" \
             -o ${OUTPUT_NAME}
   ls ${OUTPUT_NAME}
@@ -51,23 +51,16 @@ function mv_file() {
   mv "${TOP_DIR}"/${OUTPUT_NAME} "${TOP_DIR}"/output
   cp "${TOP_DIR}"/build/npu-exporter.yaml "${TOP_DIR}"/output/npu-exporter-"${build_version}".yaml
   # need CI prepare so lib before excute build.sh
-  cp -r "${TOP_DIR}"/lib   "${TOP_DIR}"/output/
-
-}
-
-function build_docker_image() {
+  cp -r "${TOP_DIR}"/lib   "${TOP_DIR}"/output/  || true
   cp "${TOP_DIR}"/build/${DOCKER_FILE_NAME} "${TOP_DIR}"/output
-  cd "${TOP_DIR}"/output
-  docker rmi "${docker_images_name}" || true
-  docker build -t "${docker_images_name}" --no-cache .
-  docker save "${docker_images_name}" | gzip >"${docker_zip_name}"
+
 }
+
 
 function main() {
   clear_env
   build
   mv_file
-  build_docker_image
 }
 
 main

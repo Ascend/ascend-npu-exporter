@@ -26,6 +26,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"flag"
+	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"huawei.com/kmc/pkg/adaptor/inbound/api"
@@ -63,6 +64,8 @@ var (
 	caBytes          []byte
 	encryptAlgorithm int
 	k8sSecretMode    bool
+	version          bool
+	passwdFile       string
 )
 
 const (
@@ -138,6 +141,10 @@ func main() {
 	}
 }
 func validate() {
+	if version {
+		fmt.Printf("NPU-exporter version: %s \n", collector.BuildVersion)
+		os.Exit(0)
+	}
 	baseParamValid()
 	if (certFile == "" || keyFile == "") && enableHTTP {
 		return
@@ -225,6 +232,16 @@ func handleCert() {
 	if err != nil {
 		klog.Fatalf("the keyFile is invalid")
 	}
+	var pd string
+	if passwdFile != "" {
+		pd, err = filepath.Abs(passwdFile)
+		if err != nil {
+			klog.Fatalf("the password is invalid")
+		}
+		if exists(pd) {
+			checkSymlinks(pd)
+		}
+	}
 	checkSymlinks(key)
 	checkSymlinks(cert)
 	certBytes, err := ioutil.ReadFile(cert)
@@ -235,18 +252,25 @@ func handleCert() {
 	if err != nil {
 		klog.Fatal("read keyFile failed ")
 	}
-	keyBytes = handlePrivateKey(keyBytes, key, cert)
+	keyBytes = handlePrivateKey(keyBytes, key, cert, pd)
 	certFile = cert
 	keyFile = key
 	// preload cert and key files
 	c, err := tls.X509KeyPair(certBytes, keyBytes)
+
 	if err != nil {
 		klog.Fatalf("failed to load X509KeyPair,%v", err)
 	}
 	certificate = &c
 }
 
-func handlePrivateKey(keyBytes []byte, key string, cert string) []byte {
+func handlePrivateKey(keyBytes []byte, key string, cert string, pd string) []byte {
+	if pdBytes, err := ioutil.ReadFile(pd); err == nil {
+		keyBytes, err = parsePrivateKeyWithPassword(keyBytes, pdBytes)
+		if err != nil {
+			klog.Fatalf("parse private key with password failed")
+		}
+	}
 	if k8sSecretMode {
 		return keyBytes
 	}
@@ -279,6 +303,10 @@ func handlePrivateKey(keyBytes []byte, key string, cert string) []byte {
 		klog.Fatal("write encrypted key to original file failed ")
 	}
 	changFileMode(cert)
+	err = os.Remove(pd)
+	if err != nil {
+		klog.Warning("password file delete failed")
+	}
 	klog.Info("encrypt success")
 	return keyBytes
 }
@@ -293,13 +321,13 @@ func changFileMode(path string) {
 }
 
 func checkSymlinks(keyFilePath string) {
-	if !k8sSecretMode {
+	if !k8sSecretMode && keyFilePath != "" {
 		keyRealPath, err := filepath.EvalSymlinks(keyFilePath)
 		if err != nil {
-			klog.Fatalf("convert the realpath failed")
+			klog.Fatal("convert the realpath failed")
 		}
 		if keyFilePath != keyRealPath {
-			klog.Fatalf("please do not use Symlinks")
+			klog.Fatal("please do not use Symlinks")
 		}
 	}
 }
@@ -325,6 +353,9 @@ func init() {
 		"use 7 for aes256cbc,8 for aes128gcm,9 for aes256gcm(default)")
 	flag.BoolVar(&k8sSecretMode, "k8sSecretMode", false,
 		"If true,program do not change cert and key file")
+	flag.BoolVar(&version, "version", false,
+		"If true,query the version of the program")
+	flag.StringVar(&passwdFile, "passwdFile", "", "the password file path of private key")
 }
 
 func interceptor(h http.Handler) http.Handler {
@@ -370,8 +401,8 @@ func kmcInit() {
 	defaultLogLevel := loglevel.Info
 	var defaultLogger gateway.CryptoLogger = log.NewDefaultLogger()
 	defaultInitConfig := vo.NewKmcInitConfigVO()
-	defaultInitConfig.PrimaryKeyStoreFile = "/etc/npu-exporter/kmc_primary_keystore/master.ks"
-	defaultInitConfig.StandbyKeyStoreFile = "/etc/npu-exporter/kmc_primary_keystore/backup.ks"
+	defaultInitConfig.PrimaryKeyStoreFile = "/etc/npu-exporter/kmc_primary_store/master.ks"
+	defaultInitConfig.StandbyKeyStoreFile = "/etc/npu-exporter/kmc_primary_store/backup.ks"
 	defaultInitConfig.SdpAlgId = encryptAlgorithm
 	bootstrap = kmc.NewManualBootstrap(0, defaultLogLevel, &defaultLogger, defaultInitConfig)
 	var err error
@@ -501,4 +532,40 @@ func loadCRL() {
 		revokedCertificates = crlList.TBSCertList.RevokedCertificates
 		klog.Infof("load CRL success")
 	}
+}
+
+func parsePrivateKeyWithPassword(keyBytes []byte, password []byte) ([]byte, error) {
+	password = bytes.TrimSuffix(password, []byte("\n"))
+	password = bytes.TrimSuffix(password, []byte("\r"))
+	block, _ := pem.Decode(keyBytes)
+	if block == nil {
+		return nil, errors.New("decode key file failed")
+	}
+	buf := block.Bytes
+	if x509.IsEncryptedPEMBlock(block) {
+		var err error
+		buf, err = x509.DecryptPEMBlock(block, password)
+		if err != nil {
+			if err == x509.IncorrectPasswordError {
+				return nil, err
+			}
+			return nil, errors.New("cannot decode encrypted private keys")
+		}
+	}
+	return pem.EncodeToMemory(&pem.Block{
+		Type:    block.Type,
+		Headers: nil,
+		Bytes:   buf,
+	}), nil
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsExist(err) {
+			return true
+		}
+		return false
+	}
+	return true
 }

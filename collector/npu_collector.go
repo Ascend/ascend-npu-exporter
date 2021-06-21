@@ -57,7 +57,7 @@ func NewNpuCollector(cacheTime time.Duration, updateTime time.Duration, stop cha
 		cacheTime:  cacheTime,
 		updateTime: updateTime,
 	}
-	go start(npuCollect, stop)
+	go start(npuCollect, stop, dsmi.GetDeviceManager())
 	return npuCollect
 }
 
@@ -135,7 +135,7 @@ var assembleNPUInfoV1 = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 	return npuList
 }
 
-var start = func(n *npuCollector, stop <-chan os.Signal) {
+var start = func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface) {
 	defer func() {
 		if err := recover(); err != nil {
 			klog.Errorf("go routine failed with %v", err)
@@ -153,7 +153,7 @@ var start = func(n *npuCollector, stop <-chan os.Signal) {
 			if !ok {
 				return
 			}
-			npuInfo := getNPUInfo(dsmi.GetDeviceManager())
+			npuInfo := getNPUInfo(dmgr)
 			n.cache.Set(key, npuInfo, n.cacheTime)
 			klog.Infof("update cache,key is %s", key)
 		case _, ok := <-stop:
