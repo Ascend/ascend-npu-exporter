@@ -615,6 +615,12 @@ func (d *baseDeviceManager) GetDeviceMemoryInfo(logicID int32) (*MemoryInfo, err
 		klog.Error(errInfo)
 		return nil, errInfo
 	}
+	if !isValidUtilizationRate(uint32(cmInfo.utiliza)) {
+		errInfo := fmt.Errorf("get wrong memory utilization, device: %d, utilization: %d", logicID,
+			uint32(cmInfo.utiliza))
+		klog.Error(errInfo)
+		return nil, errInfo
+	}
 	dmgr := GetDeviceManager()
 	memInfo := dmgr.createMemoryInfoObj(&cmInfo)
 	return memInfo, nil
