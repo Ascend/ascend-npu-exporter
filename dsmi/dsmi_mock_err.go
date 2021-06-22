@@ -14,7 +14,16 @@
 
 // Package dsmi interface
 package dsmi
+// #cgo LDFLAGS: -ldl
+/*
+#include <stddef.h>
+#include <dlfcn.h>
+#include <stdlib.h>
+#include <stdio.h>
 
+#include "dsmi_common_interface.h"
+#include "dcmi_interface_api.h"
+*/
 import "C"
 import "fmt"
 
@@ -76,6 +85,11 @@ func (d *DeviceManagerMockErr) GetDeviceFrequency(logicID int32, subType DeviceT
 	return int32(0), fmt.Errorf(errorMsg)
 }
 
+// createMemoryInfoObj create Memory information object
+func (d *DeviceManagerMockErr) createMemoryInfoObj(cmInfo *CStructDsmiMemoryInfo) *MemoryInfo {
+	return nil
+}
+
 // GetDeviceMemoryInfo get memory information
 func (d *DeviceManagerMockErr) GetDeviceMemoryInfo(logicID int32) (*MemoryInfo, error) {
 
@@ -88,8 +102,8 @@ func (d *DeviceManagerMockErr) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error)
 }
 
 // GetDeviceErrCode get the error count and errorcode of the device
-func (d *DeviceManagerMockErr) GetDeviceErrCode(logicID int32) (int32, int32, error) {
-	return int32(0), int32(0), fmt.Errorf(errorMsg)
+func (d *DeviceManagerMockErr) GetDeviceErrCode(logicID int32) (int32, int64, error) {
+	return int32(0), int64(0), fmt.Errorf(errorMsg)
 }
 
 // GetChipInfo get chip info

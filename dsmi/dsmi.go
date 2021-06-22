@@ -195,6 +195,7 @@ import (
 	"fmt"
 	"io"
 	"k8s.io/klog"
+	"math"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -210,13 +211,19 @@ const (
 	Percent = 100
 	// OneKilo for unit change kb to mb
 	OneKilo = 1024
+	// Maximum value of phyID and logicID
+	MaximumID = math.MaxInt8
+	// Maximum number of error codes
+	MaxErrorCodeCount = 256
+	// when get temperature failed, use this value
+	DefaultTemperatureWhenQueryFailed = -275
 )
 
 // HbmInfo HBM info
 type HbmInfo struct {
-	MemorySize              uint32 `json:"memory_size"`        // HBM total size,KB
+	MemorySize              uint64 `json:"memory_size"`        // HBM total size,KB
 	MemoryFrequency         uint32 `json:"hbm_frequency"`      // HBM frequncy MHz
-	MemoryUsage             uint32 `json:"memory_usage"`       // HBM memory usagem,KB
+	MemoryUsage             uint64 `json:"memory_usage"`       // HBM memory usagem,KB
 	MemoryTemp              int32  `json:"hbm_temperature"`    // HBM temperature
 	MemoryBandWidthUtilRate uint32 `json:"hbm_bandwidth_util"` // HBM brandwidth utilization
 
@@ -224,7 +231,7 @@ type HbmInfo struct {
 
 // MemoryInfo memory infomation struct
 type MemoryInfo struct {
-	MemorySize  uint32 `json:"memory_size"`
+	MemorySize  uint64 `json:"memory_size"`
 	Frequency   uint32 `json:"memory_frequency"`
 	Utilization uint32 `json:"memory_utilization"`
 }
@@ -237,7 +244,7 @@ type ChipInfo struct {
 }
 
 // NewMemInfo new meminfo struct
-func NewMemInfo(memorySize, frequency, utilization uint32) *MemoryInfo {
+func NewMemInfo(memorySize uint64, frequency, utilization uint32) *MemoryInfo {
 	return &MemoryInfo{
 		MemorySize:  memorySize,
 		Frequency:   frequency,
@@ -246,7 +253,7 @@ func NewMemInfo(memorySize, frequency, utilization uint32) *MemoryInfo {
 }
 
 // NewHbmInfo new HbmInfo
-func NewHbmInfo(memorySize, memoryFrequency, memoryUsage uint32, memoryTemp int32,
+func NewHbmInfo(memorySize uint64, memoryFrequency uint32, memoryUsage uint64, memoryTemp int32,
 	memoryBandWidthUtilRate uint32) *HbmInfo {
 	return &HbmInfo{
 		MemorySize:              memorySize,
@@ -257,8 +264,11 @@ func NewHbmInfo(memorySize, memoryFrequency, memoryUsage uint32, memoryTemp int3
 	}
 }
 
-// DeviceMgrInterface interface for dsmi
-type DeviceMgrInterface interface {
+// 'getDeviceInfoInterface' is used to obtain device information
+// if device information meets the requirements, it will return directly.
+// otherwise, one or more methods in 'handleDeviceInfoInterface' will be invoked
+// to handle the device information before return.
+type getDeviceInfoInterface interface {
 	// GetDeviceCount get npu device count
 	GetDeviceCount() (int32, error)
 	// GetDeviceList get npu device array
@@ -280,7 +290,7 @@ type DeviceMgrInterface interface {
 	// GetDeviceHbmInfo get npu HBM module memory and frequency information
 	GetDeviceHbmInfo(logicID int32) (*HbmInfo, error)
 	// GetDeviceErrCode get npu device error code
-	GetDeviceErrCode(logicID int32) (int32, int32, error)
+	GetDeviceErrCode(logicID int32) (int32, int64, error)
 	// GetChipInfo get npu device ascend chip information
 	GetChipInfo(logicID int32) (*ChipInfo, error)
 	// GetPhyIDFromLogicID convert npu device physicalID to logicId
@@ -297,11 +307,20 @@ type DeviceMgrInterface interface {
 	GetCardPower(cardID int32) (float32, error)
 }
 
-// please use GetDeviceManager to get the singleton instance of baseDeviceManager
-type baseDeviceManager struct {
-	// abstract method
-	GetDeviceHbmInfo func(logicID int32) (*HbmInfo, error)
+// handleDeviceInfoInterface is used to process the device information before return
+// different device types can have different implementations of the methods in the interface
+type handleDeviceInfoInterface interface {
+	createMemoryInfoObj(cmInfo *CStructDsmiMemoryInfo) *MemoryInfo
 }
+
+// DeviceMgrInterface is used to obtain the device information that meets the requirements.
+type DeviceMgrInterface interface {
+	getDeviceInfoInterface
+	handleDeviceInfoInterface
+}
+
+// please use GetDeviceManager to get the singleton instance of baseDeviceManager
+type baseDeviceManager struct{}
 
 type deviceManager910 struct {
 	baseDeviceManager
@@ -316,6 +335,8 @@ type deviceManager310 struct {
 var instance DeviceMgrInterface
 var once sync.Once
 var chipType = Ascend310
+
+type CStructDsmiMemoryInfo = C.struct_dsmi_memory_info_stru
 
 // GetChipTypeNow get the chip type on this machine
 func GetChipTypeNow() ChipType {
@@ -358,6 +379,12 @@ func (d *baseDeviceManager) GetDeviceCount() (int32, error) {
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
+	// Invalid number of devices.
+	if count < 0 {
+		errInfo := fmt.Errorf("get device quantity failed, the number of devices is: %d", int32(count))
+		klog.Error(errInfo)
+		return retError, errInfo
+	}
 	return int32(count), nil
 }
 
@@ -365,7 +392,7 @@ func (d *baseDeviceManager) GetDeviceCount() (int32, error) {
 func (d *baseDeviceManager) GetDeviceList() (int32, []int32, error) {
 	var devices []int32
 	devNum, err := d.GetDeviceCount()
-	if err != nil {
+	if err != nil || devNum == 0 {
 		return devNum, devices, err
 	}
 
@@ -378,7 +405,13 @@ func (d *baseDeviceManager) GetDeviceList() (int32, []int32, error) {
 	// transfer device list
 	var i int32
 	for i = 0; i < devNum && i < int32(len(ids)-1); i++ {
-		devices = append(devices, int32(ids[i]))
+		deviceId := int32(ids[i])
+		if deviceId < 0 {
+			errInfo := fmt.Errorf("the device ids array has invalid id(%d)", deviceId)
+			klog.Error(errInfo)
+			continue
+		}
+		devices = append(devices, deviceId)
 	}
 
 	return devNum, devices, nil
@@ -390,6 +423,11 @@ func (d *baseDeviceManager) GetDeviceHealth(logicID int32) (int32, error) {
 
 	if err := C.dsmi_get_device_health(C.int(logicID), &health); err != 0 {
 		errInfo := fmt.Errorf("get device%d health state failed, error code: %d", logicID, int32(err))
+		klog.Error(errInfo)
+		return retError, errInfo
+	}
+	if isGreaterThanOrEqualInt32(int64(health)) {
+		errInfo := fmt.Errorf("get wrong health state , device: %d health: %d", logicID, int64(health))
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
@@ -409,11 +447,16 @@ func (d *baseDeviceManager) GetDeviceUtilizationRate(logicID int32, deviceType D
 		for i := 0; i < 3; i++ {
 			klog.Errorf("try again %d", i)
 			err = C.dsmi_get_device_utilization_rate(C.int(logicID), C.int(deviceType), &utilRate)
-			if err == 0 {
+			if err == 0 && isValidUtilizationRate(uint32(utilRate)) {
 				return int32(utilRate), nil
 			}
 		}
 		return retError, fmt.Errorf("get device%d utilize rate failed, error code: %d", logicID, int32(err))
+	}
+
+	if !isValidUtilizationRate(uint32(utilRate)) {
+		return retError, fmt.Errorf("get wrong device utilize rate, device: %d utilize rate: %d", uint32(utilRate),
+			logicID)
 	}
 
 	return int32(utilRate), nil
@@ -425,6 +468,12 @@ func (d *baseDeviceManager) GetPhyIDFromLogicID(logicID uint32) (int32, error) {
 
 	if err := C.dsmi_get_phyid_from_logicid(C.uint(logicID), &phyID); err != 0 {
 		errInfo := fmt.Errorf("get device%d phy id failed ,error code is: %d", logicID, int32(err))
+		klog.Error(errInfo)
+		return retError, errInfo
+	}
+	// check whether phyID is too big
+	if uint32(phyID) > uint32(MaximumID) {
+		errInfo := fmt.Errorf("get error phyID from logicID, phyID is: %d, logicID is: %d", uint32(phyID), logicID)
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
@@ -441,6 +490,12 @@ func (d *baseDeviceManager) GetLogicIDFromPhyID(phyID uint32) (int32, error) {
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
+	// check whether logicID is too big
+	if uint32(logicID) > uint32(MaximumID) {
+		errInfo := fmt.Errorf("get error logicID from phyID, logicID is: %d, phyID is: %d", uint32(logicID), phyID)
+		klog.Error(errInfo)
+		return retError, errInfo
+	}
 
 	return int32(logicID), nil
 
@@ -453,7 +508,13 @@ func (d *baseDeviceManager) GetDeviceTemperature(logicID int32) (int32, error) {
 		errInfo := fmt.Errorf("get device%d temperature failed ,error code is : %d", logicID, int32(err))
 		return retError, errInfo
 	}
-	return int32(temp), nil
+	parsedTemp := int32(temp)
+	if parsedTemp < int32(DefaultTemperatureWhenQueryFailed) {
+		errInfo := fmt.Errorf("get wrong device temperature, devcie: %d, temperature: %d", logicID, parsedTemp)
+		return retError, errInfo
+	}
+
+	return parsedTemp, nil
 }
 
 // GetDeviceVoltage get the device voltage
@@ -461,6 +522,12 @@ func (d *baseDeviceManager) GetDeviceVoltage(logicID int32) (float32, error) {
 	var vol C.uint
 	if err := C.dsmi_get_device_voltage(C.int(logicID), &vol); err != 0 {
 		errInfo := fmt.Errorf("get device%d voltage failed ,error code is : %d", logicID, int32(err))
+		klog.Error(errInfo)
+		return retError, errInfo
+	}
+	// the voltage's value is error if it's greater than or equal to MaxInt32(1<<31 - 1)
+	if isGreaterThanOrEqualInt32(int64(vol)) {
+		errInfo := fmt.Errorf("get wrong device voltage, device: %d, voltage: %d", logicID, int64(vol))
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
@@ -476,7 +543,13 @@ func (d *baseDeviceManager) GetDevicePower(logicID int32) (float32, error) {
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
-	power := float32(cpower.power) * 0.1
+	parsedPower := float32(cpower.power)
+	if parsedPower < 0 {
+		errInfo := fmt.Errorf("get wrong device power, device: %d, power: %f", logicID, parsedPower)
+		klog.Error(errInfo)
+		return retError, errInfo
+	}
+	power := parsedPower * 0.1
 	return power, nil
 
 }
@@ -492,7 +565,19 @@ func (d *baseDeviceManager) GetDeviceFrequency(logicID int32, subType DeviceType
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
+	// check whether cFrequency is too big
+	if isGreaterThanOrEqualInt32(int64(cFrequency)) {
+		errInfo := fmt.Errorf("get wrong device frequency, device: %d, frequency: %d", logicID, int64(cFrequency))
+		klog.Error(errInfo)
+		return retError, errInfo
+	}
 	return int32(cFrequency), nil
+}
+
+// GetDeviceHbmInfo mock this function on Ascend310 or Ascend710
+func (d *baseDeviceManager) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
+	hbmInfo := NewHbmInfo(0, 0, 0, 0, 0)
+	return hbmInfo, nil
 }
 
 // GetDeviceHbmInfo get HBM information , only for Ascend910
@@ -503,21 +588,15 @@ func (d *deviceManager910) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
 		klog.Error(errInfo)
 		return nil, errInfo
 	}
-	hbmInfo := NewHbmInfo(uint32(cHbmInfo.memory_size/OneKilo), uint32(cHbmInfo.freq),
-		uint32(cHbmInfo.memory_usage/OneKilo), int32(cHbmInfo.temp), uint32(cHbmInfo.bandwith_util_rate))
+	hbmTemp := int32(cHbmInfo.temp)
+	if hbmTemp < 0 {
+		errInfo := fmt.Errorf("get wrong device HBM information, device: %d, HBM.temp: %d", logicID, hbmTemp)
+		klog.Error(errInfo)
+		return nil, errInfo
+	}
+	hbmInfo := NewHbmInfo(uint64(cHbmInfo.memory_size)/uint64(OneKilo), uint32(cHbmInfo.freq),
+		uint64(cHbmInfo.memory_usage)/uint64(OneKilo), hbmTemp, uint32(cHbmInfo.bandwith_util_rate))
 
-	return hbmInfo, nil
-}
-
-// GetDeviceHbmInfo mock this function on Ascend310
-func (d *deviceManager310) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
-	hbmInfo := NewHbmInfo(0, 0, 0, 0, 0)
-	return hbmInfo, nil
-}
-
-// GetDeviceHbmInfo mock this function on Ascend710
-func (d *deviceManager710) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
-	hbmInfo := NewHbmInfo(0, 0, 0, 0, 0)
 	return hbmInfo, nil
 }
 
@@ -530,33 +609,47 @@ func (d *deviceManager710) GetDevicePower(logicID int32) (float32, error) {
 
 // GetDeviceMemoryInfo get memory information(310 MB  910 KB)
 func (d *baseDeviceManager) GetDeviceMemoryInfo(logicID int32) (*MemoryInfo, error) {
-	var cmInfo C.struct_dsmi_memory_info_stru
+	var cmInfo CStructDsmiMemoryInfo
 	if err := C.dsmi_get_memory_info(C.int(logicID), &cmInfo); err != 0 {
 		errInfo := fmt.Errorf("get device%d memory information failed, error code: %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return nil, errInfo
 	}
-	chip, errs := d.GetChipInfo(logicID)
-	var memInfo *MemoryInfo
-	if errs == nil && IsAscend910(chip.ChipName) {
-		// change unit to MB
-		memInfo = NewMemInfo(uint32(cmInfo.memory_size/OneKilo), uint32(cmInfo.freq), uint32(cmInfo.utiliza))
-	} else {
-		memInfo = NewMemInfo(uint32(cmInfo.memory_size), uint32(cmInfo.freq), uint32(cmInfo.utiliza))
-	}
+	dmgr := GetDeviceManager()
+	memInfo := dmgr.createMemoryInfoObj(&cmInfo)
 	return memInfo, nil
 }
 
+// Unit of Ascend310: MB
+func (d *deviceManager310) createMemoryInfoObj(cmInfo *CStructDsmiMemoryInfo) *MemoryInfo {
+	return NewMemInfo(uint64(cmInfo.memory_size), uint32(cmInfo.freq), uint32(cmInfo.utiliza))
+}
+
+// The unit of Ascend910 and Ascend710 is KB. Therefore, you need to convert the unit to MB.
+func (d *baseDeviceManager) createMemoryInfoObj(cmInfo *CStructDsmiMemoryInfo) *MemoryInfo {
+	return NewMemInfo(
+		uint64(cmInfo.memory_size)/uint64(OneKilo),
+		uint32(cmInfo.freq),
+		uint32(cmInfo.utiliza))
+}
+
 // GetDeviceErrCode get the error count and errorcode of the device
-func (d *baseDeviceManager) GetDeviceErrCode(logicID int32) (int32, int32, error) {
+// return the first errorcode
+func (d *baseDeviceManager) GetDeviceErrCode(logicID int32) (int32, int64, error) {
 	var errCount C.int
-	var errCode C.uint
-	if err := C.dsmi_get_device_errorcode(C.int(logicID), &errCount, &errCode); err != 0 {
+	var errCodeArray [MaxErrorCodeCount]C.uint
+	if err := C.dsmi_get_device_errorcode(C.int(logicID), &errCount, &errCodeArray[0]); err != 0 {
 		errInfo := fmt.Errorf("get device%d error code failed, error code: %d", logicID, int32(err))
 		klog.Error(errInfo)
 		return retError, retError, errInfo
 	}
-	return int32(errCount), int32(errCode), nil
+	if int32(errCount) < 0 {
+		errInfo := fmt.Errorf("get wrong errorcode count, device: %d, errorcode count: %d", logicID, int32(errCount))
+		klog.Error(errInfo)
+		return retError, retError, errInfo
+	}
+
+	return int32(errCount), int64(errCodeArray[0]), nil
 }
 
 // GetChipInfo get chip info
@@ -577,6 +670,12 @@ func (d *baseDeviceManager) GetChipInfo(logicID int32) (*ChipInfo, error) {
 		ChipName: string(name),
 		ChipType: string(cType),
 		ChipVer:  string(ver),
+	}
+	// If the name, type, and version are both empty, false is returned
+	if !isValidChipInfo(chip) {
+		errInfo := fmt.Errorf("get device%d ChipIno information failed, chip info is empty", logicID)
+		klog.Error(errInfo)
+		return nil, errInfo
 	}
 	return chip, nil
 }
@@ -635,11 +734,23 @@ func (d *baseDeviceManager) GetCardList() (int32, []int32, error) {
 		klog.Error(errInfo)
 		return retError, nil, errInfo
 	}
+	// checking card's quantity
+	if cNum <= 0 {
+		errInfo := fmt.Errorf("get error card quantity: %d", int32(cNum))
+		klog.Error(errInfo)
+		return retError, nil, errInfo
+	}
 	var cardNum = int32(cNum)
 	var i int32
 	var cardIDList []int32
 	for i = 0; i < cardNum && i < HIAIMaxCardNum; i++ {
-		cardIDList = append(cardIDList, int32(ids[i]))
+		cardID := int32(ids[i])
+		if cardID < 0 {
+			errInfo := fmt.Errorf("get invalid card ID: %d", cardID)
+			klog.Error(errInfo)
+			continue
+		}
+		cardIDList = append(cardIDList, cardID)
 	}
 	return cardNum, cardIDList, nil
 }
@@ -652,10 +763,15 @@ func (d *baseDeviceManager) GetDeviceNumOnCard(cardID int32) (int32, error) {
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
+	if deviceNum <= 0 {
+		errInfo := fmt.Errorf("the number of chips obtained is invalid, the number is: %d", int32(deviceNum))
+		klog.Error(errInfo)
+		return retError, errInfo
+	}
 	return int32(deviceNum), nil
 }
 
-// GetCardPower get card power
+// GetCardPower get card power with Ascend710
 func (d *baseDeviceManager) GetCardPower(cardID int32) (float32, error) {
 	var power C.int
 	if err := C.dcmi_mcu_get_power_info(C.int(cardID), &power); err != 0 {
@@ -663,7 +779,14 @@ func (d *baseDeviceManager) GetCardPower(cardID int32) (float32, error) {
 		klog.Error(errInfo)
 		return retError, errInfo
 	}
-	return float32(power) * 0.1, nil
+
+	parsedPower := float32(power)
+	if parsedPower < 0 {
+		errInfo := fmt.Errorf("get wrong device power, cardID: %d, power: %f", int32(cardID), parsedPower)
+		klog.Error(errInfo)
+		return retError, errInfo
+	}
+	return parsedPower * 0.1, nil
 }
 
 func init() {
@@ -693,4 +816,33 @@ func IsAscend710(chipName string) bool {
 // ShutDown clean the dynamically loaded resource
 func ShutDown() {
 	C.dsmiShutDown()
+}
+
+func isValidChipInfo(chip *ChipInfo) bool {
+	chipName := chip.ChipName
+	chipType := chip.ChipType
+	chipVer := chip.ChipVer
+
+	if chipName == "" && chipType == "" && chipVer == "" {
+		return false
+	}
+
+	return true
+}
+
+// valid utilization rate is 0-100
+func isValidUtilizationRate(num uint32) bool {
+	if num > uint32(Percent) {
+		return false
+	}
+
+	return true
+}
+
+func isGreaterThanOrEqualInt32(num int64) bool {
+	if num >= int64(math.MaxInt32) {
+		return true
+	}
+
+	return false
 }
