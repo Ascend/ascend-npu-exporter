@@ -36,14 +36,14 @@ const (
 // TestNewNpuCollector test method of NewNpuCollector
 func TestNewNpuCollector(t *testing.T) {
 	tests := []struct {
-		mockFunc func(n *npuCollector, stop <-chan os.Signal)
+		mockFunc func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface)
 		name     string
 		path     string
 	}{
 		{
 			name: "should return full list metrics when npuInfo not empty",
 			path: "testdata/prometheus_metrics",
-			mockFunc: func(n *npuCollector, stop <-chan os.Signal) {
+			mockFunc: func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface) {
 				npuInfo := mockGetNPUInfo(nil)
 				n.cache.Set(key, npuInfo, n.cacheTime)
 			},
@@ -51,7 +51,7 @@ func TestNewNpuCollector(t *testing.T) {
 		{
 			name: "should return full list metrics when npuInfo is empty",
 			path: "testdata/prometheus_metrics2",
-			mockFunc: func(n *npuCollector, stop <-chan os.Signal) {
+			mockFunc: func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface) {
 				var npuInfo []HuaWeiNPUCard
 				n.cache.Set(key, npuInfo, n.cacheTime)
 			},
@@ -65,7 +65,7 @@ func TestNewNpuCollector(t *testing.T) {
 }
 
 func excuteTestCollector(t *testing.T, tt struct {
-	mockFunc func(n *npuCollector, stop <-chan os.Signal)
+	mockFunc func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface)
 	name     string
 	path     string
 }) {
@@ -244,7 +244,7 @@ func TestStart(t *testing.T) {
 	gostub.Stub(&getNPUInfo, mockGetNPUInfo)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			go start(tt.collector, ch)
+			go start(tt.collector, ch, dsmi.NewDeviceManagerMock())
 			time.Sleep(waitTime)
 			objm, ok := tt.collector.cache.Get(key)
 			assert.NotNil(t, objm)
