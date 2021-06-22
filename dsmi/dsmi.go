@@ -214,7 +214,7 @@ const (
 	// Maximum value of phyID and logicID
 	MaximumID = math.MaxInt8
 	// Maximum number of error codes
-	MaxErrorCodeCount = 256
+	MaxErrorCodeCount = 128
 	// when get temperature failed, use this value
 	DefaultTemperatureWhenQueryFailed = -275
 )
@@ -621,6 +621,7 @@ func (d *baseDeviceManager) GetDeviceMemoryInfo(logicID int32) (*MemoryInfo, err
 		klog.Error(errInfo)
 		return nil, errInfo
 	}
+
 	dmgr := GetDeviceManager()
 	memInfo := dmgr.createMemoryInfoObj(&cmInfo)
 	return memInfo, nil
@@ -649,13 +650,14 @@ func (d *baseDeviceManager) GetDeviceErrCode(logicID int32) (int32, int64, error
 		klog.Error(errInfo)
 		return retError, retError, errInfo
 	}
-	if int32(errCount) < 0 {
+	errorCodeCount := int32(errCount)
+	if errorCodeCount < 0 || errorCodeCount > MaxErrorCodeCount {
 		errInfo := fmt.Errorf("get wrong errorcode count, device: %d, errorcode count: %d", logicID, int32(errCount))
 		klog.Error(errInfo)
 		return retError, retError, errInfo
 	}
 
-	return int32(errCount), int64(errCodeArray[0]), nil
+	return errorCodeCount, int64(errCodeArray[0]), nil
 }
 
 // GetChipInfo get chip info
