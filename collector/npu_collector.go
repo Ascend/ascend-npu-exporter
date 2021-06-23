@@ -95,7 +95,7 @@ var getNPUInfo = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 func assembleNPUInfoV2(cardID int32, logicID int32, dmgr dsmi.DeviceMgrInterface) *HuaWeiAIChip {
 	phyID, err := dmgr.GetPhyIDFromLogicID(uint32(logicID))
 	// check cardId, convert it to int type later
-	if phyID > math.MaxInt8 || err != nil {
+	if phyID > int32(math.MaxInt8) || err != nil {
 		return nil
 	}
 	chipInfo := packChipInfo(logicID, dmgr)
@@ -103,7 +103,7 @@ func assembleNPUInfoV2(cardID int32, logicID int32, dmgr dsmi.DeviceMgrInterface
 	if dsmi.GetChipTypeNow() == dsmi.Ascend710 {
 		cardPower, err := dmgr.GetCardPower(cardID)
 		if err != nil {
-			cardPower = dsmi.DefaultErrorValue
+			cardPower = float32(dsmi.DefaultErrorValue)
 		}
 		// Ascend710 use cardPower to replace chipPower
 		chipInfo.Power = cardPower
@@ -120,7 +120,7 @@ var assembleNPUInfoV1 = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 	for _, logicID := range devices {
 		phyID, err := dmgr.GetPhyIDFromLogicID(uint32(logicID))
 		// check cardId, convert it to int type later
-		if phyID > math.MaxInt8 || err != nil {
+		if phyID > int32(math.MaxInt8) || err != nil {
 			continue
 		}
 		chipInfo := packChipInfo(logicID, dmgr)
@@ -277,7 +277,7 @@ func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 	ch <- prometheus.NewMetricWithTimestamp(
 		npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescUsedMemory, prometheus.GaugeValue,
-			float64(chip.Meminf.MemorySize*chip.Meminf.Utilization/dsmi.Percent),
+			float64(chip.Meminf.MemorySize*uint64(chip.Meminf.Utilization)/uint64(dsmi.Percent)),
 			[]string{strconv.FormatInt(int64(chip.DeviceID), base)}...))
 	ch <- prometheus.NewMetricWithTimestamp(
 		npu.Timestamp,
@@ -321,7 +321,7 @@ var packChipInfo = func(logicID int32, dmgr dsmi.DeviceMgrInterface) *HuaWeiAICh
 	}
 	temp, err := dmgr.GetDeviceTemperature(logicID)
 	if err != nil {
-		temp = defaultTemperatureWhenQueryFailed
+		temp = dsmi.DefaultTemperatureWhenQueryFailed
 	}
 	vol, err := dmgr.GetDeviceVoltage(logicID)
 	if err != nil {
@@ -343,12 +343,13 @@ var packChipInfo = func(logicID int32, dmgr dsmi.DeviceMgrInterface) *HuaWeiAICh
 	if err != nil {
 		util = dsmi.DefaultErrorValue // valid data range 0-100
 	}
+	// return the first errorCode and data value type is int64
 	_, errCode, err := dmgr.GetDeviceErrCode(logicID)
 	if err != nil {
 		errCode = dsmi.DefaultErrorValue // valid data range 0-128
 	}
 	return &HuaWeiAIChip{
-		ErrorCode:    int(errCode),
+		ErrorCode:    errCode,
 		Utilization:  int(util),
 		Frequency:    int(freq),
 		Power:        power,

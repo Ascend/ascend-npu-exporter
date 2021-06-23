@@ -15,8 +15,6 @@
 // Package dsmi interface
 package dsmi
 
-import "C"
-
 // DeviceManagerMock struct definition
 type DeviceManagerMock struct {
 }
@@ -72,22 +70,28 @@ func (d *DeviceManagerMock) GetDeviceFrequency(logicID int32, subType DeviceType
 	return int32(1), nil
 }
 
+// createMemoryInfoObj create Memory information object
+func (d *DeviceManagerMock) createMemoryInfoObj(cmInfo *CStructDsmiMemoryInfo) *MemoryInfo {
+	return NewMemInfo(uint64(1), uint32(1), uint32(1))
+}
+
 // GetDeviceMemoryInfo get memory information
 func (d *DeviceManagerMock) GetDeviceMemoryInfo(logicID int32) (*MemoryInfo, error) {
-	hbmInfo := NewMemInfo(uint32(1), uint32(1), uint32(1))
+	dmgr := GetDeviceManager()
+	hbmInfo := dmgr.createMemoryInfoObj(&CStructDsmiMemoryInfo{})
 	return hbmInfo, nil
 }
 
 // GetDeviceHbmInfo get HBM information , only for Ascend910
 func (d *DeviceManagerMock) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
-	hbmInfo := NewHbmInfo(uint32(1), uint32(1), uint32(1), 1, 1)
+	hbmInfo := NewHbmInfo(uint64(1), uint32(1), uint64(1), 1, 1)
 	return hbmInfo, nil
 }
 
 // GetDeviceErrCode get the error count and errorcode of the device
-func (d *DeviceManagerMock) GetDeviceErrCode(logicID int32) (int32, int32, error) {
+func (d *DeviceManagerMock) GetDeviceErrCode(logicID int32) (int32, int64, error) {
 
-	return int32(0), int32(0), nil
+	return int32(0), int64(0), nil
 }
 
 // GetChipInfo get chip info
