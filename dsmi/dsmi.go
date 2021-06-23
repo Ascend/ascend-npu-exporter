@@ -211,8 +211,6 @@ const (
 	Percent = 100
 	// OneKilo for unit change kb to mb
 	OneKilo = 1024
-	// Maximum value of phyID and logicID
-	MaximumID = math.MaxInt8
 	// Maximum number of error codes
 	MaxErrorCodeCount = 128
 	// when get temperature failed, use this value
@@ -472,7 +470,7 @@ func (d *baseDeviceManager) GetPhyIDFromLogicID(logicID uint32) (int32, error) {
 		return retError, errInfo
 	}
 	// check whether phyID is too big
-	if uint32(phyID) > uint32(MaximumID) {
+	if uint32(phyID) > uint32(math.MaxInt8) {
 		errInfo := fmt.Errorf("get error phyID from logicID, phyID is: %d, logicID is: %d", uint32(phyID), logicID)
 		klog.Error(errInfo)
 		return retError, errInfo
@@ -491,7 +489,7 @@ func (d *baseDeviceManager) GetLogicIDFromPhyID(phyID uint32) (int32, error) {
 		return retError, errInfo
 	}
 	// check whether logicID is too big
-	if uint32(logicID) > uint32(MaximumID) {
+	if uint32(logicID) > uint32(math.MaxInt8) {
 		errInfo := fmt.Errorf("get error logicID from phyID, logicID is: %d, phyID is: %d", uint32(logicID), phyID)
 		klog.Error(errInfo)
 		return retError, errInfo

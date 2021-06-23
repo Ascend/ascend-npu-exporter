@@ -21,6 +21,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"huawei.com/npu-exporter/dsmi"
 	"k8s.io/klog"
+	"math"
 	"os"
 	"reflect"
 	"strconv"
@@ -94,7 +95,7 @@ var getNPUInfo = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 func assembleNPUInfoV2(cardID int32, logicID int32, dmgr dsmi.DeviceMgrInterface) *HuaWeiAIChip {
 	phyID, err := dmgr.GetPhyIDFromLogicID(uint32(logicID))
 	// check cardId, convert it to int type later
-	if phyID > int32(dsmi.MaximumID) || err != nil {
+	if phyID > int32(math.MaxInt8) || err != nil {
 		return nil
 	}
 	chipInfo := packChipInfo(logicID, dmgr)
@@ -119,7 +120,7 @@ var assembleNPUInfoV1 = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 	for _, logicID := range devices {
 		phyID, err := dmgr.GetPhyIDFromLogicID(uint32(logicID))
 		// check cardId, convert it to int type later
-		if phyID > int32(dsmi.MaximumID) || err != nil {
+		if phyID > int32(math.MaxInt8) || err != nil {
 			continue
 		}
 		chipInfo := packChipInfo(logicID, dmgr)

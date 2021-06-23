@@ -15,18 +15,6 @@
 // Package dsmi interface
 package dsmi
 
-// #cgo LDFLAGS: -ldl
-/*
-#include <stddef.h>
-#include <dlfcn.h>
-#include <stdlib.h>
-#include <stdio.h>
-
-#include "dsmi_common_interface.h"
-#include "dcmi_interface_api.h"
-*/
-import "C"
-
 // DeviceManagerMock struct definition
 type DeviceManagerMock struct {
 }
