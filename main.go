@@ -1,4 +1,4 @@
-//  Copyright(C) 2020. Huawei Technologies Co.,Ltd. All rights reserved.
+//  Copyright(C) Huawei Technologies Co.,Ltd. 2020-2021. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import (
 	"huawei.com/kmc/pkg/application/gateway"
 	"huawei.com/kmc/pkg/application/gateway/loglevel"
 	"huawei.com/npu-exporter/collector"
+	"huawei.com/npu-exporter/utils"
 	"io/ioutil"
 	"k8s.io/klog"
 	"math"
@@ -65,7 +66,6 @@ var (
 	encryptAlgorithm int
 	k8sSecretMode    bool
 	version          bool
-	passwdFile       string
 )
 
 const (
@@ -83,6 +83,10 @@ const (
 	fileMode        = 0600
 	overdueTime     = 100
 	dayHours        = 24
+	keyStore        = "/etc/npu-exporter/.config/config1"
+	certStore       = "/etc/npu-exporter/.config/config2"
+	caStore         = "/etc/npu-exporter/.config/config3"
+	crlStore        = "/etc/npu-exporter/.config/config4"
 )
 
 var revokedCertificates []pkix.RevokedCertificate
@@ -119,10 +123,11 @@ func main() {
 			}
 			tlsConfig.ClientCAs = pool
 			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-
+			klog.Info("enable Two-way SSL mode")
 		} else {
 			// One-way SSL
 			tlsConfig.ClientAuth = tls.NoClientCert
+			klog.Info("enable One-way SSL mode")
 		}
 
 		s := &http.Server{
@@ -130,7 +135,7 @@ func main() {
 			TLSConfig: tlsConfig,
 			Handler:   interceptor(http.DefaultServeMux),
 		}
-
+		klog.Info("start https server now...")
 		if err := s.ListenAndServeTLS("", ""); err != nil {
 			klog.Fatal("Https server error and stopped")
 		}
@@ -145,41 +150,28 @@ func validate() {
 		fmt.Printf("NPU-exporter version: %s \n", collector.BuildVersion)
 		os.Exit(0)
 	}
-	baseParamValid()
-	if (certFile == "" || keyFile == "") && enableHTTP {
+	if (certFile == "" && keyFile == "") && enableHTTP {
+		baseParamValid()
 		return
 	}
+	kmcInit()
+	// start to import certificate and keys
+	importCertFiles(certFile, keyFile, caFile, crlFile)
+	baseParamValid()
 	// key file exist and need init kmc
-	handleCert()
+	klog.Info("start load imported certificate files")
+	tlsc := handleCert()
+	certificate = &tlsc
 	if certificate == nil {
 		return
 	}
 	cc, err := x509.ParseCertificate(certificate.Certificate[0])
 	if err != nil {
-		klog.Fatalf("parse certificate failed")
-	}
-	err = checkSignatureAlgorithm(cc)
-	if err != nil {
-		klog.Fatalf(err.Error())
-	}
-	err = checkValidDate(cc)
-	if err != nil {
-		klog.Fatalf(err.Error())
+		klog.Fatal("parse certificate failed")
 	}
 	go periodCheck(cc)
-	keyLen, keyType, err := checkPrivateKeyLength(cc)
-	if err != nil {
-		klog.Fatalf(err.Error())
-	}
-	// ED25519 private key length is stable and no need to verify
-	if "RSA" == keyType && keyLen < rsaLength || "ECC" == keyType && keyLen < eccLength {
-		klog.Warning("the private key length is not enough")
-	}
 	loadCRL()
-	if caFile == "" {
-		return
-	}
-	checkCaCert()
+	checkCaCert(caStore)
 }
 
 func baseParamValid() {
@@ -200,15 +192,18 @@ func baseParamValid() {
 	}
 }
 
-func checkCaCert() {
+func checkCaCert(caFile string) []byte {
+	if caFile == "" {
+		return nil
+	}
 	ca, err := filepath.Abs(caFile)
 	if err != nil {
 		klog.Fatalf("the caFile is invalid")
 	}
-	checkSymlinks(ca)
-	changFileMode(ca)
-	caFile = ca
-	caBytes, err = ioutil.ReadFile(caFile)
+	if !utils.IsExists(caFile) {
+		return nil
+	}
+	caBytes, err = ioutil.ReadFile(ca)
 	if err != nil {
 		klog.Fatalf("failed to load caFile")
 	}
@@ -221,115 +216,38 @@ func checkCaCert() {
 		klog.Fatal("check ca certificate signature failed")
 	}
 	klog.Infof("certificate signature check pass")
+	return caBytes
 }
 
-func handleCert() {
-	cert, err := filepath.Abs(certFile)
+func handleCert() tls.Certificate {
+	certBytes, err := ioutil.ReadFile(certStore)
 	if err != nil {
-		klog.Fatalf("the certFile is invalid")
+		klog.Fatal("there is no certFile provided")
 	}
-	key, err := filepath.Abs(keyFile)
+	keyBytes, err := ioutil.ReadFile(keyStore)
 	if err != nil {
-		klog.Fatalf("the keyFile is invalid")
+		klog.Fatal("there is no keyFile provided")
 	}
-	var pd string
-	if passwdFile != "" {
-		pd, err = filepath.Abs(passwdFile)
-		if err != nil {
-			klog.Fatalf("the password is invalid")
-		}
-		if exists(pd) {
-			checkSymlinks(pd)
-		}
-	}
-	checkSymlinks(key)
-	checkSymlinks(cert)
-	certBytes, err := ioutil.ReadFile(cert)
-	if err != nil {
-		klog.Fatal("read certFile failed")
-	}
-	keyBytes, err := ioutil.ReadFile(key)
-	if err != nil {
-		klog.Fatal("read keyFile failed ")
-	}
-	keyBytes = handlePrivateKey(keyBytes, key, cert, pd)
-	certFile = cert
-	keyFile = key
+	keyBytes = handlePrivateKey(keyBytes)
 	// preload cert and key files
-	c, err := tls.X509KeyPair(certBytes, keyBytes)
-
-	if err != nil {
-		klog.Fatalf("failed to load X509KeyPair,%v", err)
-	}
-	certificate = &c
+	return validateX509Pair(certBytes, keyBytes)
 }
 
-func handlePrivateKey(keyBytes []byte, key string, cert string, pd string) []byte {
-	if pdBytes, err := ioutil.ReadFile(pd); err == nil {
-		keyBytes, err = parsePrivateKeyWithPassword(keyBytes, pdBytes)
-		if err != nil {
-			klog.Fatalf("parse private key with password failed")
-		}
-	}
-	if k8sSecretMode {
-		return keyBytes
-	}
-	kmcInit()
+func handlePrivateKey(keyBytes []byte) []byte {
 	suffix := []byte("npu-exporter-encoded")
-	if bytes.HasSuffix(keyBytes, suffix) {
-		klog.Info("got Encrypted key file and start to decrypt")
-		keyBytes = bytes.TrimSuffix(keyBytes, suffix)
-		var err error
-		keyBytes, err = decrypt(0, keyBytes)
-		if err != nil {
-			klog.Info("decrypt failed")
-		}
-		klog.Info("decrypt success")
-		return keyBytes
+	if !bytes.HasSuffix(keyBytes, suffix) {
+		klog.Fatal("npu-exporter config file invalid")
 	}
-	klog.Info("got original key file and start to encrypt")
-	encodeKey, err := encrypt(0, keyBytes)
+	klog.Info("got Encrypted key file and start to decrypt")
+	keyBytes = bytes.TrimSuffix(keyBytes, suffix)
+	var err error
+	keyBytes, err = decrypt(0, keyBytes)
 	if err != nil {
-		klog.Warning("encrypt failed")
+		klog.Info("decrypt failed")
 	}
-	err = bootstrap.Shutdown()
-	if err != nil {
-		klog.Warning("shutdown kmc failed")
-	}
-	encodeKey = append(encodeKey, suffix...)
-	changFileMode(key)
-	err = ioutil.WriteFile(key, encodeKey, fileMode)
-	if err != nil {
-		klog.Fatal("write encrypted key to original file failed ")
-	}
-	changFileMode(cert)
-	err = os.Remove(pd)
-	if err != nil {
-		klog.Warning("password file delete failed")
-	}
-	klog.Info("encrypt success")
+	klog.Info("decrypt success")
+	bootstrap.Shutdown()
 	return keyBytes
-}
-
-func changFileMode(path string) {
-	if !k8sSecretMode {
-		err := os.Chmod(path, fileMode)
-		if err != nil {
-			klog.Fatal("change  file mode failed ")
-		}
-	}
-}
-
-func checkSymlinks(keyFilePath string) {
-	if !k8sSecretMode && keyFilePath != "" {
-		keyRealPath, err := filepath.EvalSymlinks(keyFilePath)
-		if err != nil {
-			klog.Fatal("convert the realpath failed")
-		}
-		if keyFilePath != keyRealPath {
-			klog.Fatal("please do not use Symlinks")
-		}
-	}
 }
 
 func init() {
@@ -355,7 +273,6 @@ func init() {
 		"If true,program do not change cert and key file")
 	flag.BoolVar(&version, "version", false,
 		"If true,query the version of the program")
-	flag.StringVar(&passwdFile, "passwdFile", "", "the password file path of private key")
 }
 
 func interceptor(h http.Handler) http.Handler {
@@ -402,13 +319,13 @@ func kmcInit() {
 	var defaultLogger gateway.CryptoLogger = log.NewDefaultLogger()
 	defaultInitConfig := vo.NewKmcInitConfigVO()
 	defaultInitConfig.PrimaryKeyStoreFile = "/etc/npu-exporter/kmc_primary_store/master.ks"
-	defaultInitConfig.StandbyKeyStoreFile = "/etc/npu-exporter/kmc_primary_store/backup.ks"
+	defaultInitConfig.StandbyKeyStoreFile = "/etc/npu-exporter/.config/backup.ks"
 	defaultInitConfig.SdpAlgId = encryptAlgorithm
 	bootstrap = kmc.NewManualBootstrap(0, defaultLogLevel, &defaultLogger, defaultInitConfig)
 	var err error
 	cryptoAPI, err = bootstrap.Start()
 	if err != nil {
-		klog.Fatal("initial kmc failed:%v", err)
+		klog.Fatal("initial kmc failed,please make sure the LD_LIBRARY_PATH include the kmc-ext.so ")
 	}
 }
 
@@ -437,7 +354,7 @@ func checkValidDate(cert *x509.Certificate) error {
 	return nil
 }
 
-func checkPrivateKeyLength(cert *x509.Certificate) (int, string, error) {
+func checkPrivateKeyLength(cert *x509.Certificate, certificate *tls.Certificate) (int, string, error) {
 	if certificate == nil {
 		return 0, "", errors.New("certificate is nil")
 	}
@@ -512,17 +429,9 @@ func periodCheck(cert *x509.Certificate) {
 }
 
 func loadCRL() {
-	if crlFile == "" {
+	crlBytes := utils.CheckCRL(crlStore)
+	if len(crlBytes) == 0 {
 		return
-	}
-	crl, err := filepath.Abs(crlFile)
-	if err != nil {
-		klog.Fatalf("the crlFile is invalid")
-	}
-	checkSymlinks(crl)
-	crlBytes, err := ioutil.ReadFile(crl)
-	if err != nil {
-		klog.Fatal("read crlFile failed")
 	}
 	crlList, err := x509.ParseCRL(crlBytes)
 	if err != nil {
@@ -534,38 +443,101 @@ func loadCRL() {
 	}
 }
 
-func parsePrivateKeyWithPassword(keyBytes []byte, password []byte) ([]byte, error) {
-	password = bytes.TrimSuffix(password, []byte("\n"))
-	password = bytes.TrimSuffix(password, []byte("\r"))
-	block, _ := pem.Decode(keyBytes)
-	if block == nil {
-		return nil, errors.New("decode key file failed")
+func importCertFiles(certFile, keyFile, caFile, crlFile string) {
+	if certFile == "" && keyFile == "" && caFile == "" && crlFile == "" {
+		klog.Info("no new certificate files need to be imported")
+		return
 	}
-	buf := block.Bytes
-	if x509.IsEncryptedPEMBlock(block) {
-		var err error
-		buf, err = x509.DecryptPEMBlock(block, password)
+	if certFile == "" || keyFile == "" {
+		klog.Fatal("need input certFile and keyFile together")
+	}
+	keyBytes, encodeKey := getPrivateBytes(keyFile)
+	// wait certificate verify passed and then write key to file together
+	if bootstrap != nil {
+		bootstrap.Shutdown()
+	}
+	// start to import the  certificate file
+	certBytes := checkX509Pair(certFile, keyBytes)
+	utils.MakeSureDir(keyStore)
+	err := ioutil.WriteFile(keyStore, encodeKey, fileMode)
+	if err != nil {
+		klog.Fatalf("write encrypted key to config failed:%v ", err)
+	}
+	err = ioutil.WriteFile(certStore, certBytes, fileMode)
+	if err != nil {
+		klog.Fatal("write certBytes to config failed ")
+	}
+	// start to import the ca certificate file
+	caBytes = checkCaCert(caFile)
+	if len(caBytes) != 0 {
+		err = ioutil.WriteFile(caStore, caBytes, fileMode)
 		if err != nil {
-			if err == x509.IncorrectPasswordError {
-				return nil, err
-			}
-			return nil, errors.New("cannot decode encrypted private keys")
+			klog.Fatal("write caBytes to config failed ")
 		}
 	}
-	return pem.EncodeToMemory(&pem.Block{
-		Type:    block.Type,
-		Headers: nil,
-		Bytes:   buf,
-	}), nil
+	// start to import the crl file
+	crlBytes := utils.CheckCRL(crlFile)
+	if len(crlBytes) != 0 {
+		err = ioutil.WriteFile(crlStore, crlBytes, fileMode)
+		if err != nil {
+			klog.Fatal("write crlBytes to config failed ")
+		}
+	}
+	klog.Fatal("import certificate successfully")
 }
 
-func exists(path string) bool {
-	_, err := os.Stat(path)
+func getPrivateBytes(keyFile string) ([]byte, []byte) {
+	pd := utils.ReadPassWd()
+	keyBytes, err := utils.ReadBytes(keyFile)
 	if err != nil {
-		if os.IsExist(err) {
-			return true
-		}
-		return false
+		klog.Fatal("read keyFile failed")
 	}
-	return true
+	suffix := []byte("npu-exporter-encoded")
+	keyBytes, err = utils.ParsePrivateKeyWithPassword(keyBytes, []byte(pd))
+	if err != nil {
+		klog.Fatal(err)
+	}
+	encodeKey, err := encrypt(0, keyBytes)
+	if err != nil {
+		klog.Warning("encrypt failed")
+	}
+	encodeKey = append(encodeKey, suffix...)
+	return keyBytes, encodeKey
+}
+
+func checkX509Pair(certFile string, keyBytes []byte) (cert []byte) {
+	certBytes, err := utils.ReadBytes(certFile)
+	if err != nil {
+		klog.Fatal("read certFile failed")
+	}
+	validateX509Pair(certBytes, keyBytes)
+	return certBytes
+}
+
+func validateX509Pair(certBytes []byte, keyBytes []byte) tls.Certificate {
+	c, err := tls.X509KeyPair(certBytes, keyBytes)
+	if err != nil {
+		klog.Fatal("failed to load X509KeyPair")
+	}
+	cc, err := x509.ParseCertificate(c.Certificate[0])
+	if err != nil {
+		klog.Fatalf("parse certificate failed")
+	}
+	err = checkSignatureAlgorithm(cc)
+	if err != nil {
+		klog.Fatalf(err.Error())
+	}
+	err = checkValidDate(cc)
+	if err != nil {
+		klog.Fatalf(err.Error())
+	}
+	keyLen, keyType, err := checkPrivateKeyLength(cc, &c)
+	if err != nil {
+		klog.Fatalf(err.Error())
+	}
+	// ED25519 private key length is stable and no need to verify
+	if "RSA" == keyType && keyLen < rsaLength || "ECC" == keyType && keyLen < eccLength {
+		klog.Warning("the private key length is not enough")
+	}
+	return c
 }
