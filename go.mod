@@ -8,7 +8,9 @@ require (
 	k8s.io/klog v1.0.0
 	github.com/prashantv/gostub v1.0.1-0.20191007164320-bbe3712b9c4a
 	github.com/stretchr/testify v1.4.0
-	huawei.com/kmc v1.0.5
+	huawei.com/kmc v1.0.6
 )
 
-replace huawei.com/kmc => codehub-dg-y.huawei.com/it-edge-native/edge-native-core/coastguard.git v1.0.5
+replace (
+huawei.com/kmc => codehub-dg-y.huawei.com/it-edge-native/edge-native-core/coastguard.git v1.0.6
+)
