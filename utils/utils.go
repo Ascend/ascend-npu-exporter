@@ -29,6 +29,8 @@ import (
 	"strings"
 )
 
+var maxLen = 2048
+
 // ReadBytes read contents from file path
 func ReadBytes(path string) ([]byte, error) {
 	key, err := filepath.Abs(path)
@@ -60,6 +62,9 @@ func ReadPassWd() string {
 	bytePassword, err := terminal.ReadPassword(0)
 	if err != nil {
 		klog.Fatal("program error")
+	}
+	if len(bytePassword) > maxLen {
+		klog.Fatal("input too long")
 	}
 	password := string(bytePassword)
 

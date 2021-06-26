@@ -75,7 +75,6 @@ const (
 	portLeft        = 1025
 	portRight       = 40000
 	oneMinute       = 60
-	aes256cbc       = 7
 	aes128gcm       = 8
 	aes256gcm       = 9
 	rsaLength       = 2048
@@ -187,7 +186,7 @@ func baseParamValid() {
 	if updateTime > oneMinute || updateTime < 1 {
 		klog.Fatalf("the updateTime is invalid")
 	}
-	if encryptAlgorithm != aes256cbc && encryptAlgorithm != aes128gcm && encryptAlgorithm != aes256gcm {
+	if encryptAlgorithm != aes128gcm && encryptAlgorithm != aes256gcm {
 		encryptAlgorithm = aes256gcm
 	}
 }
@@ -268,7 +267,7 @@ func init() {
 	flag.BoolVar(&enableHTTP, "enableHTTP", false,
 		"If true, the program will not check certificate files and enable http server")
 	flag.IntVar(&encryptAlgorithm, "encryptAlgorithm", aes256gcm,
-		"use 7 for aes256cbc,8 for aes128gcm,9 for aes256gcm(default)")
+		"use 8 for aes128gcm,9 for aes256gcm(default)")
 	flag.BoolVar(&k8sSecretMode, "k8sSecretMode", false,
 		"If true,program do not change cert and key file")
 	flag.BoolVar(&version, "version", false,
