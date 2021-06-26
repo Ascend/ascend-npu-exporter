@@ -64,7 +64,6 @@ var (
 	enableHTTP       bool
 	caBytes          []byte
 	encryptAlgorithm int
-	k8sSecretMode    bool
 	version          bool
 )
 
@@ -79,7 +78,7 @@ const (
 	aes256gcm       = 9
 	rsaLength       = 2048
 	eccLength       = 256
-	fileMode        = 0600
+	fileMode        = 0400
 	overdueTime     = 100
 	dayHours        = 24
 	keyStore        = "/etc/npu-exporter/.config/config1"
@@ -268,8 +267,6 @@ func init() {
 		"If true, the program will not check certificate files and enable http server")
 	flag.IntVar(&encryptAlgorithm, "encryptAlgorithm", aes256gcm,
 		"use 8 for aes128gcm,9 for aes256gcm(default)")
-	flag.BoolVar(&k8sSecretMode, "k8sSecretMode", false,
-		"If true,program do not change cert and key file")
 	flag.BoolVar(&version, "version", false,
 		"If true,query the version of the program")
 }
