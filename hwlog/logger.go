@@ -1,3 +1,18 @@
+//  Copyright(C) 2021. Huawei Technologies Co.,Ltd.  All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package hwlog provides the capability of processing Huawei log rules.
 package hwlog
 
 import (
@@ -59,7 +74,8 @@ func GetLogger() *zap.Logger {
 func createLogger(config LogConfig) *zap.Logger {
 	logWriter := getLogWriter(config)
 	logEncoder := getEncoder()
-	core := zapcore.NewCore(logEncoder, zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), logWriter), zap.InfoLevel)
+	core := zapcore.NewCore(logEncoder, zapcore.NewMultiWriteSyncer(
+		zapcore.AddSync(os.Stdout), logWriter), zap.InfoLevel)
 	return zap.New(core, zap.AddCaller())
 }
 
@@ -125,6 +141,10 @@ func validateLogConfigFiled(config LogConfig) error {
 }
 
 func workerWatcher(config LogConfig) {
+	if logger == nil {
+		fmt.Println("logger is nil")
+		return
+	}
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		logger.Error("NewWatcher failed", zap.String("err", err.Error()))
