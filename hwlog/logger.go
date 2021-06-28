@@ -24,31 +24,47 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
+	"sync"
 )
 
 const (
-	defaultFileMaxSize = 20
-	defaultMinSaveAge  = 7
-	logFileMode        = 0640
-	backupLogFileMode  = 0400
+	defaultFileMaxSize = 20        // 默认单个日志文件大小最大为20M
+	defaultMinSaveAge  = 7         // 备份日志文件最小保存时间7天
+	logFileMode        = 0640      // 日志文件权限
+	backupLogFileMode  = 0400      // 备份日志文件权限
 )
 
-var logger *zap.Logger
+var (
+	logger *zap.Logger
+	mutex sync.Mutex
+)
 
 // LogConfig log module config
 type LogConfig struct {
-	LogFileName string
-	LogMode     os.FileMode
-	FileMaxSize int
-	MaxBackups  int
-	MaxAge      int
-	IsCompress  bool
+	LogFileName string              // 日志文件路径
+	LogLevel    int                 // 日志级别，-1-debug, 0-info, 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal
+	LogMode     os.FileMode         // 日志文件权限
+	FileMaxSize int                 // 单个日志文件大小(MB)
+	MaxBackups  int                 // 最多保存多少个日志文件
+	MaxAge      int                 // 最多保存多少天
+	IsCompress  bool                // 是否压缩
 	SignalCh    chan struct{}
 }
 
-// InitLogger to create logger
-func InitLogger(config LogConfig) error {
+// GetLogger to get Logger
+func GetLogger(config LogConfig) (*zap.Logger, error) {
+	mutex.Lock()
+	if logger == nil {
+		err := initLogger(config)
+		if err != nil {
+			return nil, err
+		}
+	}
+	mutex.Unlock()
+	return logger, nil
+}
+
+func initLogger(config LogConfig) error {
 	err := validateLogConfigFiled(config)
 	if err != nil {
 		return err
@@ -67,16 +83,11 @@ func InitLogger(config LogConfig) error {
 	return nil
 }
 
-// GetLogger to get Logger
-func GetLogger() *zap.Logger {
-	return logger
-}
-
 func createLogger(config LogConfig) *zap.Logger {
 	logWriter := getLogWriter(config)
 	logEncoder := getEncoder()
 	core := zapcore.NewCore(logEncoder, zapcore.NewMultiWriteSyncer(
-		zapcore.AddSync(os.Stdout), logWriter), zap.InfoLevel)
+		zapcore.AddSync(os.Stdout), logWriter), zapcore.Level(config.LogLevel))
 	return zap.New(core, zap.AddCaller())
 }
 
@@ -115,14 +126,17 @@ func validate(filePath string) error {
 	if filePath == "" {
 		return fmt.Errorf("file path is empty")
 	}
-	realpath, err := filepath.Abs(filePath)
-	if err != nil {
-		return fmt.Errorf("it's error when converted to an absolute path")
+	isAbs := path.IsAbs(filePath)
+	if !isAbs {
+		return fmt.Errorf("file path is not absolute path")
 	}
-	pattern := `^/*`
-	reg := regexp.MustCompile(pattern)
-	if !reg.MatchString(realpath) {
-		return fmt.Errorf("regexp match failed")
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return fmt.Errorf("convert to absolute path failed")
+	}
+	fileRealPath, _ := filepath.EvalSymlinks(absPath)
+	if absPath != fileRealPath {
+		return fmt.Errorf("can not use Symlinks path")
 	}
 	return nil
 }
