@@ -123,9 +123,6 @@ func getLogWriter(config LogConfig) zapcore.WriteSyncer {
 }
 
 func validate(filePath string) error {
-	if filePath == "" {
-		return fmt.Errorf("file path is empty")
-	}
 	isAbs := path.IsAbs(filePath)
 	if !isAbs {
 		return fmt.Errorf("file path is not absolute path")
@@ -134,7 +131,10 @@ func validate(filePath string) error {
 	if err != nil {
 		return fmt.Errorf("convert to absolute path failed")
 	}
-	fileRealPath, _ := filepath.EvalSymlinks(absPath)
+	fileRealPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return fmt.Errorf("eval Symlinks path failed")
+	}
 	if absPath != fileRealPath {
 		return fmt.Errorf("can not use Symlinks path")
 	}
