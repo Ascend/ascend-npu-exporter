@@ -36,6 +36,7 @@ const (
 
 var logger *zap.Logger
 
+// LogConfig log module config
 type LogConfig struct {
 	LogFileName string
 	LogMode     os.FileMode
@@ -46,7 +47,7 @@ type LogConfig struct {
 	SignalCh    chan struct{}
 }
 
-// NewLogger to create logger
+// InitLogger to create logger
 func InitLogger(config LogConfig) error {
 	err := validateLogConfigFiled(config)
 	if err != nil {
@@ -142,7 +143,7 @@ func validateLogConfigFiled(config LogConfig) error {
 
 func workerWatcher(config LogConfig) {
 	if logger == nil {
-		fmt.Println("logger is nil")
+		fmt.Println("workerWatcher logger is nil")
 		return
 	}
 	watcher, err := fsnotify.NewWatcher()
@@ -183,6 +184,10 @@ func workerWatcher(config LogConfig) {
 }
 
 func changeFileMode(event fsnotify.Event, logFileFullPath string) {
+	if logger == nil {
+		fmt.Println("changeFileMode logger is nil")
+		return
+	}
 	var logMode os.FileMode = backupLogFileMode
 	logFileName := path.Base(logFileFullPath)
 	logPath := path.Dir(logFileFullPath)
