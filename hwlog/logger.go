@@ -24,70 +24,82 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sync"
 )
 
 const (
-	defaultFileMaxSize = 20        // 默认单个日志文件大小最大为20M
-	defaultMinSaveAge  = 7         // 备份日志文件最小保存时间7天
-	logFileMode        = 0640      // 日志文件权限
-	backupLogFileMode  = 0400      // 备份日志文件权限
+	defaultFileMaxSize = 20   // the default maximum size of a single log file is 20 MB
+	defaultMinSaveAge  = 7    // the minimum storage duration of backup logs is 7 days
+	defaultMaxBackups  = 30   // the default number of backup log
+	logFileMode        = 0640 // log file mode
+	backupLogFileMode  = 0400 // backup log file mode
 )
 
-var (
-	logger *zap.Logger
-	mutex sync.Mutex
-)
+var logger *zap.Logger
 
 // LogConfig log module config
 type LogConfig struct {
-	LogFileName string              // 日志文件路径
-	LogLevel    int                 // 日志级别，-1-debug, 0-info, 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal
-	LogMode     os.FileMode         // 日志文件权限
-	FileMaxSize int                 // 单个日志文件大小(MB)
-	MaxBackups  int                 // 最多保存多少个日志文件
-	MaxAge      int                 // 最多保存多少天
-	IsCompress  bool                // 是否压缩
-	SignalCh    chan struct{}
+	// log file path
+	LogFileName   string
+	// only write to std out, default value: false
+	OnlyToStdout  bool
+	// log level, -1-debug, 0-info, 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal, default value: 0
+	LogLevel      int
+	// log file mode, default value: 0640
+	LogMode       os.FileMode
+	// backup log file mode, default value: 0440
+	BackupLogMode os.FileMode
+	// size of a single log file (MB), default value: 20MB
+	FileMaxSize   int
+	// maximum number of backup log files, default value: 30
+	MaxBackups    int
+	// maximum number of days for backup log files, default value: 7
+	MaxAge        int
+	// whether backup files need to be compressed, default value: false
+	IsCompress    bool
 }
 
-// GetLogger to get Logger
-func GetLogger(config LogConfig) (*zap.Logger, error) {
-	mutex.Lock()
-	if logger == nil {
-		err := initLogger(config)
-		if err != nil {
-			return nil, err
-		}
+// IsInit check logger initialized
+func IsInitLogger() bool {
+	return logger != nil
+}
+
+// InitLogger to get Logger
+func InitLogger(config *LogConfig, stopCh <-chan struct{}) error {
+	if logger != nil {
+		return fmt.Errorf("the logger has been initialized and does not need to be initialized again")
 	}
-	mutex.Unlock()
-	return logger, nil
-}
-
-func initLogger(config LogConfig) error {
 	err := validateLogConfigFiled(config)
 	if err != nil {
 		return err
 	}
-	logger = createLogger(config)
+	logger = createLogger(*config)
 	if logger == nil {
 		return fmt.Errorf("create logger error")
 	}
-	logger.Info("logger start")
+	logger.Info("logger init success")
+	// skip change file mode and fs notify
+	if config.OnlyToStdout {
+		return nil
+	}
 	err = os.Chmod(config.LogFileName, config.LogMode)
 	if err != nil {
 		logger.Error("config log path error")
 		return fmt.Errorf("set log file mode failed")
 	}
-	go workerWatcher(config)
+	go workerWatcher(*config, stopCh)
 	return nil
 }
 
 func createLogger(config LogConfig) *zap.Logger {
-	logWriter := getLogWriter(config)
 	logEncoder := getEncoder()
-	core := zapcore.NewCore(logEncoder, zapcore.NewMultiWriteSyncer(
-		zapcore.AddSync(os.Stdout), logWriter), zapcore.Level(config.LogLevel))
+	var writeSyncer zapcore.WriteSyncer
+	if config.OnlyToStdout {
+		writeSyncer = zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout))
+	} else {
+		logWriter := getLogWriter(config)
+		writeSyncer = zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), logWriter)
+	}
+	core := zapcore.NewCore(logEncoder, writeSyncer, zapcore.Level(config.LogLevel))
 	return zap.New(core, zap.AddCaller())
 }
 
@@ -141,21 +153,84 @@ func validate(filePath string) error {
 	return nil
 }
 
-func validateLogConfigFiled(config LogConfig) error {
-	err := validate(config.LogFileName)
-	if err != nil {
-		return err
+func validateLogConfigFileMaxSize(config *LogConfig) error {
+	if config.FileMaxSize == 0 {
+		config.FileMaxSize = defaultFileMaxSize
+		return nil
 	}
-	if config.FileMaxSize > defaultFileMaxSize {
-		return fmt.Errorf("maximum size of a single file is 20 MB")
+	if config.FileMaxSize < 0 || config.FileMaxSize > defaultFileMaxSize{
+		return fmt.Errorf("the size of a single log file range is (0, 20] MB")
 	}
-	if config.MaxAge < defaultMinSaveAge {
-		return fmt.Errorf("the storage duration must be greater than 7 days")
+
+	return nil
+}
+
+func validateLogConfigBackups(config *LogConfig) error {
+	if config.MaxBackups == 0 {
+		config.MaxBackups = defaultMaxBackups
+		return nil
+	}
+	if config.MaxBackups < 0 || config.MaxBackups > defaultMaxBackups {
+		return fmt.Errorf("the number of backup log file range is (0, 30]")
 	}
 	return nil
 }
 
-func workerWatcher(config LogConfig) {
+func validateLogConfigMaxAge(config *LogConfig) error {
+	if config.MaxAge == 0  {
+		config.MaxAge = defaultMinSaveAge
+		return nil
+	}
+	if config.MaxAge < defaultMinSaveAge {
+		return fmt.Errorf("the maxage should be greater than 7 days")
+	}
+	return nil
+}
+
+func validateLogConfigFileMode(config *LogConfig) error {
+	if config.LogMode > logFileMode {
+		return fmt.Errorf("log file mode greater than default value")
+	}
+	if config.BackupLogMode > backupLogFileMode {
+		return fmt.Errorf("backup log file mode greater than default value")
+	}
+	if config.LogMode == 0 {
+		config.LogMode = logFileMode
+	}
+	if config.BackupLogMode == 0 {
+		config.BackupLogMode = backupLogFileMode
+	}
+	return nil
+}
+
+func validateLogConfigFiled(config *LogConfig) error {
+	if !config.OnlyToStdout {
+		err := validate(config.LogFileName)
+		if err != nil {
+			return err
+		}
+	}
+	err := validateLogConfigFileMaxSize(config)
+	if err != nil {
+		return err
+	}
+	err = validateLogConfigBackups(config)
+	if err != nil {
+		return err
+	}
+	err = validateLogConfigMaxAge(config)
+	if err != nil {
+		return err
+	}
+	err = validateLogConfigFileMode(config)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func workerWatcher(config LogConfig, stopCh <-chan struct{}) {
 	if logger == nil {
 		fmt.Println("workerWatcher logger is nil")
 		return
@@ -174,7 +249,7 @@ func workerWatcher(config LogConfig) {
 	}
 	for {
 		select {
-		case <-config.SignalCh:
+		case <-stopCh:
 			logger.Error("recv stop signal")
 			return
 		case event, ok := <-watcher.Events:
@@ -214,4 +289,49 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 	if errChmod != nil {
 		logger.Error("set file mode failed", zap.String("filename", changedFileName))
 	}
+}
+
+func getMsgInfo(format string, args []interface{}) string {
+	var msgInfo string
+	if len(args) > 0 {
+		msgInfo = fmt.Sprintf(format, args)
+	} else {
+		msgInfo = fmt.Sprintf(format)
+	}
+	return msgInfo
+}
+
+func Debug(format string, args ...interface{}) {
+	msgInfo := getMsgInfo(format, args)
+	logger.Debug(msgInfo)
+}
+
+func Info(format string, args ...interface{}) {
+	msgInfo := getMsgInfo(format, args)
+	logger.Info(msgInfo)
+}
+
+func Warn(format string, args ...interface{}) {
+	msgInfo := getMsgInfo(format, args)
+	logger.Warn(msgInfo)
+}
+
+func Error(format string, args ...interface{}) {
+	msgInfo := getMsgInfo(format, args)
+	logger.Error(msgInfo)
+}
+
+func Dpanic(format string, args ...interface{}) {
+	msgInfo := getMsgInfo(format, args)
+	logger.DPanic(msgInfo)
+}
+
+func Panic(format string, args ...interface{}) {
+	msgInfo := getMsgInfo(format, args)
+	logger.Panic(msgInfo)
+}
+
+func Fatal(format string, args ...interface{}) {
+	msgInfo := getMsgInfo(format, args)
+	logger.Fatal(msgInfo)
 }
