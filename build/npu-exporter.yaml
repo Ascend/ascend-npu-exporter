@@ -61,6 +61,9 @@ spec:
              -log_file=/var/log/npu-exporter/npu-exporter.log   -v=3" ]
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
+          runAsUser: 0
+          runAsGroup: 0
         ports:
           - name: http
             containerPort: 8082
