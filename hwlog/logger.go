@@ -305,18 +305,11 @@ func getMsgInfo(format string, args []interface{}) string {
 	return msgInfo
 }
 
-func checkLogger() error {
-	if logger == nil {
-		return fmt.Errorf("logger is nil")
-	}
-	return nil
-}
-
 // Debug record debug
 func Debug(format string, args ...interface{}) {
 	msgInfo := getMsgInfo(format, args)
-	if err := checkLogger(); err != nil {
-		fmt.Printf("check logger err:%v\n", err)
+	if logger == nil {
+		fmt.Printf("Debug function's logger is nil")
 		return
 	}
 	logger.Debug(msgInfo)
@@ -325,8 +318,8 @@ func Debug(format string, args ...interface{}) {
 // Info record info
 func Info(format string, args ...interface{}) {
 	msgInfo := getMsgInfo(format, args)
-	if err := checkLogger(); err != nil {
-		fmt.Printf("check logger err:%v\n", err)
+	if logger == nil {
+		fmt.Printf("Info function's logger is nil")
 		return
 	}
 	logger.Info(msgInfo)
@@ -335,8 +328,8 @@ func Info(format string, args ...interface{}) {
 // Warn record warn
 func Warn(format string, args ...interface{}) {
 	msgInfo := getMsgInfo(format, args)
-	if err := checkLogger(); err != nil {
-		fmt.Printf("check logger err:%v\n", err)
+	if logger == nil {
+		fmt.Printf("Warn function's logger is nil")
 		return
 	}
 	logger.Warn(msgInfo)
@@ -345,8 +338,8 @@ func Warn(format string, args ...interface{}) {
 // Error record error
 func Error(format string, args ...interface{}) {
 	msgInfo := getMsgInfo(format, args)
-	if err := checkLogger(); err != nil {
-		fmt.Printf("check logger err:%v\n", err)
+	if logger == nil {
+		fmt.Printf("Error function's logger is nil")
 		return
 	}
 	logger.Error(msgInfo)
@@ -355,8 +348,8 @@ func Error(format string, args ...interface{}) {
 // Dpanic record panic
 func Dpanic(format string, args ...interface{}) {
 	msgInfo := getMsgInfo(format, args)
-	if err := checkLogger(); err != nil {
-		fmt.Printf("check logger err:%v\n", err)
+	if logger == nil {
+		fmt.Printf("Dpanic function's logger is nil")
 		return
 	}
 	logger.DPanic(msgInfo)
@@ -365,8 +358,8 @@ func Dpanic(format string, args ...interface{}) {
 // Panic record panic
 func Panic(format string, args ...interface{}) {
 	msgInfo := getMsgInfo(format, args)
-	if err := checkLogger(); err != nil {
-		fmt.Printf("check logger err:%v\n", err)
+	if logger == nil {
+		fmt.Printf("Panic function's logger is nil")
 		return
 	}
 	logger.Panic(msgInfo)
@@ -375,8 +368,8 @@ func Panic(format string, args ...interface{}) {
 // Fatal record fatal
 func Fatal(format string, args ...interface{}) {
 	msgInfo := getMsgInfo(format, args)
-	if err := checkLogger(); err != nil {
-		fmt.Printf("check logger err:%v\n", err)
+	if logger == nil {
+		fmt.Printf("Fatal function's logger is nil")
 		return
 	}
 	logger.Fatal(msgInfo)
