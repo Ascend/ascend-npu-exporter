@@ -58,7 +58,7 @@ type LogConfig struct {
 	IsCompress    bool
 }
 
-// IsInit check logger initialized
+// IsInitLogger check logger initialized
 func IsInitLogger() bool {
 	return logger != nil
 }
@@ -235,6 +235,10 @@ func workerWatcher(config LogConfig, stopCh <-chan struct{}) {
 		fmt.Println("workerWatcher logger is nil")
 		return
 	}
+	if stopCh == nil {
+		logger.Error("stop channel is nil")
+		return
+	}
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		logger.Error("NewWatcher failed", zap.String("err", err.Error()))
@@ -301,37 +305,79 @@ func getMsgInfo(format string, args []interface{}) string {
 	return msgInfo
 }
 
+func checkLogger() error {
+	if logger == nil {
+		return fmt.Errorf("logger is nil")
+	}
+	return nil
+}
+
+// Debug record debug
 func Debug(format string, args ...interface{}) {
 	msgInfo := getMsgInfo(format, args)
+	if err := checkLogger(); err != nil {
+		fmt.Printf("check logger err:%v\n", err)
+		return
+	}
 	logger.Debug(msgInfo)
 }
 
+// Info record info
 func Info(format string, args ...interface{}) {
 	msgInfo := getMsgInfo(format, args)
+	if err := checkLogger(); err != nil {
+		fmt.Printf("check logger err:%v\n", err)
+		return
+	}
 	logger.Info(msgInfo)
 }
 
+// Warn record warn
 func Warn(format string, args ...interface{}) {
 	msgInfo := getMsgInfo(format, args)
+	if err := checkLogger(); err != nil {
+		fmt.Printf("check logger err:%v\n", err)
+		return
+	}
 	logger.Warn(msgInfo)
 }
 
+// Error record error
 func Error(format string, args ...interface{}) {
 	msgInfo := getMsgInfo(format, args)
+	if err := checkLogger(); err != nil {
+		fmt.Printf("check logger err:%v\n", err)
+		return
+	}
 	logger.Error(msgInfo)
 }
 
+// Dpanic record panic
 func Dpanic(format string, args ...interface{}) {
 	msgInfo := getMsgInfo(format, args)
+	if err := checkLogger(); err != nil {
+		fmt.Printf("check logger err:%v\n", err)
+		return
+	}
 	logger.DPanic(msgInfo)
 }
 
+// Panic record panic
 func Panic(format string, args ...interface{}) {
 	msgInfo := getMsgInfo(format, args)
+	if err := checkLogger(); err != nil {
+		fmt.Printf("check logger err:%v\n", err)
+		return
+	}
 	logger.Panic(msgInfo)
 }
 
+// Fatal record fatal
 func Fatal(format string, args ...interface{}) {
 	msgInfo := getMsgInfo(format, args)
+	if err := checkLogger(); err != nil {
+		fmt.Printf("check logger err:%v\n", err)
+		return
+	}
 	logger.Fatal(msgInfo)
 }
