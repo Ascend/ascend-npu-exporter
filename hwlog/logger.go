@@ -58,6 +58,8 @@ type LogConfig struct {
 	IsCompress bool
 }
 
+type validateFunc func(config *LogConfig) error
+
 // IsInitLogger check logger initialized
 func IsInitLogger() bool {
 	return logger != nil
@@ -203,6 +205,13 @@ func validateLogConfigFileMode(config *LogConfig) error {
 	return nil
 }
 
+func getValidateFuncList() []validateFunc {
+	var funcList []validateFunc
+	funcList = append(funcList, validateLogConfigFileMaxSize, validateLogConfigBackups,
+		validateLogConfigMaxAge, validateLogConfigFileMode)
+	return funcList
+}
+
 func validateLogConfigFiled(config *LogConfig) error {
 	if !config.OnlyToStdout {
 		err := validate(config.LogFileName)
@@ -210,21 +219,12 @@ func validateLogConfigFiled(config *LogConfig) error {
 			return err
 		}
 	}
-	err := validateLogConfigFileMaxSize(config)
-	if err != nil {
-		return err
-	}
-	err = validateLogConfigBackups(config)
-	if err != nil {
-		return err
-	}
-	err = validateLogConfigMaxAge(config)
-	if err != nil {
-		return err
-	}
-	err = validateLogConfigFileMode(config)
-	if err != nil {
-		return err
+	validateFuncList := getValidateFuncList()
+	for _, vaFunc := range validateFuncList {
+		err := vaFunc(config)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
