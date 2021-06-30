@@ -295,6 +295,11 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 	}
 }
 
+// Debug record debug
+func Debug(format string, args ...interface{}) {
+	Debugf(format, args...)
+}
+
 // Debugf record debug
 func Debugf(format string, args ...interface{}) {
 	msgInfo := fmt.Sprintf(format, args...)
@@ -303,6 +308,11 @@ func Debugf(format string, args ...interface{}) {
 		return
 	}
 	logger.Debug(msgInfo)
+}
+
+// Info record info
+func Info(format string, args ...interface{}) {
+	Infof(format, args...)
 }
 
 // Infof record info
@@ -315,6 +325,11 @@ func Infof(format string, args ...interface{}) {
 	logger.Info(msgInfo)
 }
 
+// Warn record warn
+func Warn(format string, args ...interface{}) {
+	Warnf(format, args...)
+}
+
 // Warnf record warn
 func Warnf(format string, args ...interface{}) {
 	msgInfo := fmt.Sprintf(format, args...)
@@ -323,6 +338,11 @@ func Warnf(format string, args ...interface{}) {
 		return
 	}
 	logger.Warn(msgInfo)
+}
+
+// Error record error
+func Error(format string, args ...interface{}) {
+	Errorf(format, args...)
 }
 
 // Errorf record error
@@ -335,6 +355,11 @@ func Errorf(format string, args ...interface{}) {
 	logger.Error(msgInfo)
 }
 
+// Dpanic record panic
+func Dpanic(format string, args ...interface{}) {
+	Dpanicf(format, args...)
+}
+
 // Dpanicf record panic
 func Dpanicf(format string, args ...interface{}) {
 	msgInfo := fmt.Sprintf(format, args...)
@@ -345,6 +370,11 @@ func Dpanicf(format string, args ...interface{}) {
 	logger.DPanic(msgInfo)
 }
 
+// Panic record panic
+func Panic(format string, args ...interface{}) {
+	Panicf(format, args...)
+}
+
 // Panicf record panic
 func Panicf(format string, args ...interface{}) {
 	msgInfo := fmt.Sprintf(format, args...)
@@ -353,6 +383,11 @@ func Panicf(format string, args ...interface{}) {
 		return
 	}
 	logger.Panic(msgInfo)
+}
+
+// Fatal record fatal
+func Fatal(format string, args ...interface{}) {
+	Fatalf(format, args...)
 }
 
 // Fatalf record fatal
