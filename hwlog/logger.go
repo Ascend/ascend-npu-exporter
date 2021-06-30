@@ -190,12 +190,6 @@ func validateLogConfigMaxAge(config *LogConfig) error {
 }
 
 func validateLogConfigFileMode(config *LogConfig) error {
-	if config.LogMode > logFileMode {
-		return fmt.Errorf("log file mode greater than default value")
-	}
-	if config.BackupLogMode > backupLogFileMode {
-		return fmt.Errorf("backup log file mode greater than default value")
-	}
 	if config.LogMode == 0 {
 		config.LogMode = logFileMode
 	}
@@ -282,7 +276,7 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 		fmt.Println("changeFileMode logger is nil")
 		return
 	}
-	var logMode os.FileMode = backupLogFileMode
+	var logMode = backupLogFileMode
 	logFileName := path.Base(logFileFullPath)
 	logPath := path.Dir(logFileFullPath)
 	changedFileName := path.Base(event.Name)
@@ -296,7 +290,7 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 	}
 }
 
-// Debug record debug
+// Debug record debug not format
 func Debug(args ...interface{}) {
 	if logger == nil {
 		fmt.Println("Debug function's logger is nil")
@@ -316,7 +310,7 @@ func Debugf(format string, args ...interface{}) {
 	logger.Debug(msgInfo)
 }
 
-// Info record info
+// Info record info not format
 func Info(args ...interface{}) {
 	if logger == nil {
 		fmt.Println("Info function's logger is nil")
@@ -336,7 +330,7 @@ func Infof(format string, args ...interface{}) {
 	logger.Info(msgInfo)
 }
 
-// Warn record warn
+// Warn record warn not format
 func Warn(args ...interface{}) {
 	if logger == nil {
 		fmt.Println("Warn function's logger is nil")
@@ -356,7 +350,7 @@ func Warnf(format string, args ...interface{}) {
 	logger.Warn(msgInfo)
 }
 
-// Error record error
+// Error record error not format
 func Error(args ...interface{}) {
 	if logger == nil {
 		fmt.Println("Error function's logger is nil")
@@ -376,7 +370,7 @@ func Errorf(format string, args ...interface{}) {
 	logger.Error(msgInfo)
 }
 
-// Dpanic record panic
+// Dpanic record panic not format
 func Dpanic(args ...interface{}) {
 	if logger == nil {
 		fmt.Println("Dpanic function's logger is nil")
@@ -396,7 +390,7 @@ func Dpanicf(format string, args ...interface{}) {
 	logger.DPanic(msgInfo)
 }
 
-// Panic record panic
+// Panic record panic not format
 func Panic(args ...interface{}) {
 	if logger == nil {
 		fmt.Println("Panic function's logger is nil")
@@ -416,7 +410,7 @@ func Panicf(format string, args ...interface{}) {
 	logger.Panic(msgInfo)
 }
 
-// Fatal record fatal
+// Fatal record fatal not format
 func Fatal(args ...interface{}) {
 	if logger == nil {
 		fmt.Println("Fatal function's logger is nil")
