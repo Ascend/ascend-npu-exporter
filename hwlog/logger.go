@@ -60,13 +60,13 @@ type LogConfig struct {
 
 type validateFunc func(config *LogConfig) error
 
-// IsInitLogger check logger initialized
-func IsInitLogger() bool {
+// IsInit check logger initialized
+func IsInit() bool {
 	return logger != nil
 }
 
-// InitLogger to get Logger
-func InitLogger(config *LogConfig, stopCh <-chan struct{}) error {
+// Init to get Logger
+func Init(config *LogConfig, stopCh <-chan struct{}) error {
 	if logger != nil {
 		return fmt.Errorf("the logger has been initialized and does not need to be initialized again")
 	}
@@ -74,7 +74,7 @@ func InitLogger(config *LogConfig, stopCh <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	logger = createLogger(*config)
+	logger = create(*config)
 	if logger == nil {
 		return fmt.Errorf("create logger error")
 	}
@@ -92,7 +92,7 @@ func InitLogger(config *LogConfig, stopCh <-chan struct{}) error {
 	return nil
 }
 
-func createLogger(config LogConfig) *zap.Logger {
+func create(config LogConfig) *zap.Logger {
 	logEncoder := getEncoder()
 	var writeSyncer zapcore.WriteSyncer
 	if config.OnlyToStdout {
@@ -213,15 +213,16 @@ func getValidateFuncList() []validateFunc {
 }
 
 func validateLogConfigFiled(config *LogConfig) error {
-	if !config.OnlyToStdout {
-		err := validate(config.LogFileName)
-		if err != nil {
-			return err
-		}
+	if config.OnlyToStdout {
+		return nil
+	}
+	err := validate(config.LogFileName)
+	if err != nil {
+		return err
 	}
 	validateFuncList := getValidateFuncList()
 	for _, vaFunc := range validateFuncList {
-		err := vaFunc(config)
+		err = vaFunc(config)
 		if err != nil {
 			return err
 		}
@@ -296,106 +297,141 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 }
 
 // Debug record debug
-func Debug(format string, args ...interface{}) {
-	Debugf(format, args...)
+func Debug(args ...interface{}) {
+	if logger == nil {
+		fmt.Println("Debug function's logger is nil")
+		return
+	}
+	msgInfo := fmt.Sprint(args...)
+	logger.Debug(msgInfo)
 }
 
 // Debugf record debug
 func Debugf(format string, args ...interface{}) {
-	msgInfo := fmt.Sprintf(format, args...)
 	if logger == nil {
 		fmt.Println("Debugf function's logger is nil")
 		return
 	}
+	msgInfo := fmt.Sprintf(format, args...)
 	logger.Debug(msgInfo)
 }
 
 // Info record info
-func Info(format string, args ...interface{}) {
-	Infof(format, args...)
+func Info(args ...interface{}) {
+	if logger == nil {
+		fmt.Println("Info function's logger is nil")
+		return
+	}
+	msgInfo := fmt.Sprint(args...)
+	logger.Info(msgInfo)
 }
 
 // Infof record info
 func Infof(format string, args ...interface{}) {
-	msgInfo := fmt.Sprintf(format, args...)
 	if logger == nil {
 		fmt.Println("Infof function's logger is nil")
 		return
 	}
+	msgInfo := fmt.Sprintf(format, args...)
 	logger.Info(msgInfo)
 }
 
 // Warn record warn
-func Warn(format string, args ...interface{}) {
-	Warnf(format, args...)
+func Warn(args ...interface{}) {
+	if logger == nil {
+		fmt.Println("Warn function's logger is nil")
+		return
+	}
+	msgInfo := fmt.Sprint(args...)
+	logger.Warn(msgInfo)
 }
 
 // Warnf record warn
 func Warnf(format string, args ...interface{}) {
-	msgInfo := fmt.Sprintf(format, args...)
 	if logger == nil {
 		fmt.Println("Warnf function's logger is nil")
 		return
 	}
+	msgInfo := fmt.Sprintf(format, args...)
 	logger.Warn(msgInfo)
 }
 
 // Error record error
-func Error(format string, args ...interface{}) {
-	Errorf(format, args...)
+func Error(args ...interface{}) {
+	if logger == nil {
+		fmt.Println("Error function's logger is nil")
+		return
+	}
+	msgInfo := fmt.Sprint(args...)
+	logger.Error(msgInfo)
 }
 
 // Errorf record error
 func Errorf(format string, args ...interface{}) {
-	msgInfo := fmt.Sprintf(format, args...)
 	if logger == nil {
 		fmt.Println("Errorf function's logger is nil")
 		return
 	}
+	msgInfo := fmt.Sprintf(format, args...)
 	logger.Error(msgInfo)
 }
 
 // Dpanic record panic
-func Dpanic(format string, args ...interface{}) {
-	Dpanicf(format, args...)
+func Dpanic(args ...interface{}) {
+	if logger == nil {
+		fmt.Println("Dpanic function's logger is nil")
+		return
+	}
+	msgInfo := fmt.Sprint(args...)
+	logger.DPanic(msgInfo)
 }
 
 // Dpanicf record panic
 func Dpanicf(format string, args ...interface{}) {
-	msgInfo := fmt.Sprintf(format, args...)
 	if logger == nil {
 		fmt.Println("Dpanicf function's logger is nil")
 		return
 	}
+	msgInfo := fmt.Sprintf(format, args...)
 	logger.DPanic(msgInfo)
 }
 
 // Panic record panic
-func Panic(format string, args ...interface{}) {
-	Panicf(format, args...)
+func Panic(args ...interface{}) {
+	if logger == nil {
+		fmt.Println("Panic function's logger is nil")
+		return
+	}
+	msgInfo := fmt.Sprint(args...)
+	logger.Panic(msgInfo)
 }
 
 // Panicf record panic
 func Panicf(format string, args ...interface{}) {
-	msgInfo := fmt.Sprintf(format, args...)
 	if logger == nil {
 		fmt.Println("Panicf function's logger is nil")
 		return
 	}
+	msgInfo := fmt.Sprintf(format, args...)
 	logger.Panic(msgInfo)
 }
 
 // Fatal record fatal
-func Fatal(format string, args ...interface{}) {
-	Fatalf(format, args...)
+func Fatal(args ...interface{}) {
+	if logger == nil {
+		fmt.Println("Fatal function's logger is nil")
+		return
+	}
+	msgInfo := fmt.Sprint(args...)
+	logger.Fatal(msgInfo)
 }
 
 // Fatalf record fatal
 func Fatalf(format string, args ...interface{}) {
-	msgInfo := fmt.Sprintf(format, args...)
 	if logger == nil {
 		fmt.Println("Fatalf function's logger is nil")
 		return
 	}
+	msgInfo := fmt.Sprintf(format, args...)
 	logger.Fatal(msgInfo)
 }
