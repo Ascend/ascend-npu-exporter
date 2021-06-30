@@ -67,46 +67,79 @@ var (
 	version          bool
 	tlsSuites        int
 	cipherSuites     uint16
+	concurrency      int
 )
 
 const (
-	portConst       = 8082
-	updateTimeConst = 5
-	cacheTime       = 65 * time.Second
-	portLeft        = 1025
-	portRight       = 40000
-	oneMinute       = 60
-	aes128gcm       = 8
-	aes256gcm       = 9
-	rsaLength       = 2048
-	eccLength       = 256
-	fileMode        = 0400
-	overdueTime     = 100
-	dayHours        = 24
-	keyStore        = "/etc/npu-exporter/.config/config1"
-	certStore       = "/etc/npu-exporter/.config/config2"
-	caStore         = "/etc/npu-exporter/.config/config3"
-	crlStore        = "/etc/npu-exporter/.config/config4"
+	portConst          = 8082
+	updateTimeConst    = 5
+	cacheTime          = 65 * time.Second
+	portLeft           = 1025
+	portRight          = 40000
+	oneMinute          = 60
+	aes128gcm          = 8
+	aes256gcm          = 9
+	rsaLength          = 2048
+	eccLength          = 256
+	fileMode           = 0400
+	overdueTime        = 100
+	dayHours           = 24
+	keyStore           = "/etc/npu-exporter/.config/config1"
+	certStore          = "/etc/npu-exporter/.config/config2"
+	caStore            = "/etc/npu-exporter/.config/config3"
+	crlStore           = "/etc/npu-exporter/.config/config4"
+	defaultConcurrency = 5
 )
 
 var revokedCertificates []pkix.RevokedCertificate
+
+type limitHandler struct {
+	concurrency chan struct{}
+	httpHandler http.Handler
+}
+
+// ServeHTTP implement http.Handler
+func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	select {
+	case _, ok := <-h.concurrency:
+		if !ok {
+			return
+		}
+		h.httpHandler.ServeHTTP(w, req)
+		h.concurrency <- struct{}{}
+	default:
+		http.Error(w, "503 too busy", http.StatusServiceUnavailable)
+	}
+}
+
+func newLimitHandler(maxConcur int, handler http.Handler) http.Handler {
+	if maxConcur < 1 || maxConcur > math.MaxInt16 {
+		klog.Fatal("maxConcurrency parameter error")
+	}
+	h := &limitHandler{
+		concurrency: make(chan struct{}, maxConcur),
+		httpHandler: handler,
+	}
+	for i := 0; i < maxConcur; i++ {
+		h.concurrency <- struct{}{}
+	}
+	return h
+}
 
 func main() {
 	flag.Parse()
 	validate()
 	listenAddress := ip + ":" + strconv.Itoa(port)
 	klog.Infof("npu exporter starting and the version is %s", collector.BuildVersion)
-	reg := prometheus.NewRegistry()
 	stop := make(chan os.Signal)
 	signal.Notify(stop, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGKILL)
-	reg.MustRegister(
-		collector.NewNpuCollector(cacheTime, time.Duration(updateTime)*time.Second, stop),
-	)
-	if needGoInfo {
-		reg.MustRegister(prometheus.NewGoCollector())
-	}
+	reg := regPrometheus(stop)
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 	http.Handle("/", http.HandlerFunc(indexHandler))
+	s := &http.Server{
+		Addr:    listenAddress,
+		Handler: newLimitHandler(concurrency, http.DefaultServeMux),
+	}
 	if certificate != nil {
 		tlsConfig := &tls.Config{
 			ClientAuth:   tls.RequireAndVerifyClientCert,
@@ -129,21 +162,28 @@ func main() {
 			tlsConfig.ClientAuth = tls.NoClientCert
 			klog.Info("enable One-way SSL mode")
 		}
-
-		s := &http.Server{
-			Addr:      listenAddress,
-			TLSConfig: tlsConfig,
-			Handler:   interceptor(http.DefaultServeMux),
-		}
+		s.TLSConfig = tlsConfig
+		s.Handler = newLimitHandler(concurrency, interceptor(http.DefaultServeMux))
 		klog.Info("start https server now...")
 		if err := s.ListenAndServeTLS("", ""); err != nil {
 			klog.Fatal("Https server error and stopped")
 		}
 	}
 	klog.Warning("enable unsafe http server")
-	if err := http.ListenAndServe(listenAddress, nil); err != nil {
+	if err := s.ListenAndServe(); err != nil {
 		klog.Fatal("Http server error and stopped")
 	}
+}
+
+func regPrometheus(stop chan os.Signal) *prometheus.Registry {
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(
+		collector.NewNpuCollector(cacheTime, time.Duration(updateTime)*time.Second, stop),
+	)
+	if needGoInfo {
+		reg.MustRegister(prometheus.NewGoCollector())
+	}
+	return reg
 }
 func validate() {
 	if version {
@@ -194,9 +234,9 @@ func baseParamValid() {
 		tlsSuites = 0
 	}
 	if tlsSuites == 0 {
-		cipherSuites = tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+		cipherSuites = tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
 	} else {
-		cipherSuites = tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+		cipherSuites = tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
 	}
 }
 
@@ -277,10 +317,12 @@ func init() {
 		"If true, the program will not check certificate files and enable http server")
 	flag.IntVar(&encryptAlgorithm, "encryptAlgorithm", aes256gcm,
 		"use 8 for aes128gcm,9 for aes256gcm(default)")
-	flag.IntVar(&tlsSuites, "tlsSuites", 0,
-		"use 0 for TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 ,1 for TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384")
+	flag.IntVar(&tlsSuites, "tlsSuites", 1,
+		"use 0 for TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 ,1 for TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256")
 	flag.BoolVar(&version, "version", false,
 		"If true,query the version of the program")
+	flag.IntVar(&concurrency, "concurrency", defaultConcurrency,
+		"the max concurrency of the http server")
 }
 
 func interceptor(h http.Handler) http.Handler {
