@@ -27,11 +27,11 @@ import (
 )
 
 const (
-	defaultFileMaxSize = 20   // the default maximum size of a single log file is 20 MB
-	defaultMinSaveAge  = 7    // the minimum storage duration of backup logs is 7 days
-	defaultMaxBackups  = 30   // the default number of backup log
-	logFileMode        = 0640 // log file mode
-	backupLogFileMode  = 0400 // backup log file mode
+	defaultFileMaxSize             = 20   // the default maximum size of a single log file is 20 MB
+	defaultMinSaveAge              = 7    // the minimum storage duration of backup logs is 7 days
+	defaultMaxBackups              = 30   // the default number of backup log
+	logFileMode        os.FileMode = 0640 // log file mode
+	backupLogFileMode  os.FileMode = 0400 // backup log file mode
 )
 
 var logger *zap.Logger
@@ -39,23 +39,23 @@ var logger *zap.Logger
 // LogConfig log module config
 type LogConfig struct {
 	// log file path
-	LogFileName   string
+	LogFileName string
 	// only write to std out, default value: false
-	OnlyToStdout  bool
+	OnlyToStdout bool
 	// log level, -1-debug, 0-info, 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal, default value: 0
-	LogLevel      int
+	LogLevel int
 	// log file mode, default value: 0640
-	LogMode       os.FileMode
+	LogMode os.FileMode
 	// backup log file mode, default value: 0440
 	BackupLogMode os.FileMode
 	// size of a single log file (MB), default value: 20MB
-	FileMaxSize   int
+	FileMaxSize int
 	// maximum number of backup log files, default value: 30
-	MaxBackups    int
+	MaxBackups int
 	// maximum number of days for backup log files, default value: 7
-	MaxAge        int
+	MaxAge int
 	// whether backup files need to be compressed, default value: false
-	IsCompress    bool
+	IsCompress bool
 }
 
 // IsInitLogger check logger initialized
@@ -158,7 +158,7 @@ func validateLogConfigFileMaxSize(config *LogConfig) error {
 		config.FileMaxSize = defaultFileMaxSize
 		return nil
 	}
-	if config.FileMaxSize < 0 || config.FileMaxSize > defaultFileMaxSize{
+	if config.FileMaxSize < 0 || config.FileMaxSize > defaultFileMaxSize {
 		return fmt.Errorf("the size of a single log file range is (0, 20] MB")
 	}
 
@@ -177,7 +177,7 @@ func validateLogConfigBackups(config *LogConfig) error {
 }
 
 func validateLogConfigMaxAge(config *LogConfig) error {
-	if config.MaxAge == 0  {
+	if config.MaxAge == 0 {
 		config.MaxAge = defaultMinSaveAge
 		return nil
 	}
