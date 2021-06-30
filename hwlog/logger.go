@@ -295,81 +295,71 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 	}
 }
 
-func getMsgInfo(format string, args []interface{}) string {
-	var msgInfo string
-	if len(args) > 0 {
-		msgInfo = fmt.Sprintf(format, args)
-	} else {
-		msgInfo = fmt.Sprintf(format)
-	}
-	return msgInfo
-}
-
-// Debug record debug
-func Debug(format string, args ...interface{}) {
-	msgInfo := getMsgInfo(format, args)
+// Debugf record debug
+func Debugf(format string, args ...interface{}) {
+	msgInfo := fmt.Sprintf(format, args...)
 	if logger == nil {
-		fmt.Printf("Debug function's logger is nil")
+		fmt.Println("Debugf function's logger is nil")
 		return
 	}
 	logger.Debug(msgInfo)
 }
 
-// Info record info
-func Info(format string, args ...interface{}) {
-	msgInfo := getMsgInfo(format, args)
+// Infof record info
+func Infof(format string, args ...interface{}) {
+	msgInfo := fmt.Sprintf(format, args...)
 	if logger == nil {
-		fmt.Printf("Info function's logger is nil")
+		fmt.Println("Infof function's logger is nil")
 		return
 	}
 	logger.Info(msgInfo)
 }
 
-// Warn record warn
-func Warn(format string, args ...interface{}) {
-	msgInfo := getMsgInfo(format, args)
+// Warnf record warn
+func Warnf(format string, args ...interface{}) {
+	msgInfo := fmt.Sprintf(format, args...)
 	if logger == nil {
-		fmt.Printf("Warn function's logger is nil")
+		fmt.Println("Warnf function's logger is nil")
 		return
 	}
 	logger.Warn(msgInfo)
 }
 
-// Error record error
-func Error(format string, args ...interface{}) {
-	msgInfo := getMsgInfo(format, args)
+// Errorf record error
+func Errorf(format string, args ...interface{}) {
+	msgInfo := fmt.Sprintf(format, args...)
 	if logger == nil {
-		fmt.Printf("Error function's logger is nil")
+		fmt.Println("Errorf function's logger is nil")
 		return
 	}
 	logger.Error(msgInfo)
 }
 
-// Dpanic record panic
-func Dpanic(format string, args ...interface{}) {
-	msgInfo := getMsgInfo(format, args)
+// Dpanicf record panic
+func Dpanicf(format string, args ...interface{}) {
+	msgInfo := fmt.Sprintf(format, args...)
 	if logger == nil {
-		fmt.Printf("Dpanic function's logger is nil")
+		fmt.Println("Dpanicf function's logger is nil")
 		return
 	}
 	logger.DPanic(msgInfo)
 }
 
-// Panic record panic
-func Panic(format string, args ...interface{}) {
-	msgInfo := getMsgInfo(format, args)
+// Panicf record panic
+func Panicf(format string, args ...interface{}) {
+	msgInfo := fmt.Sprintf(format, args...)
 	if logger == nil {
-		fmt.Printf("Panic function's logger is nil")
+		fmt.Println("Panicf function's logger is nil")
 		return
 	}
 	logger.Panic(msgInfo)
 }
 
-// Fatal record fatal
-func Fatal(format string, args ...interface{}) {
-	msgInfo := getMsgInfo(format, args)
+// Fatalf record fatal
+func Fatalf(format string, args ...interface{}) {
+	msgInfo := fmt.Sprintf(format, args...)
 	if logger == nil {
-		fmt.Printf("Fatal function's logger is nil")
+		fmt.Println("Fatalf function's logger is nil")
 		return
 	}
 	logger.Fatal(msgInfo)
