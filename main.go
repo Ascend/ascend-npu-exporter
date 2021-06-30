@@ -65,6 +65,8 @@ var (
 	caBytes          []byte
 	encryptAlgorithm int
 	version          bool
+	tlsSuites        int
+	cipherSuites     uint16
 )
 
 const (
@@ -110,7 +112,7 @@ func main() {
 			ClientAuth:   tls.RequireAndVerifyClientCert,
 			Certificates: []tls.Certificate{*certificate},
 			MinVersion:   tls.VersionTLS12,
-			CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
+			CipherSuites: []uint16{cipherSuites},
 		}
 		if len(caBytes) > 0 {
 			// Two-way SSL
@@ -187,6 +189,14 @@ func baseParamValid() {
 	}
 	if encryptAlgorithm != aes128gcm && encryptAlgorithm != aes256gcm {
 		encryptAlgorithm = aes256gcm
+	}
+	if tlsSuites != 0 && tlsSuites != 1 {
+		tlsSuites = 0
+	}
+	if tlsSuites == 0 {
+		cipherSuites = tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+	} else {
+		cipherSuites = tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
 	}
 }
 
@@ -267,6 +277,8 @@ func init() {
 		"If true, the program will not check certificate files and enable http server")
 	flag.IntVar(&encryptAlgorithm, "encryptAlgorithm", aes256gcm,
 		"use 8 for aes128gcm,9 for aes256gcm(default)")
+	flag.IntVar(&tlsSuites, "tlsSuites", 0,
+		"use 0 for TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 ,1 for TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384")
 	flag.BoolVar(&version, "version", false,
 		"If true,query the version of the program")
 }
@@ -335,11 +347,11 @@ func decrypt(domainID int, data []byte) ([]byte, error) {
 
 func checkSignatureAlgorithm(cert *x509.Certificate) error {
 	var signAl = cert.SignatureAlgorithm.String()
-	klog.Infof("SignatureAlgorithm:%s", signAl)
 	if strings.Contains(signAl, "MD2") || strings.Contains(signAl, "MD5") ||
 		strings.Contains(signAl, "SHA1") {
 		return errors.New("the signature algorithm is unsafe,please use safe algorithm ")
 	}
+	klog.Info("signature algorithm validation passed")
 	return nil
 }
 
