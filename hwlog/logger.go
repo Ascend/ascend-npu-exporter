@@ -23,7 +23,6 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"os"
 	"path"
-	"path/filepath"
 )
 
 const (
@@ -136,25 +135,6 @@ func getLogWriter(config LogConfig) zapcore.WriteSyncer {
 	return zapcore.AddSync(lumberjackLogger)
 }
 
-func validate(filePath string) error {
-	isAbs := path.IsAbs(filePath)
-	if !isAbs {
-		return fmt.Errorf("file path is not absolute path")
-	}
-	absPath, err := filepath.Abs(filePath)
-	if err != nil {
-		return fmt.Errorf("convert to absolute path failed")
-	}
-	fileRealPath, err := filepath.EvalSymlinks(absPath)
-	if err != nil {
-		return fmt.Errorf("eval Symlinks path failed")
-	}
-	if absPath != fileRealPath {
-		return fmt.Errorf("can not use Symlinks path")
-	}
-	return nil
-}
-
 func validateLogConfigFileMaxSize(config *LogConfig) error {
 	if config.FileMaxSize == 0 {
 		config.FileMaxSize = defaultFileMaxSize
@@ -210,13 +190,12 @@ func validateLogConfigFiled(config *LogConfig) error {
 	if config.OnlyToStdout {
 		return nil
 	}
-	err := validate(config.LogFileName)
-	if err != nil {
-		return err
+	if !path.IsAbs(config.LogFileName) {
+		return fmt.Errorf("config log path is not absolutely path")
 	}
 	validateFuncList := getValidateFuncList()
 	for _, vaFunc := range validateFuncList {
-		err = vaFunc(config)
+		err := vaFunc(config)
 		if err != nil {
 			return err
 		}
