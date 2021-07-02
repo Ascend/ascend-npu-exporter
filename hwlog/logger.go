@@ -70,8 +70,7 @@ func Init(config *LogConfig, stopCh <-chan struct{}) error {
 	if logger != nil {
 		return fmt.Errorf("the logger has been initialized and does not need to be initialized again")
 	}
-	err := validateLogConfigFiled(config)
-	if err != nil {
+	if err := validateLogConfigFiled(config); err != nil {
 		return err
 	}
 	logger = create(*config)
@@ -83,8 +82,7 @@ func Init(config *LogConfig, stopCh <-chan struct{}) error {
 	if config.OnlyToStdout {
 		return nil
 	}
-	err = os.Chmod(config.LogFileName, config.LogMode)
-	if err != nil {
+	if err := os.Chmod(config.LogFileName, config.LogMode); err != nil {
 		logger.Error("config log path error")
 		return fmt.Errorf("set log file mode failed")
 	}
@@ -138,14 +136,12 @@ func getLogWriter(config LogConfig) zapcore.WriteSyncer {
 
 func checkDir(fileDir string) error {
 	if !isExist(fileDir) {
-		err := os.MkdirAll(fileDir, logDirMode)
-		if err != nil {
+		if err := os.MkdirAll(fileDir, logDirMode); err != nil {
 			return fmt.Errorf("create dirs failed")
 		}
 		return nil
 	}
-	err := os.Chmod(fileDir, logDirMode)
-	if err != nil {
+	if err := os.Chmod(fileDir, logDirMode); err != nil {
 		return fmt.Errorf("change log dir mode failed")
 	}
 	return nil
@@ -168,12 +164,10 @@ func checkAndCreateLogFile(filePath string) error {
 		return fmt.Errorf("config path is not file")
 	}
 	fileDir := path.Dir(filePath)
-	err := checkDir(fileDir)
-	if err != nil {
+	if err := checkDir(fileDir); err != nil {
 		return err
 	}
-	err = createFile(filePath)
-	if err != nil {
+	if err := createFile(filePath); err != nil {
 		return err
 	}
 	return nil
@@ -192,8 +186,7 @@ func isFile(path string) bool {
 }
 
 func isExist(filePath string) bool {
-	_, err := os.Stat(filePath)
-	if err != nil {
+	if _, err := os.Stat(filePath); err != nil {
 		if os.IsExist(err) {
 			return true
 		}
@@ -260,14 +253,13 @@ func validateLogConfigFiled(config *LogConfig) error {
 	if !path.IsAbs(config.LogFileName) {
 		return fmt.Errorf("config log path is not absolute path")
 	}
-	err := checkAndCreateLogFile(config.LogFileName)
-	if err != nil {
+
+	if err := checkAndCreateLogFile(config.LogFileName); err != nil {
 		return err
 	}
 	validateFuncList := getValidateFuncList()
 	for _, vaFunc := range validateFuncList {
-		err = vaFunc(config)
-		if err != nil {
+		if err := vaFunc(config); err != nil {
 			return err
 		}
 	}
@@ -291,8 +283,7 @@ func workerWatcher(config LogConfig, stopCh <-chan struct{}) {
 	}
 	defer watcher.Close()
 	logPath := path.Dir(config.LogFileName)
-	err = watcher.Add(logPath)
-	if err != nil {
+	if err = watcher.Add(logPath); err != nil {
 		logger.Error("watcher add log path failed")
 		return
 	}
@@ -334,8 +325,7 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 		logMode = logFileMode
 	}
 	changedLogFilePath := path.Join(logPath, changedFileName)
-	errChmod := os.Chmod(changedLogFilePath, logMode)
-	if errChmod != nil {
+	if errChmod := os.Chmod(changedLogFilePath, logMode); errChmod != nil {
 		logger.Error("set file mode failed", zap.String("filename", changedFileName))
 	}
 }
