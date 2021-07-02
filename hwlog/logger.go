@@ -31,6 +31,7 @@ const (
 	defaultMaxBackups              = 30   // the default number of backup log
 	logFileMode        os.FileMode = 0640 // log file mode
 	backupLogFileMode  os.FileMode = 0400 // backup log file mode
+	logDirMode                     = 0750
 )
 
 var logger *zap.Logger
@@ -135,6 +136,49 @@ func getLogWriter(config LogConfig) zapcore.WriteSyncer {
 	return zapcore.AddSync(lumberjackLogger)
 }
 
+func checkAndCreateLogFile(filePath string) error {
+	if !isFile(filePath) {
+		return fmt.Errorf("config path is not file")
+	}
+	fileDir := path.Dir(filePath)
+	fileName := path.Base(filePath)
+	if !isFileExist(filePath) {
+		err := os.MkdirAll(fileDir, logDirMode)
+		if err != nil {
+			return fmt.Errorf("create dirs failed")
+		}
+		f, err := os.Create(filePath)
+		defer f.Close()
+		if err != nil {
+			return fmt.Errorf("create file(%s) failed", fileName)
+		}
+	}
+	return nil
+}
+
+func isDir(path string) bool {
+	s, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return s.IsDir()
+}
+
+func isFile(path string) bool {
+	return !isDir(path)
+}
+
+func isFileExist(filePath string) bool {
+	_, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsExist(err) {
+			return true
+		}
+		return false
+	}
+	return true
+}
+
 func validateLogConfigFileMaxSize(config *LogConfig) error {
 	if config.FileMaxSize == 0 {
 		config.FileMaxSize = defaultFileMaxSize
@@ -192,6 +236,10 @@ func validateLogConfigFiled(config *LogConfig) error {
 	}
 	if !path.IsAbs(config.LogFileName) {
 		return fmt.Errorf("config log path is not absolutely path")
+	}
+	err := checkAndCreateLogFile(config.LogFileName)
+	if err != nil {
+		return err
 	}
 	validateFuncList := getValidateFuncList()
 	for _, vaFunc := range validateFuncList {
