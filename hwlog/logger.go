@@ -235,7 +235,7 @@ func validateLogConfigFiled(config *LogConfig) error {
 		return nil
 	}
 	if !path.IsAbs(config.LogFileName) {
-		return fmt.Errorf("config log path is not absolutely path")
+		return fmt.Errorf("config log path is not absolute path")
 	}
 	err := checkAndCreateLogFile(config.LogFileName)
 	if err != nil {
