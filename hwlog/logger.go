@@ -46,7 +46,7 @@ type LogConfig struct {
 	LogLevel int
 	// log file mode, default value: 0640
 	LogMode os.FileMode
-	// backup log file mode, default value: 0440
+	// backup log file mode, default value: 0400
 	BackupLogMode os.FileMode
 	// size of a single log file (MB), default value: 20MB
 	FileMaxSize int
