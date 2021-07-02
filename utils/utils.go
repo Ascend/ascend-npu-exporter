@@ -21,8 +21,8 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/crypto/ssh/terminal"
+	"huawei.com/npu-exporter/hwlog"
 	"io/ioutil"
-	"k8s.io/klog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,10 +60,10 @@ func ReadPassWd() string {
 	fmt.Print("Enter Private Key Password: ")
 	bytePassword, err := terminal.ReadPassword(0)
 	if err != nil {
-		klog.Fatal("program error")
+		hwlog.Fatal("program error")
 	}
 	if len(bytePassword) > maxLen {
-		klog.Fatal("input too long")
+		hwlog.Fatal("input too long")
 	}
 	password := string(bytePassword)
 
@@ -88,7 +88,7 @@ func ParsePrivateKeyWithPassword(keyBytes []byte) ([]byte, error) {
 			return nil, errors.New("cannot decode encrypted private keys")
 		}
 	} else {
-		klog.Warning("detect that you provided private key is not encrypted")
+		hwlog.Warn("detect that you provided private key is not encrypted")
 	}
 	return pem.EncodeToMemory(&pem.Block{
 		Type:    block.Type,
@@ -105,18 +105,18 @@ func CheckCRL(crlFile string) []byte {
 	}
 	crl, err := filepath.Abs(crlFile)
 	if err != nil {
-		klog.Fatalf("the crlFile is invalid")
+		hwlog.Fatalf("the crlFile is invalid")
 	}
 	if !IsExists(crl) {
 		return nil
 	}
 	crlBytes, err := ioutil.ReadFile(crl)
 	if err != nil {
-		klog.Fatal("read crlFile failed")
+		hwlog.Fatal("read crlFile failed")
 	}
 	_, err = x509.ParseCRL(crlBytes)
 	if err != nil {
-		klog.Fatal("parse crlFile failed")
+		hwlog.Fatal("parse crlFile failed")
 	}
 	return crlBytes
 }
@@ -127,7 +127,7 @@ func MakeSureDir(path string) {
 	if !IsExists(dir) {
 		err := os.Mkdir(dir, 0700)
 		if err != nil {
-			klog.Fatal("create config directory failed")
+			hwlog.Fatal("create config directory failed")
 		}
 	}
 }

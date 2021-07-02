@@ -32,13 +32,12 @@ import (
 	"huawei.com/kmc/pkg/adaptor/inbound/api"
 	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc"
 	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc/vo"
-	"huawei.com/kmc/pkg/adaptor/outbound/log"
 	"huawei.com/kmc/pkg/application/gateway"
 	"huawei.com/kmc/pkg/application/gateway/loglevel"
 	"huawei.com/npu-exporter/collector"
+	"huawei.com/npu-exporter/hwlog"
 	"huawei.com/npu-exporter/utils"
 	"io/ioutil"
-	"k8s.io/klog"
 	"math"
 	"net"
 	"net/http"
@@ -89,9 +88,11 @@ const (
 	caStore            = "/etc/npu-exporter/.config/config3"
 	crlStore           = "/etc/npu-exporter/.config/config4"
 	defaultConcurrency = 5
+	defaultLogFileName = "/var/log/npu-exporter/npu-exporter.log"
 )
 
 var revokedCertificates []pkix.RevokedCertificate
+var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFileName}
 
 type limitHandler struct {
 	concurrency chan struct{}
@@ -114,7 +115,7 @@ func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func newLimitHandler(maxConcur int, handler http.Handler) http.Handler {
 	if maxConcur < 1 || maxConcur > math.MaxInt16 {
-		klog.Fatal("maxConcurrency parameter error")
+		hwlog.Fatal("maxConcurrency parameter error")
 	}
 	h := &limitHandler{
 		concurrency: make(chan struct{}, maxConcur),
@@ -128,9 +129,12 @@ func newLimitHandler(maxConcur int, handler http.Handler) http.Handler {
 
 func main() {
 	flag.Parse()
+	// init hwlog
+	initHwLogger()
+
 	validate()
 	listenAddress := ip + ":" + strconv.Itoa(port)
-	klog.Infof("npu exporter starting and the version is %s", collector.BuildVersion)
+	hwlog.Infof("npu exporter starting and the version is %s", collector.BuildVersion)
 	stop := make(chan os.Signal)
 	signal.Notify(stop, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGKILL)
 	reg := regPrometheus(stop)
@@ -152,26 +156,26 @@ func main() {
 			pool := x509.NewCertPool()
 			ok := pool.AppendCertsFromPEM(caBytes)
 			if !ok {
-				klog.Fatalf("append the CA file failed")
+				hwlog.Fatalf("append the CA file failed")
 			}
 			tlsConfig.ClientCAs = pool
 			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-			klog.Info("enable Two-way SSL mode")
+			hwlog.Info("enable Two-way SSL mode")
 		} else {
 			// One-way SSL
 			tlsConfig.ClientAuth = tls.NoClientCert
-			klog.Info("enable One-way SSL mode")
+			hwlog.Info("enable One-way SSL mode")
 		}
 		s.TLSConfig = tlsConfig
 		s.Handler = newLimitHandler(concurrency, interceptor(http.DefaultServeMux))
-		klog.Info("start https server now...")
+		hwlog.Info("start https server now...")
 		if err := s.ListenAndServeTLS("", ""); err != nil {
-			klog.Fatal("Https server error and stopped")
+			hwlog.Fatal("Https server error and stopped")
 		}
 	}
-	klog.Warning("enable unsafe http server")
+	hwlog.Warn("enable unsafe http server")
 	if err := s.ListenAndServe(); err != nil {
-		klog.Fatal("Http server error and stopped")
+		hwlog.Fatal("Http server error and stopped")
 	}
 }
 
@@ -199,7 +203,7 @@ func validate() {
 	importCertFiles(certFile, keyFile, caFile, crlFile)
 	baseParamValid()
 	// key file exist and need init kmc
-	klog.Info("start load imported certificate files")
+	hwlog.Info("start load imported certificate files")
 	tlsc := handleCert()
 	certificate = &tlsc
 	if certificate == nil {
@@ -207,7 +211,7 @@ func validate() {
 	}
 	cc, err := x509.ParseCertificate(certificate.Certificate[0])
 	if err != nil {
-		klog.Fatal("parse certificate failed")
+		hwlog.Fatal("parse certificate failed")
 	}
 	go periodCheck(cc)
 	loadCRL()
@@ -216,16 +220,16 @@ func validate() {
 
 func baseParamValid() {
 	if port < portLeft || port > portRight {
-		klog.Fatalf("the port is invalid")
+		hwlog.Fatalf("the port is invalid")
 	}
 	parsedIP := net.ParseIP(ip)
 	if parsedIP == nil {
-		klog.Fatalf("the listen ip is invalid")
+		hwlog.Fatalf("the listen ip is invalid")
 	}
 	ip = parsedIP.String()
-	klog.Infof("listen on: %s", ip)
+	hwlog.Infof("listen on: %s", ip)
 	if updateTime > oneMinute || updateTime < 1 {
-		klog.Fatalf("the updateTime is invalid")
+		hwlog.Fatalf("the updateTime is invalid")
 	}
 	if encryptAlgorithm != aes128gcm && encryptAlgorithm != aes256gcm {
 		encryptAlgorithm = aes256gcm
@@ -246,35 +250,35 @@ func checkCaCert(caFile string) []byte {
 	}
 	ca, err := filepath.Abs(caFile)
 	if err != nil {
-		klog.Fatalf("the caFile is invalid")
+		hwlog.Fatalf("the caFile is invalid")
 	}
 	if !utils.IsExists(caFile) {
 		return nil
 	}
 	caBytes, err = ioutil.ReadFile(ca)
 	if err != nil {
-		klog.Fatalf("failed to load caFile")
+		hwlog.Fatalf("failed to load caFile")
 	}
 	caCrt, err := loadCertsFromPEM(caBytes)
 	if err != nil {
-		klog.Fatal("convert ca cert failed")
+		hwlog.Fatal("convert ca cert failed")
 	}
 	err = caCrt.CheckSignature(caCrt.SignatureAlgorithm, caCrt.RawTBSCertificate, caCrt.Signature)
 	if err != nil {
-		klog.Fatal("check ca certificate signature failed")
+		hwlog.Fatal("check ca certificate signature failed")
 	}
-	klog.Infof("certificate signature check pass")
+	hwlog.Infof("certificate signature check pass")
 	return caBytes
 }
 
 func handleCert() tls.Certificate {
 	certBytes, err := ioutil.ReadFile(certStore)
 	if err != nil {
-		klog.Fatal("there is no certFile provided")
+		hwlog.Fatal("there is no certFile provided")
 	}
 	keyBytes, err := ioutil.ReadFile(keyStore)
 	if err != nil {
-		klog.Fatal("there is no keyFile provided")
+		hwlog.Fatal("there is no keyFile provided")
 	}
 	keyBytes = handlePrivateKey(keyBytes)
 	// preload cert and key files
@@ -284,22 +288,21 @@ func handleCert() tls.Certificate {
 func handlePrivateKey(keyBytes []byte) []byte {
 	suffix := []byte("npu-exporter-encoded")
 	if !bytes.HasSuffix(keyBytes, suffix) {
-		klog.Fatal("npu-exporter config file invalid")
+		hwlog.Fatal("npu-exporter config file invalid")
 	}
-	klog.Info("got Encrypted key file and start to decrypt")
+	hwlog.Info("got Encrypted key file and start to decrypt")
 	keyBytes = bytes.TrimSuffix(keyBytes, suffix)
 	var err error
 	keyBytes, err = decrypt(0, keyBytes)
 	if err != nil {
-		klog.Info("decrypt failed")
+		hwlog.Info("decrypt failed")
 	}
-	klog.Info("decrypt success")
+	hwlog.Info("decrypt success")
 	bootstrap.Shutdown()
 	return keyBytes
 }
 
 func init() {
-	klog.InitFlags(nil)
 	flag.IntVar(&port, "port", portConst,
 		"the server port of the http service,range[1025-40000]")
 	flag.StringVar(&ip, "ip", "",
@@ -323,6 +326,18 @@ func init() {
 		"If true,query the version of the program")
 	flag.IntVar(&concurrency, "concurrency", defaultConcurrency,
 		"the max concurrency of the http server")
+
+	// hwlog configuration
+	flag.IntVar(&hwLogConfig.FileMaxSize, "fileMaxSize", hwLogConfig.FileMaxSize, "size of a single log file (MB)")
+	flag.IntVar(&hwLogConfig.LogLevel, "logLevel", hwLogConfig.LogLevel,
+		"log level, -1-debug, 0-info, 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal")
+	flag.IntVar(&hwLogConfig.MaxAge, "maxAge", hwLogConfig.MaxAge,
+		"maximum number of days for backup log files")
+	flag.BoolVar(&hwLogConfig.IsCompress, "isCompress", hwLogConfig.IsCompress,
+		"whether backup files need to be compressed")
+	flag.StringVar(&hwLogConfig.LogFileName, "logFileName", hwLogConfig.LogFileName, "log file path")
+	flag.BoolVar(&hwLogConfig.OnlyToStdout, "onlyToStdout", hwLogConfig.OnlyToStdout, "only write to std out")
+	flag.IntVar(&hwLogConfig.MaxBackups, "maxBackups", hwLogConfig.MaxBackups, "maximum number of backup log files")
 }
 
 func interceptor(h http.Handler) http.Handler {
@@ -339,7 +354,7 @@ func checkRevokedCert(r *http.Request) bool {
 	for _, revokeCert := range revokedCertificates {
 		for _, cert := range r.TLS.PeerCertificates {
 			if cert != nil && cert.SerialNumber.Cmp(revokeCert.SerialNumber) == 0 {
-				klog.Warningf("revoked certificate SN: %s", cert.SerialNumber)
+				hwlog.Warnf("revoked certificate SN: %s", cert.SerialNumber)
 				return true
 			}
 		}
@@ -357,7 +372,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			</body>
 			</html>`))
 	if err != nil {
-		klog.Error("Write to response error")
+		hwlog.Error("Write to response error")
 	}
 }
 
@@ -366,7 +381,7 @@ var bootstrap *kmc.ManualBootstrap
 
 func kmcInit() {
 	defaultLogLevel := loglevel.Info
-	var defaultLogger gateway.CryptoLogger = log.NewDefaultLogger()
+	var defaultLogger gateway.CryptoLogger = &hwlog.KmcLoggerApdaptor{}
 	defaultInitConfig := vo.NewKmcInitConfigVO()
 	defaultInitConfig.PrimaryKeyStoreFile = "/etc/npu-exporter/kmc_primary_store/master.ks"
 	defaultInitConfig.StandbyKeyStoreFile = "/etc/npu-exporter/.config/backup.ks"
@@ -375,7 +390,7 @@ func kmcInit() {
 	var err error
 	cryptoAPI, err = bootstrap.Start()
 	if err != nil {
-		klog.Fatal("initial kmc failed,please make sure the LD_LIBRARY_PATH include the kmc-ext.so ")
+		hwlog.Fatal("initial kmc failed,please make sure the LD_LIBRARY_PATH include the kmc-ext.so ")
 	}
 }
 
@@ -393,7 +408,7 @@ func checkSignatureAlgorithm(cert *x509.Certificate) error {
 		strings.Contains(signAl, "SHA1") {
 		return errors.New("the signature algorithm is unsafe,please use safe algorithm ")
 	}
-	klog.Info("signature algorithm validation passed")
+	hwlog.Info("signature algorithm validation passed")
 	return nil
 }
 
@@ -463,7 +478,7 @@ func periodCheck(cert *x509.Certificate) {
 			}
 			now := time.Now()
 			if now.After(cert.NotAfter) || now.Before(cert.NotBefore) {
-				klog.Warning("the certificate is already overdue")
+				hwlog.Warn("the certificate is already overdue")
 				continue
 			}
 			gapHours := cert.NotAfter.Sub(now).Hours()
@@ -472,7 +487,7 @@ func periodCheck(cert *x509.Certificate) {
 				overdueDays = math.MaxInt64
 			}
 			if overdueDays < overdueTime {
-				klog.Warningf("the certificate will overdue after %d days later", int64(overdueDays))
+				hwlog.Warnf("the certificate will overdue after %d days later", int64(overdueDays))
 			}
 		}
 	}
@@ -485,21 +500,21 @@ func loadCRL() {
 	}
 	crlList, err := x509.ParseCRL(crlBytes)
 	if err != nil {
-		klog.Fatal("parse crlFile failed")
+		hwlog.Fatal("parse crlFile failed")
 	}
 	if crlList != nil {
 		revokedCertificates = crlList.TBSCertList.RevokedCertificates
-		klog.Infof("load CRL success")
+		hwlog.Infof("load CRL success")
 	}
 }
 
 func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 	if certFile == "" && keyFile == "" && caFile == "" && crlFile == "" {
-		klog.Info("no new certificate files need to be imported")
+		hwlog.Info("no new certificate files need to be imported")
 		return
 	}
 	if certFile == "" || keyFile == "" {
-		klog.Fatal("need input certFile and keyFile together")
+		hwlog.Fatal("need input certFile and keyFile together")
 	}
 	keyBytes, encodeKey := getPrivateBytes(keyFile)
 	// wait certificate verify passed and then write key to file together
@@ -511,18 +526,18 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 	utils.MakeSureDir(keyStore)
 	err := ioutil.WriteFile(keyStore, encodeKey, fileMode)
 	if err != nil {
-		klog.Fatalf("write encrypted key to config failed:%v ", err)
+		hwlog.Fatalf("write encrypted key to config failed:%v ", err)
 	}
 	err = ioutil.WriteFile(certStore, certBytes, fileMode)
 	if err != nil {
-		klog.Fatal("write certBytes to config failed ")
+		hwlog.Fatal("write certBytes to config failed ")
 	}
 	// start to import the ca certificate file
 	caBytes = checkCaCert(caFile)
 	if len(caBytes) != 0 {
 		err = ioutil.WriteFile(caStore, caBytes, fileMode)
 		if err != nil {
-			klog.Fatal("write caBytes to config failed ")
+			hwlog.Fatal("write caBytes to config failed ")
 		}
 	}
 	// start to import the crl file
@@ -530,27 +545,27 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 	if len(crlBytes) != 0 {
 		err = ioutil.WriteFile(crlStore, crlBytes, fileMode)
 		if err != nil {
-			klog.Fatal("write crlBytes to config failed ")
+			hwlog.Fatal("write crlBytes to config failed ")
 		}
 	}
-	klog.Fatal("import certificate successfully")
+	hwlog.Fatal("import certificate successfully")
 }
 
 func getPrivateBytes(keyFile string) ([]byte, []byte) {
 	keyBytes, err := utils.ReadBytes(keyFile)
 	if err != nil {
-		klog.Fatal("read keyFile failed")
+		hwlog.Fatal("read keyFile failed")
 	}
 	suffix := []byte("npu-exporter-encoded")
 	keyBytes, err = utils.ParsePrivateKeyWithPassword(keyBytes)
 	if err != nil {
-		klog.Fatal(err)
+		hwlog.Fatal(err)
 	}
 	encodeKey, err := encrypt(0, keyBytes)
 	if err != nil {
-		klog.Warning("encrypt failed")
+		hwlog.Warn("encrypt failed")
 	}
-	klog.Info("encrypt your private key with kmc successfully")
+	hwlog.Info("encrypt your private key with kmc successfully")
 	encodeKey = append(encodeKey, suffix...)
 	return keyBytes, encodeKey
 }
@@ -558,7 +573,7 @@ func getPrivateBytes(keyFile string) ([]byte, []byte) {
 func checkX509Pair(certFile string, keyBytes []byte) (cert []byte) {
 	certBytes, err := utils.ReadBytes(certFile)
 	if err != nil {
-		klog.Fatal("read certFile failed")
+		hwlog.Fatal("read certFile failed")
 	}
 	validateX509Pair(certBytes, keyBytes)
 	return certBytes
@@ -567,27 +582,35 @@ func checkX509Pair(certFile string, keyBytes []byte) (cert []byte) {
 func validateX509Pair(certBytes []byte, keyBytes []byte) tls.Certificate {
 	c, err := tls.X509KeyPair(certBytes, keyBytes)
 	if err != nil {
-		klog.Fatal("failed to load X509KeyPair")
+		hwlog.Fatal("failed to load X509KeyPair")
 	}
 	cc, err := x509.ParseCertificate(c.Certificate[0])
 	if err != nil {
-		klog.Fatalf("parse certificate failed")
+		hwlog.Fatalf("parse certificate failed")
 	}
 	err = checkSignatureAlgorithm(cc)
 	if err != nil {
-		klog.Fatalf(err.Error())
+		hwlog.Fatalf(err.Error())
 	}
 	err = checkValidDate(cc)
 	if err != nil {
-		klog.Fatalf(err.Error())
+		hwlog.Fatalf(err.Error())
 	}
 	keyLen, keyType, err := checkPrivateKeyLength(cc, &c)
 	if err != nil {
-		klog.Fatalf(err.Error())
+		hwlog.Fatalf(err.Error())
 	}
 	// ED25519 private key length is stable and no need to verify
 	if "RSA" == keyType && keyLen < rsaLength || "ECC" == keyType && keyLen < eccLength {
-		klog.Warning("the private key length is not enough")
+		hwlog.Warn("the private key length is not enough")
 	}
 	return c
+}
+
+func initHwLogger() {
+	stopCh := make(chan struct{})
+	if err := hwlog.Init(hwLogConfig, stopCh); err != nil {
+		fmt.Printf("hwlog init failed, error is %v", err)
+		os.Exit(-1)
+	}
 }

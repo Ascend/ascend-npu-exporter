@@ -1,6 +1,6 @@
 FROM ubuntu:18.04 
 
-RUN useradd -d /home/HwHiAiUser -u 1000 -m -s /bin/sbin/nologin HwHiAiUser
+RUN useradd -d /home/HwHiAiUser -u 1000 -m -s /usr/sbin/nologin HwHiAiUser
 
 COPY ./npu-exporter  /usr/local/bin/
 COPY ./lib  /usr/local/lib
@@ -10,5 +10,5 @@ RUN chown root:root /usr/local/bin/npu-exporter  &&\
     echo 'source /etc/profile' >> ~/.bashrc
 ENV LD_LIBRARY_PATH=/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/add-ons:/usr/local/Ascend/driver/lib64:/usr/local/dcmi:/usr/local/lib
 
-CMD /usr/local/bin/npu-exporter -v=3
+CMD /usr/local/bin/npu-exporter
 
