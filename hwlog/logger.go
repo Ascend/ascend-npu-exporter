@@ -31,7 +31,7 @@ const (
 	defaultMaxBackups              = 30   // the default number of backup log
 	logFileMode        os.FileMode = 0640 // log file mode
 	backupLogFileMode  os.FileMode = 0400 // backup log file mode
-	logDirMode                     = 0750
+	logDirMode                     = 0750 // log dir mode
 )
 
 var logger *zap.Logger
@@ -136,22 +136,45 @@ func getLogWriter(config LogConfig) zapcore.WriteSyncer {
 	return zapcore.AddSync(lumberjackLogger)
 }
 
-func checkAndCreateLogFile(filePath string) error {
-	if !isFile(filePath) {
-		return fmt.Errorf("config path is not file")
-	}
-	fileDir := path.Dir(filePath)
-	fileName := path.Base(filePath)
-	if !isFileExist(filePath) {
+func checkDir(fileDir string) error {
+	if !isExist(fileDir) {
 		err := os.MkdirAll(fileDir, logDirMode)
 		if err != nil {
 			return fmt.Errorf("create dirs failed")
 		}
+		return nil
+	}
+	err := os.Chmod(fileDir, logDirMode)
+	if err != nil {
+		return fmt.Errorf("change log dir mode failed")
+	}
+	return nil
+}
+
+func createFile(filePath string) error {
+	fileName := path.Base(filePath)
+	if !isExist(filePath) {
 		f, err := os.Create(filePath)
 		defer f.Close()
 		if err != nil {
 			return fmt.Errorf("create file(%s) failed", fileName)
 		}
+	}
+	return nil
+}
+
+func checkAndCreateLogFile(filePath string) error {
+	if !isFile(filePath) {
+		return fmt.Errorf("config path is not file")
+	}
+	fileDir := path.Dir(filePath)
+	err := checkDir(fileDir)
+	if err != nil {
+		return err
+	}
+	err = createFile(filePath)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -168,7 +191,7 @@ func isFile(path string) bool {
 	return !isDir(path)
 }
 
-func isFileExist(filePath string) bool {
+func isExist(filePath string) bool {
 	_, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsExist(err) {
