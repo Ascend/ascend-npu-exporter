@@ -16,7 +16,6 @@
 package utils
 
 import (
-	"bytes"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -72,23 +71,24 @@ func ReadPassWd() string {
 }
 
 // ParsePrivateKeyWithPassword  decode the private key
-func ParsePrivateKeyWithPassword(keyBytes []byte, password []byte) ([]byte, error) {
-	password = bytes.TrimSuffix(password, []byte("\n"))
-	password = bytes.TrimSuffix(password, []byte("\r"))
+func ParsePrivateKeyWithPassword(keyBytes []byte) ([]byte, error) {
 	block, _ := pem.Decode(keyBytes)
 	if block == nil {
 		return nil, errors.New("decode key file failed")
 	}
 	buf := block.Bytes
 	if x509.IsEncryptedPEMBlock(block) {
+		pd := ReadPassWd()
 		var err error
-		buf, err = x509.DecryptPEMBlock(block, password)
+		buf, err = x509.DecryptPEMBlock(block, []byte(pd))
 		if err != nil {
 			if err == x509.IncorrectPasswordError {
 				return nil, err
 			}
 			return nil, errors.New("cannot decode encrypted private keys")
 		}
+	} else {
+		klog.Warning("detect that you provided private key is not encrypted")
 	}
 	return pem.EncodeToMemory(&pem.Block{
 		Type:    block.Type,
