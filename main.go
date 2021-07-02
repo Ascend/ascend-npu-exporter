@@ -537,13 +537,12 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 }
 
 func getPrivateBytes(keyFile string) ([]byte, []byte) {
-	pd := utils.ReadPassWd()
 	keyBytes, err := utils.ReadBytes(keyFile)
 	if err != nil {
 		klog.Fatal("read keyFile failed")
 	}
 	suffix := []byte("npu-exporter-encoded")
-	keyBytes, err = utils.ParsePrivateKeyWithPassword(keyBytes, []byte(pd))
+	keyBytes, err = utils.ParsePrivateKeyWithPassword(keyBytes)
 	if err != nil {
 		klog.Fatal(err)
 	}
@@ -551,6 +550,7 @@ func getPrivateBytes(keyFile string) ([]byte, []byte) {
 	if err != nil {
 		klog.Warning("encrypt failed")
 	}
+	klog.Info("encrypt your private key with kmc successfully")
 	encodeKey = append(encodeKey, suffix...)
 	return keyBytes, encodeKey
 }
