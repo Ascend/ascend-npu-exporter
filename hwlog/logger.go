@@ -23,7 +23,6 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"os"
 	"path"
-	"path/filepath"
 )
 
 const (
@@ -32,6 +31,7 @@ const (
 	defaultMaxBackups              = 30   // the default number of backup log
 	logFileMode        os.FileMode = 0640 // log file mode
 	backupLogFileMode  os.FileMode = 0400 // backup log file mode
+	logDirMode                     = 0750 // log dir mode
 )
 
 var logger *zap.Logger
@@ -46,7 +46,7 @@ type LogConfig struct {
 	LogLevel int
 	// log file mode, default value: 0640
 	LogMode os.FileMode
-	// backup log file mode, default value: 0440
+	// backup log file mode, default value: 0400
 	BackupLogMode os.FileMode
 	// size of a single log file (MB), default value: 20MB
 	FileMaxSize int
@@ -70,8 +70,7 @@ func Init(config *LogConfig, stopCh <-chan struct{}) error {
 	if logger != nil {
 		return fmt.Errorf("the logger has been initialized and does not need to be initialized again")
 	}
-	err := validateLogConfigFiled(config)
-	if err != nil {
+	if err := validateLogConfigFiled(config); err != nil {
 		return err
 	}
 	logger = create(*config)
@@ -83,8 +82,7 @@ func Init(config *LogConfig, stopCh <-chan struct{}) error {
 	if config.OnlyToStdout {
 		return nil
 	}
-	err = os.Chmod(config.LogFileName, config.LogMode)
-	if err != nil {
+	if err := os.Chmod(config.LogFileName, config.LogMode); err != nil {
 		logger.Error("config log path error")
 		return fmt.Errorf("set log file mode failed")
 	}
@@ -136,23 +134,65 @@ func getLogWriter(config LogConfig) zapcore.WriteSyncer {
 	return zapcore.AddSync(lumberjackLogger)
 }
 
-func validate(filePath string) error {
-	isAbs := path.IsAbs(filePath)
-	if !isAbs {
-		return fmt.Errorf("file path is not absolute path")
+func checkDir(fileDir string) error {
+	if !isExist(fileDir) {
+		if err := os.MkdirAll(fileDir, logDirMode); err != nil {
+			return fmt.Errorf("create dirs failed")
+		}
+		return nil
 	}
-	absPath, err := filepath.Abs(filePath)
-	if err != nil {
-		return fmt.Errorf("convert to absolute path failed")
-	}
-	fileRealPath, err := filepath.EvalSymlinks(absPath)
-	if err != nil {
-		return fmt.Errorf("eval Symlinks path failed")
-	}
-	if absPath != fileRealPath {
-		return fmt.Errorf("can not use Symlinks path")
+	if err := os.Chmod(fileDir, logDirMode); err != nil {
+		return fmt.Errorf("change log dir mode failed")
 	}
 	return nil
+}
+
+func createFile(filePath string) error {
+	fileName := path.Base(filePath)
+	if !isExist(filePath) {
+		f, err := os.Create(filePath)
+		defer f.Close()
+		if err != nil {
+			return fmt.Errorf("create file(%s) failed", fileName)
+		}
+	}
+	return nil
+}
+
+func checkAndCreateLogFile(filePath string) error {
+	if !isFile(filePath) {
+		return fmt.Errorf("config path is not file")
+	}
+	fileDir := path.Dir(filePath)
+	if err := checkDir(fileDir); err != nil {
+		return err
+	}
+	if err := createFile(filePath); err != nil {
+		return err
+	}
+	return nil
+}
+
+func isDir(path string) bool {
+	s, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return s.IsDir()
+}
+
+func isFile(path string) bool {
+	return !isDir(path)
+}
+
+func isExist(filePath string) bool {
+	if _, err := os.Stat(filePath); err != nil {
+		if os.IsExist(err) {
+			return true
+		}
+		return false
+	}
+	return true
 }
 
 func validateLogConfigFileMaxSize(config *LogConfig) error {
@@ -210,14 +250,16 @@ func validateLogConfigFiled(config *LogConfig) error {
 	if config.OnlyToStdout {
 		return nil
 	}
-	err := validate(config.LogFileName)
-	if err != nil {
+	if !path.IsAbs(config.LogFileName) {
+		return fmt.Errorf("config log path is not absolute path")
+	}
+
+	if err := checkAndCreateLogFile(config.LogFileName); err != nil {
 		return err
 	}
 	validateFuncList := getValidateFuncList()
 	for _, vaFunc := range validateFuncList {
-		err = vaFunc(config)
-		if err != nil {
+		if err := vaFunc(config); err != nil {
 			return err
 		}
 	}
@@ -241,8 +283,7 @@ func workerWatcher(config LogConfig, stopCh <-chan struct{}) {
 	}
 	defer watcher.Close()
 	logPath := path.Dir(config.LogFileName)
-	err = watcher.Add(logPath)
-	if err != nil {
+	if err = watcher.Add(logPath); err != nil {
 		logger.Error("watcher add log path failed")
 		return
 	}
@@ -284,8 +325,7 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 		logMode = logFileMode
 	}
 	changedLogFilePath := path.Join(logPath, changedFileName)
-	errChmod := os.Chmod(changedLogFilePath, logMode)
-	if errChmod != nil {
+	if errChmod := os.Chmod(changedLogFilePath, logMode); errChmod != nil {
 		logger.Error("set file mode failed", zap.String("filename", changedFileName))
 	}
 }
