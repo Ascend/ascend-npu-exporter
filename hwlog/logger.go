@@ -266,7 +266,7 @@ func validateLogConfigFiled(config *LogConfig) error {
 	}
 	validateFuncList := getValidateFuncList()
 	for _, vaFunc := range validateFuncList {
-		err := vaFunc(config)
+		err = vaFunc(config)
 		if err != nil {
 			return err
 		}
