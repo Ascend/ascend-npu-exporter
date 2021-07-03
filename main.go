@@ -330,13 +330,13 @@ func init() {
 	// hwlog configuration
 	flag.IntVar(&hwLogConfig.FileMaxSize, "fileMaxSize", hwLogConfig.FileMaxSize, "size of a single log file (MB)")
 	flag.IntVar(&hwLogConfig.LogLevel, "logLevel", hwLogConfig.LogLevel,
-		"log level, -1-debug, 0-info, 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal")
+		"log level, -1-debug, 0-info(default), 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal")
 	flag.IntVar(&hwLogConfig.MaxAge, "maxAge", hwLogConfig.MaxAge,
 		"maximum number of days for backup log files")
 	flag.BoolVar(&hwLogConfig.IsCompress, "isCompress", hwLogConfig.IsCompress,
-		"whether backup files need to be compressed")
+		"whether backup files need to be compressed (default false)")
 	flag.StringVar(&hwLogConfig.LogFileName, "logFileName", hwLogConfig.LogFileName, "log file path")
-	flag.BoolVar(&hwLogConfig.OnlyToStdout, "onlyToStdout", hwLogConfig.OnlyToStdout, "only write to std out")
+	flag.BoolVar(&hwLogConfig.OnlyToStdout, "onlyToStdout", hwLogConfig.OnlyToStdout, "only write to std out (default false)")
 	flag.IntVar(&hwLogConfig.MaxBackups, "maxBackups", hwLogConfig.MaxBackups, "maximum number of backup log files")
 }
 

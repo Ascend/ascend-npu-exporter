@@ -59,7 +59,8 @@ spec:
         # NOTE: enable HTTPS needs to use
         # ./npu-exporter -certFile=../cert/rsa_aes.crt -keyFile=../cert/rsa_aes_private.key to import certificate
         # pair firstly
-        args: [ "umask 027;npu-exporter -port=8082 -ip=0.0.0.0  -updateTime=5" ]
+        args: [ "umask 027;npu-exporter -port=8082 -ip=0.0.0.0  -updateTime=5
+                 -logFileName=/var/log/npu-exporter/npu-exporter.log -logLevel=0" ]
         securityContext:
           privileged: true
           readOnlyRootFilesystem: true
