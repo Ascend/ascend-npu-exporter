@@ -336,7 +336,8 @@ func init() {
 	flag.BoolVar(&hwLogConfig.IsCompress, "isCompress", hwLogConfig.IsCompress,
 		"whether backup files need to be compressed (default false)")
 	flag.StringVar(&hwLogConfig.LogFileName, "logFileName", hwLogConfig.LogFileName, "log file path")
-	flag.BoolVar(&hwLogConfig.OnlyToStdout, "onlyToStdout", hwLogConfig.OnlyToStdout, "only write to std out (default false)")
+	flag.BoolVar(&hwLogConfig.OnlyToStdout, "onlyToStdout", hwLogConfig.OnlyToStdout,
+		"only write to std out (default false)")
 	flag.IntVar(&hwLogConfig.MaxBackups, "maxBackups", hwLogConfig.MaxBackups, "maximum number of backup log files")
 }
 
