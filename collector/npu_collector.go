@@ -20,7 +20,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 	"huawei.com/npu-exporter/dsmi"
-	"k8s.io/klog"
+	"huawei.com/npu-exporter/hwlog"
 	"math"
 	"os"
 	"reflect"
@@ -65,7 +65,7 @@ var getNPUInfo = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 	var npuList []HuaWeiNPUCard
 	cardNum, cards, err := dmgr.GetCardList()
 	if cardNum == 0 || err != nil {
-		klog.Warning("Downgrade to user DSMI only,maybe need check ENV of LD_LIBRARY_PATH")
+		hwlog.Warn("Downgrade to user DSMI only,maybe need check ENV of LD_LIBRARY_PATH")
 		return assembleNPUInfoV1(dmgr)
 	}
 	var logicID int32 = 0
@@ -138,15 +138,15 @@ var assembleNPUInfoV1 = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 var start = func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface) {
 	defer func() {
 		if err := recover(); err != nil {
-			klog.Errorf("go routine failed with %v", err)
+			hwlog.Errorf("go routine failed with %v", err)
 		}
 	}()
 	if n == nil || stop == nil {
-		klog.Error("Invalid param in function start")
+		hwlog.Error("Invalid param in function start")
 		return
 	}
 	ticker := time.NewTicker(n.updateTime)
-	klog.Infof("Starting update cache every %d seconds", n.updateTime/time.Second)
+	hwlog.Infof("Starting update cache every %d seconds", n.updateTime/time.Second)
 	for {
 		select {
 		case _, ok := <-ticker.C:
@@ -155,14 +155,14 @@ var start = func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInte
 			}
 			npuInfo := getNPUInfo(dmgr)
 			n.cache.Set(key, npuInfo, n.cacheTime)
-			klog.Infof("update cache,key is %s", key)
+			hwlog.Infof("update cache,key is %s", key)
 		case _, ok := <-stop:
 			if !ok {
-				klog.Error("closed")
+				hwlog.Error("closed")
 				return
 			}
 			ticker.Stop()
-			klog.Warning("received the stop signal,STOPPED")
+			hwlog.Warn("received the stop signal,STOPPED")
 			dsmi.ShutDown()
 			os.Exit(0)
 		}
@@ -172,7 +172,7 @@ var start = func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInte
 // Describe implements prometheus.Collector
 func (n *npuCollector) Describe(ch chan<- *prometheus.Desc) {
 	if ch == nil {
-		klog.Error("Invalid param in function Describe")
+		hwlog.Error("Invalid param in function Describe")
 		return
 	}
 	ch <- versionInfoDesc
@@ -193,20 +193,20 @@ func (n *npuCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements prometheus.Collector
 func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 	if !validate(ch) {
-		klog.Error("Invalid param in function Collect")
+		hwlog.Error("Invalid param in function Collect")
 		return
 	}
 	obj, found := n.cache.Get(key)
 	if !found {
-		klog.Warning("no cache, start to get npulist and rebuild cache")
+		hwlog.Warn("no cache, start to get npulist and rebuild cache")
 		npuInfo := getNPUInfo(dsmi.GetDeviceManager())
 		n.cache.Set(key, npuInfo, n.cacheTime)
-		klog.Warning("rebuild cache successfully")
+		hwlog.Warn("rebuild cache successfully")
 		obj = npuInfo
 	}
 	npuList, ok := obj.([]HuaWeiNPUCard)
 	if !ok {
-		klog.Error("Error cache and convert failed")
+		hwlog.Error("Error cache and convert failed")
 		n.cache.Delete(key)
 	}
 	ch <- prometheus.MustNewConstMetric(versionInfoDesc, prometheus.GaugeValue, 1, []string{BuildVersion}...)
@@ -228,7 +228,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 
 func updateNPUOtherInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
 	if !validate(ch, npu, chip, chip.ChipIfo) {
-		klog.Error("Invalid param in function updateNPUOtherInfo")
+		hwlog.Error("Invalid param in function updateNPUOtherInfo")
 		return
 	}
 	ch <- prometheus.NewMetricWithTimestamp(
@@ -260,7 +260,7 @@ func validate(ch chan<- prometheus.Metric, objs ...interface{}) bool {
 
 func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
 	if !validate(ch, npu, chip, chip.HbmInfo, chip.Meminf) {
-		klog.Error("Invalid param in function updateNPUMemoryInfo")
+		hwlog.Error("Invalid param in function updateNPUMemoryInfo")
 		return
 	}
 	ch <- prometheus.NewMetricWithTimestamp(
@@ -287,7 +287,7 @@ func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 
 func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
 	if !validate(ch, npu, chip) {
-		klog.Error("Invalid param in function updateNpuCommonInfo")
+		hwlog.Error("Invalid param in function updateNpuCommonInfo")
 		return
 	}
 	ch <- prometheus.NewMetricWithTimestamp(
