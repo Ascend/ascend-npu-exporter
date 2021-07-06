@@ -60,7 +60,7 @@ spec:
         # ./npu-exporter -certFile=../cert/rsa_aes.crt -keyFile=../cert/rsa_aes_private.key to import certificate
         # pair firstly
         args: [ "umask 027;npu-exporter -port=8082 -ip=0.0.0.0  -updateTime=5
-                 -logFileName=/var/log/npu-exporter/npu-exporter.log -logLevel=0" ]
+                 -logFileName=/var/log/mindx-dl/npu-exporter/npu-exporter.log -logLevel=0" ]
         securityContext:
           privileged: true
           readOnlyRootFilesystem: true
@@ -72,7 +72,7 @@ spec:
             protocol: TCP
         volumeMounts:
           - name: log-npu-exporter
-            mountPath: /var/log/npu-exporter
+            mountPath: /var/log/mindx-dl/npu-exporter
           - name: localtime
             mountPath: /etc/localtime
             readOnly: true
@@ -87,7 +87,7 @@ spec:
       volumes:
         - name: log-npu-exporter
           hostPath:
-            path: /var/log/npu-exporter
+            path: /var/log/mindx-dl/npu-exporter
         - name: localtime
           hostPath:
             path: /etc/localtime
