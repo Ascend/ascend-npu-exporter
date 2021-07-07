@@ -16,24 +16,14 @@
 package main
 
 import (
-	"bytes"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"errors"
 	"flag"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"huawei.com/kmc/pkg/adaptor/inbound/api"
-	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc"
-	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc/vo"
-	"huawei.com/kmc/pkg/application/gateway"
-	"huawei.com/kmc/pkg/application/gateway/loglevel"
 	"huawei.com/npu-exporter/collector"
 	"huawei.com/npu-exporter/hwlog"
 	"huawei.com/npu-exporter/utils"
@@ -45,7 +35,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -76,17 +65,12 @@ const (
 	portLeft           = 1025
 	portRight          = 40000
 	oneMinute          = 60
-	aes128gcm          = 8
-	aes256gcm          = 9
-	rsaLength          = 2048
-	eccLength          = 256
-	fileMode           = 0400
-	overdueTime        = 100
-	dayHours           = 24
 	keyStore           = "/etc/npu-exporter/.config/config1"
 	certStore          = "/etc/npu-exporter/.config/config2"
 	caStore            = "/etc/npu-exporter/.config/config3"
 	crlStore           = "/etc/npu-exporter/.config/config4"
+	passFile           = "/etc/npu-exporter/.config/config5"
+	passFileBackUp     = "/etc/npu-exporter/.conf"
 	defaultConcurrency = 5
 	defaultLogFileName = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
 )
@@ -129,13 +113,15 @@ func newLimitHandler(maxConcur int, handler http.Handler) http.Handler {
 
 func main() {
 	flag.Parse()
+	stopCH := make(chan struct{})
+	defer close(stopCH)
 	// init hwlog
-	initHwLogger()
-
+	initHwLogger(stopCH)
 	validate()
 	listenAddress := ip + ":" + strconv.Itoa(port)
 	hwlog.Infof("npu exporter starting and the version is %s", collector.BuildVersion)
 	stop := make(chan os.Signal)
+	defer close(stop)
 	signal.Notify(stop, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGKILL)
 	reg := regPrometheus(stop)
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
@@ -154,8 +140,7 @@ func main() {
 		if len(caBytes) > 0 {
 			// Two-way SSL
 			pool := x509.NewCertPool()
-			ok := pool.AppendCertsFromPEM(caBytes)
-			if !ok {
+			if ok := pool.AppendCertsFromPEM(caBytes); !ok {
 				hwlog.Fatalf("append the CA file failed")
 			}
 			tlsConfig.ClientCAs = pool
@@ -198,14 +183,14 @@ func validate() {
 		baseParamValid()
 		return
 	}
-	kmcInit()
+	utils.KmcInit(encryptAlgorithm)
 	// start to import certificate and keys
 	importCertFiles(certFile, keyFile, caFile, crlFile)
 	baseParamValid()
 	// key file exist and need init kmc
 	hwlog.Info("start load imported certificate files")
-	tlsc := handleCert()
-	certificate = &tlsc
+	tlsCert := handleCert()
+	certificate = &tlsCert
 	if certificate == nil {
 		return
 	}
@@ -213,7 +198,7 @@ func validate() {
 	if err != nil {
 		hwlog.Fatal("parse certificate failed")
 	}
-	go periodCheck(cc)
+	go utils.PeriodCheck(cc)
 	loadCRL()
 	checkCaCert(caStore)
 }
@@ -231,8 +216,8 @@ func baseParamValid() {
 	if updateTime > oneMinute || updateTime < 1 {
 		hwlog.Fatalf("the updateTime is invalid")
 	}
-	if encryptAlgorithm != aes128gcm && encryptAlgorithm != aes256gcm {
-		encryptAlgorithm = aes256gcm
+	if encryptAlgorithm != utils.Aes128gcm && encryptAlgorithm != utils.Aes256gcm {
+		encryptAlgorithm = utils.Aes256gcm
 	}
 	if tlsSuites != 0 && tlsSuites != 1 {
 		tlsSuites = 0
@@ -259,12 +244,11 @@ func checkCaCert(caFile string) []byte {
 	if err != nil {
 		hwlog.Fatalf("failed to load caFile")
 	}
-	caCrt, err := loadCertsFromPEM(caBytes)
+	caCrt, err := utils.LoadCertsFromPEM(caBytes)
 	if err != nil {
 		hwlog.Fatal("convert ca cert failed")
 	}
-	err = caCrt.CheckSignature(caCrt.SignatureAlgorithm, caCrt.RawTBSCertificate, caCrt.Signature)
-	if err != nil {
+	if err = caCrt.CheckSignature(caCrt.SignatureAlgorithm, caCrt.RawTBSCertificate, caCrt.Signature); err != nil {
 		hwlog.Fatal("check ca certificate signature failed")
 	}
 	hwlog.Infof("certificate signature check pass")
@@ -276,30 +260,17 @@ func handleCert() tls.Certificate {
 	if err != nil {
 		hwlog.Fatal("there is no certFile provided")
 	}
-	keyBytes, err := ioutil.ReadFile(keyStore)
+	encodedPd := utils.ReadOrUpdatePd(passFile, passFileBackUp)
+	pd, err := utils.Decrypt(0, encodedPd)
 	if err != nil {
-		hwlog.Fatal("there is no keyFile provided")
+		hwlog.Info("decrypt passwd failed")
 	}
-	keyBytes = handlePrivateKey(keyBytes)
-	// preload cert and key files
-	return validateX509Pair(certBytes, keyBytes)
-}
-
-func handlePrivateKey(keyBytes []byte) []byte {
-	suffix := []byte("npu-exporter-encoded")
-	if !bytes.HasSuffix(keyBytes, suffix) {
-		hwlog.Fatal("npu-exporter config file invalid")
-	}
-	hwlog.Info("got Encrypted key file and start to decrypt")
-	keyBytes = bytes.TrimSuffix(keyBytes, suffix)
-	var err error
-	keyBytes, err = decrypt(0, keyBytes)
-	if err != nil {
-		hwlog.Info("decrypt failed")
-	}
+	hwlog.Info("decrypt passwd successfully")
+	keyBlock := utils.DecryptPrivateKeyWithPd(keyStore, string(pd))
 	hwlog.Info("decrypt success")
-	bootstrap.Shutdown()
-	return keyBytes
+	utils.Bootstrap.Shutdown()
+	// preload cert and key files
+	return utils.ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock))
 }
 
 func init() {
@@ -318,7 +289,7 @@ func init() {
 	flag.StringVar(&crlFile, "crlFile", "", "the offline CRL file path")
 	flag.BoolVar(&enableHTTP, "enableHTTP", false,
 		"If true, the program will not check certificate files and enable http server")
-	flag.IntVar(&encryptAlgorithm, "encryptAlgorithm", aes256gcm,
+	flag.IntVar(&encryptAlgorithm, "encryptAlgorithm", utils.Aes256gcm,
 		"use 8 for aes128gcm,9 for aes256gcm(default)")
 	flag.IntVar(&tlsSuites, "tlsSuites", 1,
 		"use 0 for TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 ,1 for TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256")
@@ -343,24 +314,12 @@ func init() {
 
 func interceptor(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if len(revokedCertificates) > 0 && checkRevokedCert(r) {
+		if len(revokedCertificates) > 0 && utils.CheckRevokedCert(r, revokedCertificates) {
 			return
 		}
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000")
 		h.ServeHTTP(w, r)
 	})
-}
-
-func checkRevokedCert(r *http.Request) bool {
-	for _, revokeCert := range revokedCertificates {
-		for _, cert := range r.TLS.PeerCertificates {
-			if cert != nil && cert.SerialNumber.Cmp(revokeCert.SerialNumber) == 0 {
-				hwlog.Warnf("revoked certificate SN: %s", cert.SerialNumber)
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
@@ -374,123 +333,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			</html>`))
 	if err != nil {
 		hwlog.Error("Write to response error")
-	}
-}
-
-var cryptoAPI api.CryptoApi
-var bootstrap *kmc.ManualBootstrap
-
-func kmcInit() {
-	defaultLogLevel := loglevel.Info
-	var defaultLogger gateway.CryptoLogger = &hwlog.KmcLoggerApdaptor{}
-	defaultInitConfig := vo.NewKmcInitConfigVO()
-	defaultInitConfig.PrimaryKeyStoreFile = "/etc/npu-exporter/kmc_primary_store/master.ks"
-	defaultInitConfig.StandbyKeyStoreFile = "/etc/npu-exporter/.config/backup.ks"
-	defaultInitConfig.SdpAlgId = encryptAlgorithm
-	bootstrap = kmc.NewManualBootstrap(0, defaultLogLevel, &defaultLogger, defaultInitConfig)
-	var err error
-	cryptoAPI, err = bootstrap.Start()
-	if err != nil {
-		hwlog.Fatal("initial kmc failed,please make sure the LD_LIBRARY_PATH include the kmc-ext.so ")
-	}
-}
-
-func encrypt(domainID int, data []byte) ([]byte, error) {
-	return cryptoAPI.EncryptByAppId(domainID, data)
-}
-
-func decrypt(domainID int, data []byte) ([]byte, error) {
-	return cryptoAPI.DecryptByAppId(domainID, data)
-}
-
-func checkSignatureAlgorithm(cert *x509.Certificate) error {
-	var signAl = cert.SignatureAlgorithm.String()
-	if strings.Contains(signAl, "MD2") || strings.Contains(signAl, "MD5") ||
-		strings.Contains(signAl, "SHA1") {
-		return errors.New("the signature algorithm is unsafe,please use safe algorithm ")
-	}
-	hwlog.Info("signature algorithm validation passed")
-	return nil
-}
-
-func checkValidDate(cert *x509.Certificate) error {
-	if time.Now().After(cert.NotAfter) || time.Now().Before(cert.NotBefore) {
-		return errors.New("the certificate overdue ")
-	}
-	return nil
-}
-
-func checkPrivateKeyLength(cert *x509.Certificate, certificate *tls.Certificate) (int, string, error) {
-	if certificate == nil {
-		return 0, "", errors.New("certificate is nil")
-	}
-	switch cert.PublicKey.(type) {
-	case *rsa.PublicKey:
-		priv, ok := certificate.PrivateKey.(*rsa.PrivateKey)
-		if !ok {
-			return 0, "RSA", errors.New("get rsa key length failed")
-		}
-		return priv.N.BitLen(), "RSA", nil
-	case *ecdsa.PublicKey:
-		priv, ok := certificate.PrivateKey.(*ecdsa.PrivateKey)
-		if !ok {
-			return 0, "ECC", errors.New("get ecdsa key length failed")
-		}
-		return priv.X.BitLen(), "ECC", nil
-	case ed25519.PublicKey:
-		priv, ok := certificate.PrivateKey.(ed25519.PrivateKey)
-		if !ok {
-			return 0, "ED25519", errors.New("get ed25519 key length failed")
-		}
-		return len(priv.Public().(ed25519.PublicKey)), "ED25519", nil
-	default:
-		return 0, "", errors.New("get key length failed")
-	}
-}
-
-func loadCertsFromPEM(pemCerts []byte) (*x509.Certificate, error) {
-	if len(pemCerts) <= 0 {
-		return nil, errors.New("wrong input")
-	}
-	var block *pem.Block
-	block, pemCerts = pem.Decode(pemCerts)
-	if block == nil {
-		return nil, errors.New("parse cert failed")
-	}
-	if block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
-		return nil, errors.New("invalid cert bytes")
-	}
-
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return nil, errors.New("parse cert failed")
-	}
-	return cert, nil
-}
-
-func periodCheck(cert *x509.Certificate) {
-	ticker := time.NewTicker(time.Hour)
-	defer ticker.Stop()
-	for {
-		select {
-		case _, ok := <-ticker.C:
-			if !ok {
-				return
-			}
-			now := time.Now()
-			if now.After(cert.NotAfter) || now.Before(cert.NotBefore) {
-				hwlog.Warn("the certificate is already overdue")
-				continue
-			}
-			gapHours := cert.NotAfter.Sub(now).Hours()
-			overdueDays := gapHours / dayHours
-			if overdueDays > math.MaxInt64 {
-				overdueDays = math.MaxInt64
-			}
-			if overdueDays < overdueTime {
-				hwlog.Warnf("the certificate will overdue after %d days later", int64(overdueDays))
-			}
-		}
 	}
 }
 
@@ -517,99 +359,39 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 	if certFile == "" || keyFile == "" {
 		hwlog.Fatal("need input certFile and keyFile together")
 	}
-	keyBytes, encodeKey := getPrivateBytes(keyFile)
-	// wait certificate verify passed and then write key to file together
-	if bootstrap != nil {
-		bootstrap.Shutdown()
-	}
+	keyBlock := utils.DecryptPrivateKeyWithPd(keyFile, "")
 	// start to import the  certificate file
-	certBytes := checkX509Pair(certFile, keyBytes)
-	utils.MakeSureDir(keyStore)
-	err := ioutil.WriteFile(keyStore, encodeKey, fileMode)
+	certBytes, err := utils.ReadBytes(certFile)
 	if err != nil {
-		hwlog.Fatalf("write encrypted key to config failed:%v ", err)
+		hwlog.Fatal("read certFile failed")
 	}
-	err = ioutil.WriteFile(certStore, certBytes, fileMode)
-	if err != nil {
+	// validate certification and private key, if not pass, program will exit
+	utils.ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock))
+	// encrypt private key again with passwd
+	encryptedBlock, err := utils.EncryptPrivateKeyAgain(keyBlock, passFile, passFileBackUp)
+	utils.MakeSureDir(keyStore)
+	if err = ioutil.WriteFile(keyStore, pem.EncodeToMemory(encryptedBlock), utils.FileMode); err != nil {
+		hwlog.Fatalf("write encrypted key to config failed")
+	}
+	if err = ioutil.WriteFile(certStore, certBytes, utils.FileMode); err != nil {
 		hwlog.Fatal("write certBytes to config failed ")
 	}
 	// start to import the ca certificate file
-	caBytes = checkCaCert(caFile)
-	if len(caBytes) != 0 {
-		err = ioutil.WriteFile(caStore, caBytes, fileMode)
-		if err != nil {
+	if caBytes = checkCaCert(caFile); len(caBytes) != 0 {
+		if err = ioutil.WriteFile(caStore, caBytes, utils.FileMode); err != nil {
 			hwlog.Fatal("write caBytes to config failed ")
 		}
 	}
 	// start to import the crl file
-	crlBytes := utils.CheckCRL(crlFile)
-	if len(crlBytes) != 0 {
-		err = ioutil.WriteFile(crlStore, crlBytes, fileMode)
-		if err != nil {
+	if crlBytes := utils.CheckCRL(crlFile); len(crlBytes) != 0 {
+		if err = ioutil.WriteFile(crlStore, crlBytes, utils.FileMode); err != nil {
 			hwlog.Fatal("write crlBytes to config failed ")
 		}
 	}
 	hwlog.Fatal("import certificate successfully")
 }
 
-func getPrivateBytes(keyFile string) ([]byte, []byte) {
-	keyBytes, err := utils.ReadBytes(keyFile)
-	if err != nil {
-		hwlog.Fatal("read keyFile failed")
-	}
-	suffix := []byte("npu-exporter-encoded")
-	keyBytes, err = utils.ParsePrivateKeyWithPassword(keyBytes)
-	if err != nil {
-		hwlog.Fatal(err)
-	}
-	encodeKey, err := encrypt(0, keyBytes)
-	if err != nil {
-		hwlog.Warn("encrypt failed")
-	}
-	hwlog.Info("encrypt your private key with kmc successfully")
-	encodeKey = append(encodeKey, suffix...)
-	return keyBytes, encodeKey
-}
-
-func checkX509Pair(certFile string, keyBytes []byte) (cert []byte) {
-	certBytes, err := utils.ReadBytes(certFile)
-	if err != nil {
-		hwlog.Fatal("read certFile failed")
-	}
-	validateX509Pair(certBytes, keyBytes)
-	return certBytes
-}
-
-func validateX509Pair(certBytes []byte, keyBytes []byte) tls.Certificate {
-	c, err := tls.X509KeyPair(certBytes, keyBytes)
-	if err != nil {
-		hwlog.Fatal("failed to load X509KeyPair")
-	}
-	cc, err := x509.ParseCertificate(c.Certificate[0])
-	if err != nil {
-		hwlog.Fatalf("parse certificate failed")
-	}
-	err = checkSignatureAlgorithm(cc)
-	if err != nil {
-		hwlog.Fatalf(err.Error())
-	}
-	err = checkValidDate(cc)
-	if err != nil {
-		hwlog.Fatalf(err.Error())
-	}
-	keyLen, keyType, err := checkPrivateKeyLength(cc, &c)
-	if err != nil {
-		hwlog.Fatalf(err.Error())
-	}
-	// ED25519 private key length is stable and no need to verify
-	if "RSA" == keyType && keyLen < rsaLength || "ECC" == keyType && keyLen < eccLength {
-		hwlog.Warn("the private key length is not enough")
-	}
-	return c
-}
-
-func initHwLogger() {
-	stopCh := make(chan struct{})
+func initHwLogger(stopCh <-chan struct{}) {
 	if err := hwlog.Init(hwLogConfig, stopCh); err != nil {
 		fmt.Printf("hwlog init failed, error is %v", err)
 		os.Exit(-1)

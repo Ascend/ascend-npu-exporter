@@ -39,7 +39,7 @@ function build() {
   CGO_CPPFLAGS="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -O2 -fPIC -ftrapv"
   go build -mod=mod -buildmode=pie -ldflags "-s -extldflags=-Wl,-z,now  -X huawei.com/npu-exporter/collector.BuildName=${OUTPUT_NAME} \
             -X huawei.com/npu-exporter/collector.BuildVersion=${build_version}" \
-            -o ${OUTPUT_NAME}
+    -o ${OUTPUT_NAME}
   ls ${OUTPUT_NAME}
   if [ $? -ne 0 ]; then
     echo "fail to find npu-exporter"
@@ -51,11 +51,14 @@ function mv_file() {
   mv "${TOP_DIR}"/${OUTPUT_NAME} "${TOP_DIR}"/output
   cp "${TOP_DIR}"/build/npu-exporter.yaml "${TOP_DIR}"/output/npu-exporter-"${build_version}".yaml
   # need CI prepare so lib before excute build.sh
-  cp -r "${TOP_DIR}"/lib   "${TOP_DIR}"/output/  || true
+  cp -r "${TOP_DIR}"/lib "${TOP_DIR}"/output/ || true
   cp "${TOP_DIR}"/build/${DOCKER_FILE_NAME} "${TOP_DIR}"/output
+  chmod 640 "${TOP_DIR}"/output/*
+  chmod 750 "${TOP_DIR}"/output/lib
+  chmod 500 "${TOP_DIR}"/output/lib/*
+  chmod 500 "${TOP_DIR}"/output/${OUTPUT_NAME}
 
 }
-
 
 function main() {
   clear_env
