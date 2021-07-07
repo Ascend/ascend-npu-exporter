@@ -88,7 +88,7 @@ const (
 	caStore            = "/etc/npu-exporter/.config/config3"
 	crlStore           = "/etc/npu-exporter/.config/config4"
 	defaultConcurrency = 5
-	defaultLogFileName = "/var/log/npu-exporter/npu-exporter.log"
+	defaultLogFileName = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
 )
 
 var revokedCertificates []pkix.RevokedCertificate
