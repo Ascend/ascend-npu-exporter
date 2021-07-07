@@ -9,10 +9,9 @@ require (
 	github.com/prometheus/client_golang v1.5.0
 	github.com/stretchr/testify v1.4.0
 	go.uber.org/zap v1.16.0
+	golang.org/x/crypto v0.0.0-20190510104115-cbcb75029529
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	huawei.com/kmc v1.0.6
 )
 
-replace (
-huawei.com/kmc => codehub-dg-y.huawei.com/it-edge-native/edge-native-core/coastguard.git v1.0.6
-)
+replace huawei.com/kmc => codehub-dg-y.huawei.com/it-edge-native/edge-native-core/coastguard.git v1.0.6
