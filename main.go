@@ -72,11 +72,11 @@ const (
 	passFile           = "/etc/npu-exporter/.config/config5"
 	passFileBackUp     = "/etc/npu-exporter/.conf"
 	defaultConcurrency = 5
-	defaultLogFileName = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
+	defaultLogFile     = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
 )
 
 var revokedCertificates []pkix.RevokedCertificate
-var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFileName}
+var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
 
 type limitHandler struct {
 	concurrency chan struct{}
@@ -299,16 +299,13 @@ func init() {
 		"the max concurrency of the http server")
 
 	// hwlog configuration
-	flag.IntVar(&hwLogConfig.FileMaxSize, "fileMaxSize", hwLogConfig.FileMaxSize, "size of a single log file (MB)")
 	flag.IntVar(&hwLogConfig.LogLevel, "logLevel", hwLogConfig.LogLevel,
 		"log level, -1-debug, 0-info(default), 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal")
 	flag.IntVar(&hwLogConfig.MaxAge, "maxAge", hwLogConfig.MaxAge,
 		"maximum number of days for backup log files")
 	flag.BoolVar(&hwLogConfig.IsCompress, "isCompress", hwLogConfig.IsCompress,
 		"whether backup files need to be compressed (default false)")
-	flag.StringVar(&hwLogConfig.LogFileName, "logFileName", hwLogConfig.LogFileName, "log file path")
-	flag.BoolVar(&hwLogConfig.OnlyToStdout, "onlyToStdout", hwLogConfig.OnlyToStdout,
-		"only write to std out (default false)")
+	flag.StringVar(&hwLogConfig.LogFileName, "logFile", hwLogConfig.LogFileName, "log file path")
 	flag.IntVar(&hwLogConfig.MaxBackups, "maxBackups", hwLogConfig.MaxBackups, "maximum number of backup log files")
 }
 
