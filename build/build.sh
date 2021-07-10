@@ -54,7 +54,7 @@ function mv_file() {
   cp -r "${TOP_DIR}"/lib "${TOP_DIR}"/output/ || true
   cp "${TOP_DIR}"/build/${DOCKER_FILE_NAME} "${TOP_DIR}"/output
   chmod 640 "${TOP_DIR}"/output/*
-  chmod 750 "${TOP_DIR}"/output/lib
+  chmod 550 "${TOP_DIR}"/output/lib
   chmod 500 "${TOP_DIR}"/output/lib/*
   chmod 500 "${TOP_DIR}"/output/${OUTPUT_NAME}
 
