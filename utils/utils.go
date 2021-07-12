@@ -23,7 +23,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -91,7 +90,7 @@ func IsExists(file string) bool {
 }
 
 // ReadPassWd scan the screen and input the password info
-func ReadPassWd() string {
+func ReadPassWd() []byte {
 	fmt.Print("Enter Private Key Password: ")
 	bytePassword, err := terminal.ReadPassword(0)
 	if err != nil {
@@ -100,24 +99,22 @@ func ReadPassWd() string {
 	if len(bytePassword) > maxLen {
 		hwlog.Fatal("input too long")
 	}
-	password := string(bytePassword)
-
-	return strings.TrimSpace(password)
+	return bytePassword
 }
 
 // ParsePrivateKeyWithPassword  decode the private key
-func ParsePrivateKeyWithPassword(keyBytes []byte, pd string) (*pem.Block, error) {
+func ParsePrivateKeyWithPassword(keyBytes []byte, pd []byte) (*pem.Block, error) {
 	block, _ := pem.Decode(keyBytes)
 	if block == nil {
 		return nil, errors.New("decode key file failed")
 	}
 	buf := block.Bytes
 	if x509.IsEncryptedPEMBlock(block) {
-		if pd == "" {
+		if len(pd) == 0 {
 			pd = ReadPassWd()
 		}
 		var err error
-		buf, err = x509.DecryptPEMBlock(block, []byte(pd))
+		buf, err = x509.DecryptPEMBlock(block, pd)
 		if err != nil {
 			if err == x509.IncorrectPasswordError {
 				return nil, err
@@ -279,7 +276,7 @@ func ValidateX509Pair(certBytes []byte, keyBytes []byte) tls.Certificate {
 }
 
 // DecryptPrivateKeyWithPd  decrypt Private key By password
-func DecryptPrivateKeyWithPd(keyFile, passwd string) *pem.Block {
+func DecryptPrivateKeyWithPd(keyFile string, passwd []byte) *pem.Block {
 	keyBytes, err := ReadBytes(keyFile)
 	if err != nil {
 		hwlog.Fatal("read keyFile failed")
@@ -292,12 +289,12 @@ func DecryptPrivateKeyWithPd(keyFile, passwd string) *pem.Block {
 }
 
 // GetRandomPass produce the new password
-func GetRandomPass() string {
-	k := make([]byte, byteSize, capacity)
+func GetRandomPass() []byte {
+	k := make([]byte, byteSize, byteSize)
 	if _, err := rand.Read(k); err != nil {
 		hwlog.Error("get random words failed")
 	}
-	return base64.RawStdEncoding.EncodeToString(k)
+	return k
 }
 
 // ReadOrUpdatePd  read or update the password file
@@ -356,7 +353,7 @@ func Decrypt(domainID int, data []byte) ([]byte, error) {
 // EncryptPrivateKeyAgain encrypt PrivateKey with local password again, and encrypted save password into files
 func EncryptPrivateKeyAgain(keyBlock *pem.Block, passwdFile, passwdBackup string) (*pem.Block, error) {
 	// generate new passwd for private key
-	pd := []byte(GetRandomPass())
+	pd := GetRandomPass()
 	KmcInit(0)
 	encryptedPd, err := Encrypt(0, pd)
 	if err != nil {
@@ -376,11 +373,21 @@ func EncryptPrivateKeyAgain(keyBlock *pem.Block, passwdFile, passwdBackup string
 		hwlog.Fatal("encrypted private key failed")
 	}
 	hwlog.Info("encrypt private key by new passwd successfully")
+	// clean password
+	PaddingAndCleanSlice(pd)
 	// wait certificate verify passed and then write key to file together
 	if Bootstrap != nil {
 		Bootstrap.Shutdown()
 	}
 	return encryptedBlock, nil
+}
+
+// PaddingAndCleanSlice fill slice wei zero
+func PaddingAndCleanSlice(pd []byte) {
+	for i := range pd {
+		pd[i] = 0
+	}
+	pd = nil
 }
 
 // PeriodCheck  period check certificate
