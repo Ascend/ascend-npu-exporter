@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -294,7 +295,13 @@ func GetRandomPass() []byte {
 	if _, err := rand.Read(k); err != nil {
 		hwlog.Error("get random words failed")
 	}
-	return k
+	len := base64.RawStdEncoding.EncodedLen(byteSize)
+	if len > capacity || len < byteSize {
+		hwlog.Warn("the len of slice is abnormal")
+	}
+	dst := make([]byte, len, len)
+	base64.RawStdEncoding.Encode(dst, k)
+	return dst
 }
 
 // ReadOrUpdatePd  read or update the password file
