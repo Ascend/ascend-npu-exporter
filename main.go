@@ -266,9 +266,10 @@ func handleCert() tls.Certificate {
 		hwlog.Info("decrypt passwd failed")
 	}
 	hwlog.Info("decrypt passwd successfully")
-	keyBlock := utils.DecryptPrivateKeyWithPd(keyStore, string(pd))
+	keyBlock := utils.DecryptPrivateKeyWithPd(keyStore, pd)
 	hwlog.Info("decrypt success")
 	utils.Bootstrap.Shutdown()
+	utils.PaddingAndCleanSlice(pd)
 	// preload cert and key files
 	return utils.ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock))
 }
@@ -356,7 +357,7 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 	if certFile == "" || keyFile == "" {
 		hwlog.Fatal("need input certFile and keyFile together")
 	}
-	keyBlock := utils.DecryptPrivateKeyWithPd(keyFile, "")
+	keyBlock := utils.DecryptPrivateKeyWithPd(keyFile, nil)
 	// start to import the  certificate file
 	certBytes, err := utils.ReadBytes(certFile)
 	if err != nil {
