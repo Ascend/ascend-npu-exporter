@@ -289,9 +289,11 @@ func workerWatcher(config LogConfig, stopCh <-chan struct{}) {
 	}
 	for {
 		select {
-		case <-stopCh:
-			logger.Error("recv stop signal")
-			return
+		case _, ok := <-stopCh:
+			if !ok {
+				logger.Error("recv stop signal")
+				return
+			}
 		case event, ok := <-watcher.Events:
 			if !ok {
 				logger.Error("watcher event failed, exit")
