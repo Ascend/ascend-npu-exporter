@@ -23,6 +23,8 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"os"
 	"path"
+	"runtime/debug"
+	"strings"
 )
 
 const (
@@ -32,6 +34,7 @@ const (
 	logFileMode        os.FileMode = 0640 // log file mode
 	backupLogFileMode  os.FileMode = 0400 // backup log file mode
 	logDirMode                     = 0750 // log dir mode
+	stackNumber                    = 8    // the location of the caller's stack information
 )
 
 var logger *zap.Logger
@@ -117,7 +120,6 @@ func getEncoder() zapcore.Encoder {
 		EncodeLevel:    zapcore.CapitalLevelEncoder,
 		EncodeTime:     zapcore.ISO8601TimeEncoder,
 		EncodeDuration: zapcore.StringDurationEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
 	return zapcore.NewConsoleEncoder(encoderConfig)
 }
@@ -332,14 +334,37 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 	}
 }
 
+// Get the file name and line number of the caller
+func getStackInfo() string {
+	path := string(debug.Stack())
+	paths := strings.Split(path, "\n")
+	if len(paths) < stackNumber+1 {
+		return ""
+	}
+	str := paths[stackNumber]
+	spaceIndex := strings.LastIndex(str, " ")
+	slashIndex := strings.LastIndex(str, "/")
+	if spaceIndex == -1 || slashIndex == -1 {
+		return ""
+	}
+	str = str[:spaceIndex]
+	slashIndex = strings.LastIndex(str[:slashIndex], "/")
+	if slashIndex == -1 {
+		return ""
+	}
+	str = str[slashIndex+1:] + "\t"
+	return str
+}
+
 // Debug record debug not format
 func Debug(args ...interface{}) {
 	if logger == nil {
 		fmt.Println("Debug function's logger is nil")
 		return
 	}
+	str := getStackInfo()
 	msgInfo := fmt.Sprint(args...)
-	logger.Debug(msgInfo)
+	logger.Debug(str + msgInfo)
 }
 
 // Debugf record debug
@@ -348,8 +373,9 @@ func Debugf(format string, args ...interface{}) {
 		fmt.Println("Debugf function's logger is nil")
 		return
 	}
+	str := getStackInfo()
 	msgInfo := fmt.Sprintf(format, args...)
-	logger.Debug(msgInfo)
+	logger.Debug(str + msgInfo)
 }
 
 // Info record info not format
@@ -358,8 +384,9 @@ func Info(args ...interface{}) {
 		fmt.Println("Info function's logger is nil")
 		return
 	}
+	str := getStackInfo()
 	msgInfo := fmt.Sprint(args...)
-	logger.Info(msgInfo)
+	logger.Info(str + msgInfo)
 }
 
 // Infof record info
@@ -368,8 +395,9 @@ func Infof(format string, args ...interface{}) {
 		fmt.Println("Infof function's logger is nil")
 		return
 	}
+	str := getStackInfo()
 	msgInfo := fmt.Sprintf(format, args...)
-	logger.Info(msgInfo)
+	logger.Info(str + msgInfo)
 }
 
 // Warn record warn not format
@@ -378,8 +406,9 @@ func Warn(args ...interface{}) {
 		fmt.Println("Warn function's logger is nil")
 		return
 	}
+	str := getStackInfo()
 	msgInfo := fmt.Sprint(args...)
-	logger.Warn(msgInfo)
+	logger.Warn(str + msgInfo)
 }
 
 // Warnf record warn
@@ -388,8 +417,9 @@ func Warnf(format string, args ...interface{}) {
 		fmt.Println("Warnf function's logger is nil")
 		return
 	}
+	str := getStackInfo()
 	msgInfo := fmt.Sprintf(format, args...)
-	logger.Warn(msgInfo)
+	logger.Warn(str + msgInfo)
 }
 
 // Error record error not format
@@ -398,8 +428,9 @@ func Error(args ...interface{}) {
 		fmt.Println("Error function's logger is nil")
 		return
 	}
+	str := getStackInfo()
 	msgInfo := fmt.Sprint(args...)
-	logger.Error(msgInfo)
+	logger.Error(str + msgInfo)
 }
 
 // Errorf record error
@@ -408,8 +439,9 @@ func Errorf(format string, args ...interface{}) {
 		fmt.Println("Errorf function's logger is nil")
 		return
 	}
+	str := getStackInfo()
 	msgInfo := fmt.Sprintf(format, args...)
-	logger.Error(msgInfo)
+	logger.Error(str + msgInfo)
 }
 
 // Dpanic record panic not format
@@ -418,8 +450,9 @@ func Dpanic(args ...interface{}) {
 		fmt.Println("Dpanic function's logger is nil")
 		return
 	}
+	str := getStackInfo()
 	msgInfo := fmt.Sprint(args...)
-	logger.DPanic(msgInfo)
+	logger.DPanic(str + msgInfo)
 }
 
 // Dpanicf record panic
@@ -428,8 +461,9 @@ func Dpanicf(format string, args ...interface{}) {
 		fmt.Println("Dpanicf function's logger is nil")
 		return
 	}
+	str := getStackInfo()
 	msgInfo := fmt.Sprintf(format, args...)
-	logger.DPanic(msgInfo)
+	logger.DPanic(str + msgInfo)
 }
 
 // Panic record panic not format
@@ -438,8 +472,9 @@ func Panic(args ...interface{}) {
 		fmt.Println("Panic function's logger is nil")
 		return
 	}
+	str := getStackInfo()
 	msgInfo := fmt.Sprint(args...)
-	logger.Panic(msgInfo)
+	logger.Panic(str + msgInfo)
 }
 
 // Panicf record panic
@@ -448,8 +483,9 @@ func Panicf(format string, args ...interface{}) {
 		fmt.Println("Panicf function's logger is nil")
 		return
 	}
+	str := getStackInfo()
 	msgInfo := fmt.Sprintf(format, args...)
-	logger.Panic(msgInfo)
+	logger.Panic(str + msgInfo)
 }
 
 // Fatal record fatal not format
@@ -458,8 +494,9 @@ func Fatal(args ...interface{}) {
 		fmt.Println("Fatal function's logger is nil")
 		return
 	}
+	str := getStackInfo()
 	msgInfo := fmt.Sprint(args...)
-	logger.Fatal(msgInfo)
+	logger.Fatal(str + msgInfo)
 }
 
 // Fatalf record fatal
@@ -468,6 +505,7 @@ func Fatalf(format string, args ...interface{}) {
 		fmt.Println("Fatalf function's logger is nil")
 		return
 	}
+	str := getStackInfo()
 	msgInfo := fmt.Sprintf(format, args...)
-	logger.Fatal(msgInfo)
+	logger.Fatal(str + msgInfo)
 }
