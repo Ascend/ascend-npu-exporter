@@ -336,6 +336,9 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 func getStackInfo() string {
 	path := string(debug.Stack())
 	paths := strings.Split(path, "\n")
+	if len(paths) < stackNumber+1 {
+		return ""
+	}
 	str := paths[stackNumber]
 	spaceIndex := strings.LastIndex(str, " ")
 	slashIndex := strings.LastIndex(str, "/")
