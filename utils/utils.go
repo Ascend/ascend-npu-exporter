@@ -367,7 +367,7 @@ func EncryptPrivateKeyAgain(keyBlock *pem.Block, passwdFile, passwdBackup string
 		hwlog.Fatal("encrypt passwd failed")
 	}
 	hwlog.Info("encrypt new passwd successfully")
-	if err = ioutil.WriteFile(passwdFile, encryptedPd, FileMode); err != nil {
+	if err := OverridePassWdFile(passwdFile, encryptedPd); err != nil {
 		hwlog.Fatal("write encrypted passwd to file failed")
 	}
 	hwlog.Info("create or update  passwd file successfully")
@@ -424,4 +424,38 @@ func PeriodCheck(cert *x509.Certificate) {
 			}
 		}
 	}
+}
+
+// OverridePassWdFile overide password file with 0,1,random and then write new data
+func OverridePassWdFile(path string, data []byte) error {
+	// Override with zero
+	overideByte := make([]byte, byteSize*maxLen, byteSize*maxLen)
+	if err := write(path, overideByte); err != nil {
+		return err
+	}
+	for i := range overideByte {
+		overideByte[i] = 1
+	}
+	if err := write(path, overideByte); err != nil {
+		return err
+	}
+	if _, err := rand.Read(overideByte); err != nil {
+		err := fmt.Errorf("get random words failed")
+		hwlog.Error(err)
+		return err
+	}
+	if err := write(path, overideByte); err != nil {
+		return err
+	}
+	if err := write(path, data); err != nil {
+		return err
+	}
+	return nil
+}
+
+func write(path string, overideByte []byte) error {
+	if err := ioutil.WriteFile(path, overideByte, FileMode); err != nil {
+		return fmt.Errorf("write encrypted key to config failed")
+	}
+	return nil
 }

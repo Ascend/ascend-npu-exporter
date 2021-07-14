@@ -368,8 +368,8 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 	// encrypt private key again with passwd
 	encryptedBlock, err := utils.EncryptPrivateKeyAgain(keyBlock, passFile, passFileBackUp)
 	utils.MakeSureDir(keyStore)
-	if err = ioutil.WriteFile(keyStore, pem.EncodeToMemory(encryptedBlock), utils.FileMode); err != nil {
-		hwlog.Fatalf("write encrypted key to config failed")
+	if err := utils.OverridePassWdFile(keyStore, pem.EncodeToMemory(encryptedBlock)); err != nil {
+		hwlog.Fatal(err)
 	}
 	if err = ioutil.WriteFile(certStore, certBytes, utils.FileMode); err != nil {
 		hwlog.Fatal("write certBytes to config failed ")
