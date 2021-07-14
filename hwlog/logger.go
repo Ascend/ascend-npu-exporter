@@ -34,6 +34,7 @@ const (
 	logFileMode        os.FileMode = 0640 // log file mode
 	backupLogFileMode  os.FileMode = 0400 // backup log file mode
 	logDirMode                     = 0750 // log dir mode
+	stackNumber                    = 8    // the location of the caller's stack information
 )
 
 var logger *zap.Logger
@@ -335,11 +336,18 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 func getStackInfo() string {
 	path := string(debug.Stack())
 	paths := strings.Split(path, "\n")
-	str := paths[8]
-	str = str[:strings.LastIndex(str, " ")]
-	index := strings.LastIndex(str, "/")
-	index = strings.LastIndex(str[:index], "/")
-	str = str[index+1:] + "\t"
+	str := paths[stackNumber]
+	spaceIndex := strings.LastIndex(str, " ")
+	slashIndex := strings.LastIndex(str, "/")
+	if spaceIndex == -1 || slashIndex == -1 {
+		return ""
+	}
+	str = str[:spaceIndex]
+	slashIndex = strings.LastIndex(str[:slashIndex], "/")
+	if slashIndex == -1 {
+		return ""
+	}
+	str = str[slashIndex+1:] + "\t"
 	return str
 }
 
