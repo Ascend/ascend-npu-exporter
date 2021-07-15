@@ -28,13 +28,20 @@ import (
 )
 
 const (
-	defaultFileMaxSize             = 20   // the default maximum size of a single log file is 20 MB
-	defaultMinSaveAge              = 7    // the minimum storage duration of backup logs is 7 days
-	defaultMaxBackups              = 30   // the default number of backup log
-	logFileMode        os.FileMode = 0640 // log file mode
-	backupLogFileMode  os.FileMode = 0400 // backup log file mode
-	logDirMode                     = 0750 // log dir mode
-	stackNumber                    = 8    // the location of the caller's stack information
+	// DefaultFileMaxSize  the default maximum size of a single log file is 20 MB
+	DefaultFileMaxSize = 20
+	// DefaultMinSaveAge the minimum storage duration of backup logs is 7 days
+	DefaultMinSaveAge = 7
+	// DefaultMaxBackups the default number of backup log
+	DefaultMaxBackups = 30
+	// LogFileMode log file mode
+	LogFileMode os.FileMode = 0640
+	// BackupLogFileMode backup log file mode
+	BackupLogFileMode os.FileMode = 0400
+	// LogDirMode log dir mode
+	LogDirMode = 0750
+	// stackNumber the location of the caller's stack information
+	stackNumber = 8
 )
 
 var logger *zap.Logger
@@ -138,12 +145,12 @@ func getLogWriter(config LogConfig) zapcore.WriteSyncer {
 
 func checkDir(fileDir string) error {
 	if !isExist(fileDir) {
-		if err := os.MkdirAll(fileDir, logDirMode); err != nil {
+		if err := os.MkdirAll(fileDir, LogDirMode); err != nil {
 			return fmt.Errorf("create dirs failed")
 		}
 		return nil
 	}
-	if err := os.Chmod(fileDir, logDirMode); err != nil {
+	if err := os.Chmod(fileDir, LogDirMode); err != nil {
 		return fmt.Errorf("change log dir mode failed")
 	}
 	return nil
@@ -199,10 +206,10 @@ func isExist(filePath string) bool {
 
 func validateLogConfigFileMaxSize(config *LogConfig) error {
 	if config.FileMaxSize == 0 {
-		config.FileMaxSize = defaultFileMaxSize
+		config.FileMaxSize = DefaultFileMaxSize
 		return nil
 	}
-	if config.FileMaxSize < 0 || config.FileMaxSize > defaultFileMaxSize {
+	if config.FileMaxSize < 0 || config.FileMaxSize > DefaultFileMaxSize {
 		return fmt.Errorf("the size of a single log file range is (0, 20] MB")
 	}
 
@@ -211,10 +218,10 @@ func validateLogConfigFileMaxSize(config *LogConfig) error {
 
 func validateLogConfigBackups(config *LogConfig) error {
 	if config.MaxBackups == 0 {
-		config.MaxBackups = defaultMaxBackups
+		config.MaxBackups = DefaultMaxBackups
 		return nil
 	}
-	if config.MaxBackups < 0 || config.MaxBackups > defaultMaxBackups {
+	if config.MaxBackups < 0 || config.MaxBackups > DefaultMaxBackups {
 		return fmt.Errorf("the number of backup log file range is (0, 30]")
 	}
 	return nil
@@ -222,10 +229,10 @@ func validateLogConfigBackups(config *LogConfig) error {
 
 func validateLogConfigMaxAge(config *LogConfig) error {
 	if config.MaxAge == 0 {
-		config.MaxAge = defaultMinSaveAge
+		config.MaxAge = DefaultMinSaveAge
 		return nil
 	}
-	if config.MaxAge < defaultMinSaveAge {
+	if config.MaxAge < DefaultMinSaveAge {
 		return fmt.Errorf("the maxage should be greater than 7 days")
 	}
 	return nil
@@ -233,10 +240,10 @@ func validateLogConfigMaxAge(config *LogConfig) error {
 
 func validateLogConfigFileMode(config *LogConfig) error {
 	if config.LogMode == 0 {
-		config.LogMode = logFileMode
+		config.LogMode = LogFileMode
 	}
 	if config.BackupLogMode == 0 {
-		config.BackupLogMode = backupLogFileMode
+		config.BackupLogMode = BackupLogFileMode
 	}
 	return nil
 }
@@ -321,12 +328,12 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 		fmt.Println("changeFileMode logger is nil")
 		return
 	}
-	var logMode = backupLogFileMode
+	var logMode = BackupLogFileMode
 	logFileName := path.Base(logFileFullPath)
 	logPath := path.Dir(logFileFullPath)
 	changedFileName := path.Base(event.Name)
 	if changedFileName == logFileName {
-		logMode = logFileMode
+		logMode = LogFileMode
 	}
 	changedLogFilePath := path.Join(logPath, changedFileName)
 	if errChmod := os.Chmod(changedLogFilePath, logMode); errChmod != nil {
