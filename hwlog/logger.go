@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"runtime/debug"
+	"strconv"
 	"strings"
 )
 
@@ -40,8 +41,14 @@ const (
 	BackupLogFileMode os.FileMode = 0400
 	// LogDirMode log dir mode
 	LogDirMode = 0750
-	// stackNumber the location of the caller's stack information
-	stackNumber = 8
+	// IndexOfCallerFileInfo the index of the caller's file information
+	IndexOfCallerFileInfo = 10
+	// IndexOfGoroutineIDInfo the index of the goroutineID information
+	IndexOfGoroutineIDInfo = 0
+	// IndexOfGoroutineID the index of the goroutineID
+	IndexOfGoroutineID = 1
+	// LengthOfFileInfo the length of the log printed file information
+	LengthOfFileInfo = 20
 )
 
 var logger *zap.Logger
@@ -341,26 +348,72 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 	}
 }
 
-// Get the file name and line number of the caller
-func getStackInfo() string {
+// printHelper helper function for log printing
+func printHelper(f func(string, ...zap.Field), msg string) {
+	str := getCallerInfo()
+	f(str + msg)
+}
+
+// getCallerInfo gets the caller's information
+func getCallerInfo() string {
 	path := string(debug.Stack())
 	paths := strings.Split(path, "\n")
-	if len(paths) < stackNumber+1 {
+
+	callerPath := getCallerPath(paths)
+	goroutineID := getGorouineID(paths)
+
+	str := fmt.Sprintf("%s\t%-8d\t", callerPath, goroutineID)
+
+	return str
+}
+
+// getCallerPath gets the file path and line number of the caller
+func getCallerPath(paths []string) string {
+	if len(paths) <= IndexOfCallerFileInfo {
 		return ""
 	}
-	str := paths[stackNumber]
+	str := paths[IndexOfCallerFileInfo]
 	spaceIndex := strings.LastIndex(str, " ")
-	slashIndex := strings.LastIndex(str, "/")
-	if spaceIndex == -1 || slashIndex == -1 {
+	if spaceIndex == -1 {
 		return ""
 	}
 	str = str[:spaceIndex]
-	slashIndex = strings.LastIndex(str[:slashIndex], "/")
-	if slashIndex == -1 {
+	slashIndex1 := strings.LastIndex(str, "/")
+	if slashIndex1 == -1 {
 		return ""
 	}
-	str = str[slashIndex+1:] + "\t"
+	slashIndex2 := strings.LastIndex(str[:slashIndex1], "/")
+	if slashIndex2 == -1 {
+		return ""
+	}
+
+	if len(str)-slashIndex2-1 > LengthOfFileInfo {
+		str = str[slashIndex1+1:]
+	} else {
+		str = str[slashIndex2+1:]
+	}
+
+	if len(str) < LengthOfFileInfo {
+		str += strings.Repeat(" ", LengthOfFileInfo-len(str))
+	}
 	return str
+}
+
+// getCallerGoroutineID gets the goroutineID
+func getGorouineID(paths []string) int {
+	if len(paths) <= IndexOfGoroutineIDInfo {
+		return -1
+	}
+	str := paths[IndexOfGoroutineIDInfo]
+	strs := strings.Split(str, " ")
+	if len(strs) <= IndexOfGoroutineID {
+		return -1
+	}
+	curGoroutineID, err := strconv.Atoi(strs[IndexOfGoroutineID])
+	if err != nil {
+		return -1
+	}
+	return curGoroutineID
 }
 
 // Debug record debug not format
@@ -369,9 +422,7 @@ func Debug(args ...interface{}) {
 		fmt.Println("Debug function's logger is nil")
 		return
 	}
-	str := getStackInfo()
-	msgInfo := fmt.Sprint(args...)
-	logger.Debug(str + msgInfo)
+	printHelper(logger.Debug, fmt.Sprint(args...))
 }
 
 // Debugf record debug
@@ -380,9 +431,7 @@ func Debugf(format string, args ...interface{}) {
 		fmt.Println("Debugf function's logger is nil")
 		return
 	}
-	str := getStackInfo()
-	msgInfo := fmt.Sprintf(format, args...)
-	logger.Debug(str + msgInfo)
+	printHelper(logger.Debug, fmt.Sprintf(format, args...))
 }
 
 // Info record info not format
@@ -391,9 +440,7 @@ func Info(args ...interface{}) {
 		fmt.Println("Info function's logger is nil")
 		return
 	}
-	str := getStackInfo()
-	msgInfo := fmt.Sprint(args...)
-	logger.Info(str + msgInfo)
+	printHelper(logger.Info, fmt.Sprint(args...))
 }
 
 // Infof record info
@@ -402,9 +449,7 @@ func Infof(format string, args ...interface{}) {
 		fmt.Println("Infof function's logger is nil")
 		return
 	}
-	str := getStackInfo()
-	msgInfo := fmt.Sprintf(format, args...)
-	logger.Info(str + msgInfo)
+	printHelper(logger.Info, fmt.Sprintf(format, args...))
 }
 
 // Warn record warn not format
@@ -413,9 +458,7 @@ func Warn(args ...interface{}) {
 		fmt.Println("Warn function's logger is nil")
 		return
 	}
-	str := getStackInfo()
-	msgInfo := fmt.Sprint(args...)
-	logger.Warn(str + msgInfo)
+	printHelper(logger.Warn, fmt.Sprint(args...))
 }
 
 // Warnf record warn
@@ -424,9 +467,7 @@ func Warnf(format string, args ...interface{}) {
 		fmt.Println("Warnf function's logger is nil")
 		return
 	}
-	str := getStackInfo()
-	msgInfo := fmt.Sprintf(format, args...)
-	logger.Warn(str + msgInfo)
+	printHelper(logger.Warn, fmt.Sprintf(format, args...))
 }
 
 // Error record error not format
@@ -435,9 +476,7 @@ func Error(args ...interface{}) {
 		fmt.Println("Error function's logger is nil")
 		return
 	}
-	str := getStackInfo()
-	msgInfo := fmt.Sprint(args...)
-	logger.Error(str + msgInfo)
+	printHelper(logger.Error, fmt.Sprint(args...))
 }
 
 // Errorf record error
@@ -446,9 +485,7 @@ func Errorf(format string, args ...interface{}) {
 		fmt.Println("Errorf function's logger is nil")
 		return
 	}
-	str := getStackInfo()
-	msgInfo := fmt.Sprintf(format, args...)
-	logger.Error(str + msgInfo)
+	printHelper(logger.Error, fmt.Sprintf(format, args...))
 }
 
 // Dpanic record panic not format
@@ -457,9 +494,7 @@ func Dpanic(args ...interface{}) {
 		fmt.Println("Dpanic function's logger is nil")
 		return
 	}
-	str := getStackInfo()
-	msgInfo := fmt.Sprint(args...)
-	logger.DPanic(str + msgInfo)
+	printHelper(logger.DPanic, fmt.Sprint(args...))
 }
 
 // Dpanicf record panic
@@ -468,9 +503,7 @@ func Dpanicf(format string, args ...interface{}) {
 		fmt.Println("Dpanicf function's logger is nil")
 		return
 	}
-	str := getStackInfo()
-	msgInfo := fmt.Sprintf(format, args...)
-	logger.DPanic(str + msgInfo)
+	printHelper(logger.DPanic, fmt.Sprintf(format, args...))
 }
 
 // Panic record panic not format
@@ -479,9 +512,7 @@ func Panic(args ...interface{}) {
 		fmt.Println("Panic function's logger is nil")
 		return
 	}
-	str := getStackInfo()
-	msgInfo := fmt.Sprint(args...)
-	logger.Panic(str + msgInfo)
+	printHelper(logger.Panic, fmt.Sprint(args...))
 }
 
 // Panicf record panic
@@ -490,9 +521,7 @@ func Panicf(format string, args ...interface{}) {
 		fmt.Println("Panicf function's logger is nil")
 		return
 	}
-	str := getStackInfo()
-	msgInfo := fmt.Sprintf(format, args...)
-	logger.Panic(str + msgInfo)
+	printHelper(logger.Panic, fmt.Sprintf(format, args...))
 }
 
 // Fatal record fatal not format
@@ -501,9 +530,7 @@ func Fatal(args ...interface{}) {
 		fmt.Println("Fatal function's logger is nil")
 		return
 	}
-	str := getStackInfo()
-	msgInfo := fmt.Sprint(args...)
-	logger.Fatal(str + msgInfo)
+	printHelper(logger.Fatal, fmt.Sprint(args...))
 }
 
 // Fatalf record fatal
@@ -512,7 +539,5 @@ func Fatalf(format string, args ...interface{}) {
 		fmt.Println("Fatalf function's logger is nil")
 		return
 	}
-	str := getStackInfo()
-	msgInfo := fmt.Sprintf(format, args...)
-	logger.Fatal(str + msgInfo)
+	printHelper(logger.Fatal, fmt.Sprintf(format, args...))
 }
