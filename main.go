@@ -113,6 +113,10 @@ func newLimitHandler(maxConcur int, handler http.Handler) http.Handler {
 
 func main() {
 	flag.Parse()
+	if version {
+		fmt.Printf("NPU-exporter version: %s \n", collector.BuildVersion)
+		os.Exit(0)
+	}
 	stopCH := make(chan struct{})
 	defer close(stopCH)
 	// init hwlog
@@ -131,27 +135,7 @@ func main() {
 		Handler: newLimitHandler(concurrency, http.DefaultServeMux),
 	}
 	if certificate != nil {
-		tlsConfig := &tls.Config{
-			ClientAuth:   tls.RequireAndVerifyClientCert,
-			Certificates: []tls.Certificate{*certificate},
-			MinVersion:   tls.VersionTLS12,
-			CipherSuites: []uint16{cipherSuites},
-		}
-		if len(caBytes) > 0 {
-			// Two-way SSL
-			pool := x509.NewCertPool()
-			if ok := pool.AppendCertsFromPEM(caBytes); !ok {
-				hwlog.Fatalf("append the CA file failed")
-			}
-			tlsConfig.ClientCAs = pool
-			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-			hwlog.Info("enable Two-way SSL mode")
-		} else {
-			// One-way SSL
-			tlsConfig.ClientAuth = tls.NoClientCert
-			hwlog.Info("enable One-way SSL mode")
-		}
-		s.TLSConfig = tlsConfig
+		s.TLSConfig = newTLSConfig(caBytes)
 		s.Handler = newLimitHandler(concurrency, interceptor(http.DefaultServeMux))
 		hwlog.Info("start https server now...")
 		if err := s.ListenAndServeTLS("", ""); err != nil {
@@ -162,6 +146,30 @@ func main() {
 	if err := s.ListenAndServe(); err != nil {
 		hwlog.Fatal("Http server error and stopped")
 	}
+}
+
+func newTLSConfig(caBytes []byte) *tls.Config {
+	tlsConfig := &tls.Config{
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		Certificates: []tls.Certificate{*certificate},
+		MinVersion:   tls.VersionTLS12,
+		CipherSuites: []uint16{cipherSuites},
+	}
+	if len(caBytes) > 0 {
+		// Two-way SSL
+		pool := x509.NewCertPool()
+		if ok := pool.AppendCertsFromPEM(caBytes); !ok {
+			hwlog.Fatalf("append the CA file failed")
+		}
+		tlsConfig.ClientCAs = pool
+		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+		hwlog.Info("enable Two-way SSL mode")
+	} else {
+		// One-way SSL
+		tlsConfig.ClientAuth = tls.NoClientCert
+		hwlog.Info("enable One-way SSL mode")
+	}
+	return tlsConfig
 }
 
 func regPrometheus(stop chan os.Signal) *prometheus.Registry {
@@ -175,10 +183,6 @@ func regPrometheus(stop chan os.Signal) *prometheus.Registry {
 	return reg
 }
 func validate() {
-	if version {
-		fmt.Printf("NPU-exporter version: %s \n", collector.BuildVersion)
-		os.Exit(0)
-	}
 	if (certFile == "" && keyFile == "") && enableHTTP {
 		baseParamValid()
 		return
@@ -276,38 +280,38 @@ func handleCert() tls.Certificate {
 
 func init() {
 	flag.IntVar(&port, "port", portConst,
-		"the server port of the http service,range[1025-40000]")
+		"The server port of the http service,range[1025-40000]")
 	flag.StringVar(&ip, "ip", "",
-		"the listen ip of the service,0.0.0.0 is not recommended when install on Multi-NIC host")
+		"The listen ip of the service,0.0.0.0 is not recommended when install on Multi-NIC host")
 	flag.IntVar(&updateTime, "updateTime", updateTimeConst,
 		"Interval (seconds) to update the npu metrics cache,range[1-60]")
 	flag.BoolVar(&needGoInfo, "needGoInfo", false,
 		"If true,show golang metrics (default false)")
-	flag.StringVar(&caFile, "caFile", "", "the root certificate file path")
-	flag.StringVar(&certFile, "certFile", "", "the certificate file path")
+	flag.StringVar(&caFile, "caFile", "", "The root certificate file path")
+	flag.StringVar(&certFile, "certFile", "", "The certificate file path")
 	flag.StringVar(&keyFile, "keyFile", "",
-		"the key file path,If both the certificate and key file exist,system will enable https")
-	flag.StringVar(&crlFile, "crlFile", "", "the offline CRL file path")
+		"The key file path,If both the certificate and key file exist,system will enable https")
+	flag.StringVar(&crlFile, "crlFile", "", "The offline CRL file path")
 	flag.BoolVar(&enableHTTP, "enableHTTP", false,
-		"If true, the program will not check certificate files and enable http server")
+		"If true, the program will not check certificate files and enable http server (default false)")
 	flag.IntVar(&encryptAlgorithm, "encryptAlgorithm", utils.Aes256gcm,
-		"use 8 for aes128gcm,9 for aes256gcm(default)")
+		"Use 8 for aes128gcm,9 for aes256gcm")
 	flag.IntVar(&tlsSuites, "tlsSuites", 1,
-		"use 0 for TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 ,1 for TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256")
+		"Use 0 for TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 ,1 for TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256")
 	flag.BoolVar(&version, "version", false,
-		"If true,query the version of the program")
+		"If true,query the version of the program (default false)")
 	flag.IntVar(&concurrency, "concurrency", defaultConcurrency,
-		"the max concurrency of the http server")
+		"The max concurrency of the http server")
 
 	// hwlog configuration
-	flag.IntVar(&hwLogConfig.LogLevel, "logLevel", hwLogConfig.LogLevel,
-		"log level, -1-debug, 0-info(default), 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal")
-	flag.IntVar(&hwLogConfig.MaxAge, "maxAge", hwLogConfig.MaxAge,
-		"maximum number of days for backup log files")
-	flag.BoolVar(&hwLogConfig.IsCompress, "isCompress", hwLogConfig.IsCompress,
-		"whether backup files need to be compressed (default false)")
-	flag.StringVar(&hwLogConfig.LogFileName, "logFile", hwLogConfig.LogFileName, "log file path")
-	flag.IntVar(&hwLogConfig.MaxBackups, "maxBackups", hwLogConfig.MaxBackups, "maximum number of backup log files")
+	flag.IntVar(&hwLogConfig.LogLevel, "logLevel", 0,
+		"Log level, -1-debug, 0-info, 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal(default 0)")
+	flag.IntVar(&hwLogConfig.MaxAge, "maxAge", hwlog.DefaultMinSaveAge,
+		"Maximum number of days for backup log files")
+	flag.BoolVar(&hwLogConfig.IsCompress, "isCompress", false,
+		"Whether backup files need to be compressed (default false)")
+	flag.StringVar(&hwLogConfig.LogFileName, "logFile", defaultLogFile, "Log file path")
+	flag.IntVar(&hwLogConfig.MaxBackups, "maxBackups", hwlog.DefaultMaxBackups, "Maximum number of backup log files")
 }
 
 func interceptor(h http.Handler) http.Handler {
