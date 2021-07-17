@@ -179,7 +179,7 @@ func CheckValidityPeriod(cert *x509.Certificate) error {
 func CheckSignatureAlgorithm(cert *x509.Certificate) error {
 	var signAl = cert.SignatureAlgorithm.String()
 	if strings.Contains(signAl, "MD2") || strings.Contains(signAl, "MD5") ||
-		strings.Contains(signAl, "SHA1") {
+		strings.Contains(signAl, "SHA1") || signAl == "0" {
 		return errors.New("the signature algorithm is unsafe,please use safe algorithm ")
 	}
 	hwlog.Info("signature algorithm validation passed")
