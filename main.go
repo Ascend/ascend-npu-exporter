@@ -252,6 +252,10 @@ func checkCaCert(caFile string) []byte {
 	if err != nil {
 		hwlog.Fatal("convert ca cert failed")
 	}
+	err = utils.CheckValidityPeriod(caCrt)
+	if err != nil {
+		hwlog.Fatal("ca certificate is overdue")
+	}
 	if err = caCrt.CheckSignature(caCrt.SignatureAlgorithm, caCrt.RawTBSCertificate, caCrt.Signature); err != nil {
 		hwlog.Fatal("check ca certificate signature failed")
 	}
