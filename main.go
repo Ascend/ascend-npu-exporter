@@ -250,7 +250,10 @@ func checkCaCert(caFile string) []byte {
 	}
 	caCrt, err := utils.LoadCertsFromPEM(caBytes)
 	if err != nil {
-		hwlog.Fatal("convert ca cert failed")
+		hwlog.Fatal("convert ca certificate failed")
+	}
+	if !caCrt.IsCA {
+		hwlog.Fatal("this is not ca certificate")
 	}
 	err = utils.CheckValidityPeriod(caCrt)
 	if err != nil {
