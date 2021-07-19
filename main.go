@@ -187,7 +187,7 @@ func validate() {
 		baseParamValid()
 		return
 	}
-	utils.KmcInit(encryptAlgorithm)
+	utils.KmcInit(encryptAlgorithm, "", "")
 	// start to import certificate and keys
 	importCertFiles(certFile, keyFile, caFile, crlFile)
 	baseParamValid()
@@ -271,18 +271,25 @@ func handleCert() tls.Certificate {
 	if err != nil {
 		hwlog.Fatal("there is no certFile provided")
 	}
-	encodedPd := utils.ReadOrUpdatePd(passFile, passFileBackUp)
+	encodedPd := utils.ReadOrUpdatePd(passFile, passFileBackUp, utils.FileMode)
 	pd, err := utils.Decrypt(0, encodedPd)
 	if err != nil {
 		hwlog.Info("decrypt passwd failed")
 	}
 	hwlog.Info("decrypt passwd successfully")
-	keyBlock := utils.DecryptPrivateKeyWithPd(keyStore, pd)
+	keyBlock, err := utils.DecryptPrivateKeyWithPd(keyStore, pd)
+	if err != nil {
+		hwlog.Fatal(err)
+	}
 	hwlog.Info("decrypt success")
 	utils.Bootstrap.Shutdown()
 	utils.PaddingAndCleanSlice(pd)
 	// preload cert and key files
-	return utils.ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock))
+	c, err := utils.ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock))
+	if err != nil {
+		hwlog.Fatal(err)
+	}
+	return *c
 }
 
 func init() {
@@ -346,7 +353,10 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func loadCRL() {
-	crlBytes := utils.CheckCRL(crlStore)
+	crlBytes, err := utils.CheckCRL(crlStore)
+	if err != nil {
+		hwlog.Fatal(err)
+	}
 	if len(crlBytes) == 0 {
 		return
 	}
@@ -368,18 +378,25 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 	if certFile == "" || keyFile == "" {
 		hwlog.Fatal("need input certFile and keyFile together")
 	}
-	keyBlock := utils.DecryptPrivateKeyWithPd(keyFile, nil)
+	keyBlock, err := utils.DecryptPrivateKeyWithPd(keyFile, nil)
+	if err != nil {
+		hwlog.Fatal(err)
+	}
 	// start to import the  certificate file
 	certBytes, err := utils.ReadBytes(certFile)
 	if err != nil {
 		hwlog.Fatal("read certFile failed")
 	}
 	// validate certification and private key, if not pass, program will exit
-	utils.ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock))
+	if _, err = utils.ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock)); err != nil {
+		hwlog.Fatal(err)
+	}
 	// encrypt private key again with passwd
 	encryptedBlock, err := utils.EncryptPrivateKeyAgain(keyBlock, passFile, passFileBackUp)
-	utils.MakeSureDir(keyStore)
-	if err := utils.OverridePassWdFile(keyStore, pem.EncodeToMemory(encryptedBlock)); err != nil {
+	if err = utils.MakeSureDir(keyStore); err != nil {
+		hwlog.Fatal(err)
+	}
+	if err := utils.OverridePassWdFile(keyStore, pem.EncodeToMemory(encryptedBlock), utils.FileMode); err != nil {
 		hwlog.Fatal(err)
 	}
 	if err = ioutil.WriteFile(certStore, certBytes, utils.FileMode); err != nil {
@@ -392,7 +409,11 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 		}
 	}
 	// start to import the crl file
-	if crlBytes := utils.CheckCRL(crlFile); len(crlBytes) != 0 {
+	crlBytes, err := utils.CheckCRL(crlFile)
+	if err != nil {
+		hwlog.Fatal(err)
+	}
+	if len(crlBytes) != 0 {
 		if err = ioutil.WriteFile(crlStore, crlBytes, utils.FileMode); err != nil {
 			hwlog.Fatal("write crlBytes to config failed ")
 		}

@@ -134,37 +134,40 @@ func ParsePrivateKeyWithPassword(keyBytes []byte, pd []byte) (*pem.Block, error)
 }
 
 // CheckCRL validate crl file
-func CheckCRL(crlFile string) []byte {
+func CheckCRL(crlFile string) ([]byte, error) {
 	if crlFile == "" {
-		return nil
+		return nil, nil
 	}
 	crl, err := filepath.Abs(crlFile)
 	if err != nil {
-		hwlog.Fatalf("the crlFile is invalid")
+		return nil, errors.New("the crlFile is invalid")
 	}
 	if !IsExists(crl) {
-		return nil
+		return nil, nil
 	}
 	crlBytes, err := ioutil.ReadFile(crl)
 	if err != nil {
-		hwlog.Fatal("read crlFile failed")
+		return nil, errors.New("read crlFile failed")
 	}
 	_, err = x509.ParseCRL(crlBytes)
 	if err != nil {
-		hwlog.Fatal("parse crlFile failed")
+		return nil, errors.New("parse crlFile failed")
 	}
-	return crlBytes
+	return crlBytes, nil
 }
 
+var osMkdir = os.Mkdir
+
 // MakeSureDir make sure the directory was existed
-func MakeSureDir(path string) {
+func MakeSureDir(path string) error {
 	dir := filepath.Dir(path)
 	if !IsExists(dir) {
-		err := os.Mkdir(dir, dirMode)
+		err := osMkdir(dir, dirMode)
 		if err != nil {
-			hwlog.Fatal("create config directory failed")
+			return errors.New("create config directory failed")
 		}
 	}
+	return nil
 }
 
 // CheckValidityPeriod check certification validity period
@@ -217,6 +220,9 @@ func GetPrivateKeyLength(cert *x509.Certificate, certificate *tls.Certificate) (
 
 // CheckRevokedCert check the revoked certification
 func CheckRevokedCert(r *http.Request, revokedCertificates []pkix.RevokedCertificate) bool {
+	if r.TLS == nil || len(revokedCertificates) == 0 {
+		return false
+	}
 	for _, revokeCert := range revokedCertificates {
 		for _, cert := range r.TLS.PeerCertificates {
 			if cert != nil && cert.SerialNumber.Cmp(revokeCert.SerialNumber) == 0 {
@@ -250,43 +256,43 @@ func LoadCertsFromPEM(pemCerts []byte) (*x509.Certificate, error) {
 }
 
 // ValidateX509Pair validate the x509pair
-func ValidateX509Pair(certBytes []byte, keyBytes []byte) tls.Certificate {
+func ValidateX509Pair(certBytes []byte, keyBytes []byte) (*tls.Certificate, error) {
 	c, err := tls.X509KeyPair(certBytes, keyBytes)
 	if err != nil {
-		hwlog.Fatal("failed to load X509KeyPair")
+		return nil, errors.New("failed to load X509KeyPair")
 	}
 	cc, err := x509.ParseCertificate(c.Certificate[0])
 	if err != nil {
-		hwlog.Fatalf("parse certificate failed")
+		return nil, errors.New("parse certificate failed")
 	}
 	if err = CheckSignatureAlgorithm(cc); err != nil {
-		hwlog.Fatalf(err.Error())
+		return nil, err
 	}
 	if err = CheckValidityPeriod(cc); err != nil {
-		hwlog.Fatalf(err.Error())
+		return nil, err
 	}
 	keyLen, keyType, err := GetPrivateKeyLength(cc, &c)
 	if err != nil {
-		hwlog.Fatalf(err.Error())
+		return nil, err
 	}
 	// ED25519 private key length is stable and no need to verify
 	if "RSA" == keyType && keyLen < rsaLength || "ECC" == keyType && keyLen < eccLength {
 		hwlog.Warn("the private key length is not enough")
 	}
-	return c
+	return &c, nil
 }
 
 // DecryptPrivateKeyWithPd  decrypt Private key By password
-func DecryptPrivateKeyWithPd(keyFile string, passwd []byte) *pem.Block {
+func DecryptPrivateKeyWithPd(keyFile string, passwd []byte) (*pem.Block, error) {
 	keyBytes, err := ReadBytes(keyFile)
 	if err != nil {
-		hwlog.Fatal("read keyFile failed")
+		return nil, err
 	}
 	block, err := ParsePrivateKeyWithPassword(keyBytes, passwd)
 	if err != nil {
-		hwlog.Fatal(err)
+		return nil, err
 	}
-	return block
+	return block, nil
 }
 
 // GetRandomPass produce the new password
@@ -305,7 +311,7 @@ func GetRandomPass() []byte {
 }
 
 // ReadOrUpdatePd  read or update the password file
-func ReadOrUpdatePd(mainPath, backPath string) []byte {
+func ReadOrUpdatePd(mainPath, backPath string, mode os.FileMode) []byte {
 	mainPd, err := ReadBytes(mainPath)
 	if err != nil {
 		hwlog.Warn("there is no main passwd,start to find backup files")
@@ -314,12 +320,12 @@ func ReadOrUpdatePd(mainPath, backPath string) []byte {
 			hwlog.Warn("there is no backup file found")
 			return []byte{}
 		}
-		if err = ioutil.WriteFile(mainPath, backPd, FileMode); err != nil {
+		if err = ioutil.WriteFile(mainPath, backPd, mode); err != nil {
 			hwlog.Warn("revert passwd failed")
 		}
 		return backPd
 	}
-	if err = ioutil.WriteFile(backPath, mainPd, FileMode); err != nil {
+	if err = ioutil.WriteFile(backPath, mainPd, mode); err != nil {
 		hwlog.Warn("backup passwd failed")
 	}
 	return mainPd
@@ -327,13 +333,19 @@ func ReadOrUpdatePd(mainPath, backPath string) []byte {
 }
 
 // KmcInit init kmc component
-func KmcInit(sdpAlgID int) {
+var KmcInit = func(sdpAlgID int, primaryKey, standbyKey string) {
 	if Bootstrap == nil {
 		defaultLogLevel := loglevel.Info
 		var defaultLogger gateway.CryptoLogger = &hwlog.KmcLoggerApdaptor{}
 		defaultInitConfig := vo.NewKmcInitConfigVO()
-		defaultInitConfig.PrimaryKeyStoreFile = "/etc/npu-exporter/kmc_primary_store/master.ks"
-		defaultInitConfig.StandbyKeyStoreFile = "/etc/npu-exporter/.config/backup.ks"
+		if primaryKey == "" {
+			primaryKey = "/etc/npu-exporter/kmc_primary_store/master.ks"
+		}
+		if standbyKey == "" {
+			standbyKey = "/etc/npu-exporter/.config/backup.ks"
+		}
+		defaultInitConfig.PrimaryKeyStoreFile = primaryKey
+		defaultInitConfig.StandbyKeyStoreFile = standbyKey
 		if sdpAlgID == 0 {
 			sdpAlgID = Aes256gcm
 		}
@@ -348,12 +360,12 @@ func KmcInit(sdpAlgID int) {
 }
 
 // Encrypt encrypt the data
-func Encrypt(domainID int, data []byte) ([]byte, error) {
+var Encrypt = func(domainID int, data []byte) ([]byte, error) {
 	return cryptoAPI.EncryptByAppId(domainID, data)
 }
 
 // Decrypt decrypt the data
-func Decrypt(domainID int, data []byte) ([]byte, error) {
+var Decrypt = func(domainID int, data []byte) ([]byte, error) {
 	return cryptoAPI.DecryptByAppId(domainID, data)
 }
 
@@ -361,17 +373,17 @@ func Decrypt(domainID int, data []byte) ([]byte, error) {
 func EncryptPrivateKeyAgain(keyBlock *pem.Block, passwdFile, passwdBackup string) (*pem.Block, error) {
 	// generate new passwd for private key
 	pd := GetRandomPass()
-	KmcInit(0)
+	KmcInit(0, "", "")
 	encryptedPd, err := Encrypt(0, pd)
 	if err != nil {
 		hwlog.Fatal("encrypt passwd failed")
 	}
 	hwlog.Info("encrypt new passwd successfully")
-	if err := OverridePassWdFile(passwdFile, encryptedPd); err != nil {
+	if err := OverridePassWdFile(passwdFile, encryptedPd, FileMode); err != nil {
 		hwlog.Fatal("write encrypted passwd to file failed")
 	}
 	hwlog.Info("create or update  passwd file successfully")
-	if err = ioutil.WriteFile(passwdBackup, encryptedPd, FileMode); err != nil {
+	if err = OverridePassWdFile(passwdBackup, encryptedPd, FileMode); err != nil {
 		hwlog.Fatal("write encrypted passwd to back file failed")
 	}
 	hwlog.Info("create or update  passwd backup file successfully")
@@ -426,36 +438,36 @@ func PeriodCheck(cert *x509.Certificate) {
 	}
 }
 
-// OverridePassWdFile overide password file with 0,1,random and then write new data
-func OverridePassWdFile(path string, data []byte) error {
+// OverridePassWdFile override password file with 0,1,random and then write new data
+func OverridePassWdFile(path string, data []byte, mode os.FileMode) error {
 	// Override with zero
-	overideByte := make([]byte, byteSize*maxLen, byteSize*maxLen)
-	if err := write(path, overideByte); err != nil {
+	overrideByte := make([]byte, byteSize*maxLen, byteSize*maxLen)
+	if err := write(path, overrideByte, mode); err != nil {
 		return err
 	}
-	for i := range overideByte {
-		overideByte[i] = 1
+	for i := range overrideByte {
+		overrideByte[i] = 1
 	}
-	if err := write(path, overideByte); err != nil {
+	if err := write(path, overrideByte, mode); err != nil {
 		return err
 	}
-	if _, err := rand.Read(overideByte); err != nil {
-		err := fmt.Errorf("get random words failed")
+	if _, err := rand.Read(overrideByte); err != nil {
+		err := errors.New("get random words failed")
 		hwlog.Error(err)
 		return err
 	}
-	if err := write(path, overideByte); err != nil {
+	if err := write(path, overrideByte, mode); err != nil {
 		return err
 	}
-	if err := write(path, data); err != nil {
+	if err := write(path, data, mode); err != nil {
 		return err
 	}
 	return nil
 }
 
-func write(path string, overideByte []byte) error {
-	if err := ioutil.WriteFile(path, overideByte, FileMode); err != nil {
-		return fmt.Errorf("write encrypted key to config failed")
+func write(path string, overideByte []byte, mode os.FileMode) error {
+	if err := ioutil.WriteFile(path, overideByte, mode); err != nil {
+		return errors.New("write encrypted key to config failed")
 	}
 	return nil
 }

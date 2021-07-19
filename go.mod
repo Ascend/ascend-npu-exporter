@@ -7,6 +7,7 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/prashantv/gostub v1.0.1-0.20191007164320-bbe3712b9c4a
 	github.com/prometheus/client_golang v1.5.0
+	github.com/smartystreets/goconvey v1.6.4
 	github.com/stretchr/testify v1.4.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20190510104115-cbcb75029529
