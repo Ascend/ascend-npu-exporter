@@ -453,8 +453,8 @@ func (d *baseDeviceManager) GetDeviceUtilizationRate(logicID int32, deviceType D
 	}
 
 	if !isValidUtilizationRate(uint32(utilRate)) {
-		return retError, fmt.Errorf("get wrong device utilize rate, device: %d utilize rate: %d", uint32(utilRate),
-			logicID)
+		return retError, fmt.Errorf("get wrong device utilize rate, device: %d utilize rate: %d", logicID,
+			uint32(utilRate))
 	}
 
 	return int32(utilRate), nil
