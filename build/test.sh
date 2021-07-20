@@ -6,7 +6,7 @@ set -e
 
 # execute go test and echo result to report files
 function execute_test() {
-  if ! (go test -v -race -coverprofile cov.out "${TOP_DIR}"/collector/... >./"$file_input")
+  if ! (go test -v -race -coverprofile cov.out "${TOP_DIR}"/... >./"$file_input")
   then
     echo '****** go test cases error! ******'
     echo 'Failed' >"$file_input"
