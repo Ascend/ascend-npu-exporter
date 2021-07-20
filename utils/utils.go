@@ -116,6 +116,7 @@ func ParsePrivateKeyWithPassword(keyBytes []byte, pd []byte) (*pem.Block, error)
 		}
 		var err error
 		buf, err = x509.DecryptPEMBlock(block, pd)
+		PaddingAndCleanSlice(pd)
 		if err != nil {
 			if err == x509.IncorrectPasswordError {
 				return nil, err
