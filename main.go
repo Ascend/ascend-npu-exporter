@@ -339,12 +339,17 @@ func interceptor(h http.Handler) http.Handler {
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
+	var proposal = "http"
+	if certificate != nil {
+		proposal = "https"
+	}
 	_, err := w.Write([]byte(
 		`<html>
 			<head><title>NPU-Exporter</title></head>
 			<body>
 			<h1 align="center">NPU-Exporter</h1>
-			<p align="center">Welcome to use NPU-Exporter,the Prometheus metrics url is http://ip ` + strconv.Itoa(port) + `/metrics: <a href="./metrics">Metrics</a></p>
+			<p align="center">Welcome to use NPU-Exporter,the Prometheus metrics url is ` + proposal + `://ip ` +
+			strconv.Itoa(port) + `/metrics: <a href="./metrics">Metrics</a></p>
 			</body>
 			</html>`))
 	if err != nil {
