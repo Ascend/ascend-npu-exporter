@@ -343,6 +343,9 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 		logMode = LogFileMode
 	}
 	changedLogFilePath := path.Join(logPath, changedFileName)
+	if !isExist(changedLogFilePath) {
+		return
+	}
 	if errChmod := os.Chmod(changedLogFilePath, logMode); errChmod != nil {
 		logger.Error("set file mode failed", zap.String("filename", changedFileName))
 	}
@@ -374,10 +377,9 @@ func getCallerPath(paths []string) string {
 	}
 	str := paths[IndexOfCallerFileInfo]
 	spaceIndex := strings.LastIndex(str, " ")
-	if spaceIndex == -1 {
-		return ""
+	if spaceIndex != -1 {
+		str = str[:spaceIndex]
 	}
-	str = str[:spaceIndex]
 	slashIndex1 := strings.LastIndex(str, "/")
 	if slashIndex1 == -1 {
 		return ""
