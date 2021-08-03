@@ -187,7 +187,7 @@ func validate() {
 		baseParamValid()
 		return
 	}
-	utils.KmcInit(encryptAlgorithm, "", "")
+
 	// start to import certificate and keys
 	importCertFiles(certFile, keyFile, caFile, crlFile)
 	baseParamValid()
@@ -272,6 +272,7 @@ func handleCert() tls.Certificate {
 		hwlog.Fatal("there is no certFile provided")
 	}
 	encodedPd := utils.ReadOrUpdatePd(passFile, passFileBackUp, utils.FileMode)
+	utils.KmcInit(encryptAlgorithm, "", "")
 	pd, err := utils.Decrypt(0, encodedPd)
 	if err != nil {
 		hwlog.Info("decrypt passwd failed")
@@ -382,6 +383,10 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 	}
 	if certFile == "" || keyFile == "" {
 		hwlog.Fatal("need input certFile and keyFile together")
+	}
+	if encryptAlgorithm != utils.Aes128gcm && encryptAlgorithm != utils.Aes256gcm {
+		hwlog.Warn("reset invalid encryptAlgorithm ")
+		encryptAlgorithm = utils.Aes256gcm
 	}
 	keyBlock, err := utils.DecryptPrivateKeyWithPd(keyFile, nil)
 	if err != nil {
