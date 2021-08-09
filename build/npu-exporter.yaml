@@ -44,6 +44,7 @@ spec:
     spec:
       nodeSelector:
         workerselector: dls-worker-node
+      shareProcessNamespace: true
       containers:
       - name: npu-exporter
         image: npu-exporter:beta
@@ -84,6 +85,8 @@ spec:
             readOnly: true
           - name: kmckeystore
             mountPath: /etc/npu-exporter
+          - name: containerd-endpoint
+            mountPath: /run/containerd/containerd.sock
       volumes:
         - name: log-npu-exporter
           hostPath:
@@ -101,6 +104,9 @@ spec:
         - name: kmckeystore
           hostPath:
             path: /etc/npu-exporter
+        - name: containerd-endpoint
+          hostPath:
+            path: /run/containerd/containerd.sock
 
 
 

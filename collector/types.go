@@ -34,6 +34,8 @@ const (
 	five = 5
 	// cache key
 	key = "npu-exporter-npu-list"
+	// cache key for parsing-device result
+	containersDevicesInfoKey = "npu-exporter-containers-devices"
 )
 
 var (

@@ -1,16 +1,4 @@
-//  Copyright(C) 2020. Huawei Technologies Co.,Ltd. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
 
 // Package collector for Prometheus
 package collector
@@ -19,6 +7,7 @@ import (
 	"fmt"
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
+	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/dsmi"
 	"huawei.com/npu-exporter/hwlog"
 	"math"
@@ -42,20 +31,24 @@ var (
 	npuChipInfoDescHbmUsedMemory  = prometheus.NewDesc("npu_chip_info_hbm_used_memory", "the npu hbm used memory", []string{"id"}, nil)
 	npuChipInfoDescHbmTotalMemory = prometheus.NewDesc("npu_chip_info_hbm_total_memory", "the npu hbm total memory", []string{"id"}, nil)
 	npuChipInfoDescErrorCode      = prometheus.NewDesc("npu_chip_info_error_code", "the npu error code", []string{"id"}, nil)
+	npuContainerInfo              = prometheus.NewDesc("npu_container_info", "the container name and deviceID relationship", []string{"containerID", "containerName", "id"}, nil)
 )
 
 type npuCollector struct {
-	cache      *cache.Cache
-	updateTime time.Duration
-	cacheTime  time.Duration
+	cache         *cache.Cache
+	devicesParser *container.DevicesParser
+	updateTime    time.Duration
+	cacheTime     time.Duration
 }
 
 // NewNpuCollector new a instance of prometheus Collector
-func NewNpuCollector(cacheTime time.Duration, updateTime time.Duration, stop chan os.Signal) prometheus.Collector {
+func NewNpuCollector(cacheTime time.Duration, updateTime time.Duration, stop chan os.Signal,
+	deviceParser *container.DevicesParser) prometheus.Collector {
 	npuCollect := &npuCollector{
-		cache:      cache.New(cacheTime, five*time.Minute),
-		cacheTime:  cacheTime,
-		updateTime: updateTime,
+		cache:         cache.New(cacheTime, five*time.Minute),
+		cacheTime:     cacheTime,
+		updateTime:    updateTime,
+		devicesParser: deviceParser,
 	}
 	go start(npuCollect, stop, dsmi.GetDeviceManager())
 	return npuCollect
@@ -141,21 +134,37 @@ var start = func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInte
 			hwlog.Errorf("go routine failed with %v", err)
 		}
 	}()
+
 	if n == nil || stop == nil {
 		hwlog.Error("Invalid param in function start")
 		return
 	}
+
+	if err := n.devicesParser.Init(); err != nil {
+		hwlog.Errorf("failed to init devices parser: %v", err)
+		return
+	}
+	defer n.devicesParser.Close()
+	n.devicesParser.Timeout = n.updateTime
+
 	ticker := time.NewTicker(n.updateTime)
 	hwlog.Infof("Starting update cache every %d seconds", n.updateTime/time.Second)
+
 	for {
 		select {
 		case _, ok := <-ticker.C:
 			if !ok {
 				return
 			}
+			n.devicesParser.FetchAndParse(nil)
 			npuInfo := getNPUInfo(dmgr)
 			n.cache.Set(key, npuInfo, n.cacheTime)
 			hwlog.Infof("update cache,key is %s", key)
+		case result := <-n.devicesParser.RecvResult():
+			n.cache.Set(containersDevicesInfoKey, result, n.cacheTime)
+			hwlog.Infof("update cache,key is %s", containersDevicesInfoKey)
+		case err := <-n.devicesParser.RecvErr():
+			hwlog.Errorf("received error from device parser: %v", err)
 		case _, ok := <-stop:
 			if !ok {
 				hwlog.Error("closed")
@@ -188,6 +197,7 @@ func (n *npuCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- npuChipInfoDescTotalMemory
 	ch <- npuChipInfoDescErrorCode
 	ch <- npuChipInfoDescNpuName
+	ch <- npuContainerInfo
 }
 
 // Collect implements prometheus.Collector
@@ -196,6 +206,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 		hwlog.Error("Invalid param in function Collect")
 		return
 	}
+
 	obj, found := n.cache.Get(key)
 	if !found {
 		hwlog.Warn("no cache, start to get npulist and rebuild cache")
@@ -223,7 +234,39 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 			updateNPUOtherInfo(ch, &card, chip)
 		}
 	}
+
 	ch <- prometheus.MustNewConstMetric(machineInfoNPUDesc, prometheus.GaugeValue, float64(totalCount))
+	obj, found = n.cache.Get(containersDevicesInfoKey)
+	if !found {
+		hwlog.Warn("containers' devices info not found in cache, rebuilding")
+		resultChan := make(chan container.DevicesInfos, 1)
+		n.devicesParser.FetchAndParse(resultChan)
+		obj = <-resultChan
+		hwlog.Warn("rebuild cache successfully")
+	}
+
+	containersDevicesInfo, ok := obj.(container.DevicesInfos)
+	if !ok {
+		hwlog.Error("Error cache and convert failed")
+		return
+	}
+
+	updateContainerNPUInfo(ch, containersDevicesInfo)
+}
+
+func updateContainerNPUInfo(ch chan<- prometheus.Metric, cntNpuInfos container.DevicesInfos) {
+	if ch == nil {
+		panic("sending metric channel is nil")
+	}
+
+	for _, v := range cntNpuInfos {
+		for _, deviceID := range v.Devices {
+			ch <- prometheus.MustNewConstMetric(
+				npuContainerInfo,
+				prometheus.GaugeValue, 1,
+				[]string{v.ID, v.Name, strconv.Itoa(deviceID)}...)
+		}
+	}
 }
 
 func updateNPUOtherInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {

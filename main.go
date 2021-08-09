@@ -25,6 +25,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"huawei.com/npu-exporter/collector"
+	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/hwlog"
 	"huawei.com/npu-exporter/utils"
 	"io/ioutil"
@@ -56,23 +57,30 @@ var (
 	tlsSuites        int
 	cipherSuites     uint16
 	concurrency      int
+	containerMode    string
+	containerd       string
+	endpoint         string
 )
 
 const (
-	portConst          = 8082
-	updateTimeConst    = 5
-	cacheTime          = 65 * time.Second
-	portLeft           = 1025
-	portRight          = 40000
-	oneMinute          = 60
-	keyStore           = "/etc/npu-exporter/.config/config1"
-	certStore          = "/etc/npu-exporter/.config/config2"
-	caStore            = "/etc/npu-exporter/.config/config3"
-	crlStore           = "/etc/npu-exporter/.config/config4"
-	passFile           = "/etc/npu-exporter/.config/config5"
-	passFileBackUp     = "/etc/npu-exporter/.conf"
-	defaultConcurrency = 5
-	defaultLogFile     = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
+	portConst                 = 8082
+	updateTimeConst           = 5
+	cacheTime                 = 65 * time.Second
+	portLeft                  = 1025
+	portRight                 = 40000
+	oneMinute                 = 60
+	keyStore                  = "/etc/npu-exporter/.config/config1"
+	certStore                 = "/etc/npu-exporter/.config/config2"
+	caStore                   = "/etc/npu-exporter/.config/config3"
+	crlStore                  = "/etc/npu-exporter/.config/config4"
+	passFile                  = "/etc/npu-exporter/.config/config5"
+	passFileBackUp            = "/etc/npu-exporter/.conf"
+	defaultConcurrency        = 5
+	defaultLogFile            = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
+	defaultContainerdAddr     = "/run/containerd/containerd.sock"
+	defaultDockContainerdAddr = "/var/run/docker/containerd/docker-containerd.sock"
+	containerModeDocker = "docker"
+	containerModeContainerd = "containerd"
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
@@ -121,23 +129,27 @@ func main() {
 		fmt.Printf("NPU-exporter version: %s \n", collector.BuildVersion)
 		os.Exit(0)
 	}
+
 	stopCH := make(chan struct{})
 	defer close(stopCH)
 	// init hwlog
 	initHwLogger(stopCH)
 	validate()
-	listenAddress := ip + ":" + strconv.Itoa(port)
 	hwlog.Infof("npu exporter starting and the version is %s", collector.BuildVersion)
+
+	opts := readCntMonitoringFlags()
 	stop := make(chan os.Signal)
 	defer close(stop)
 	signal.Notify(stop, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGKILL)
-	reg := regPrometheus(stop)
+	reg := regPrometheus(stop, opts)
+
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 	http.Handle("/", http.HandlerFunc(indexHandler))
 	s := &http.Server{
-		Addr:    listenAddress,
+		Addr:    ip + ":" + strconv.Itoa(port),
 		Handler: newLimitHandler(concurrency, http.DefaultServeMux),
 	}
+
 	if certificate != nil {
 		s.TLSConfig = newTLSConfig(caBytes)
 		s.Handler = newLimitHandler(concurrency, interceptor(http.DefaultServeMux))
@@ -146,6 +158,7 @@ func main() {
 			hwlog.Fatal("Https server error and stopped")
 		}
 	}
+
 	hwlog.Warn("enable unsafe http server")
 	if err := s.ListenAndServe(); err != nil {
 		hwlog.Fatal("Http server error and stopped")
@@ -176,16 +189,40 @@ func newTLSConfig(caBytes []byte) *tls.Config {
 	return tlsConfig
 }
 
-func regPrometheus(stop chan os.Signal) *prometheus.Registry {
+func readCntMonitoringFlags() container.CntNpuMonitorOpts {
+	opts := container.CntNpuMonitorOpts{}
+	switch containerMode {
+	case containerModeDocker:
+		opts.EndpointType = container.EndpointTypeDockerd
+		opts.ContainerdAddress = defaultDockContainerdAddr
+	case containerModeContainerd:
+		opts.EndpointType = container.EndpointTypeContainerd
+		opts.ContainerdAddress = defaultContainerdAddr
+		opts.Endpoint = "unix://" + defaultContainerdAddr
+	default:
+		hwlog.Fatal("invalid container mode setting")
+	}
+	if containerd != "" {
+		opts.ContainerdAddress = containerd
+	}
+	if endpoint != "" {
+		opts.Endpoint = endpoint
+	}
+	return opts
+}
+
+func regPrometheus(stop chan os.Signal, opts container.CntNpuMonitorOpts) *prometheus.Registry {
+	deviceParser := container.MakeDevicesParser(opts)
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(
-		collector.NewNpuCollector(cacheTime, time.Duration(updateTime)*time.Second, stop),
+		collector.NewNpuCollector(cacheTime, time.Duration(updateTime)*time.Second, stop, deviceParser),
 	)
 	if needGoInfo {
 		reg.MustRegister(prometheus.NewGoCollector())
 	}
 	return reg
 }
+
 func validate() {
 	if (certFile == "" && keyFile == "") && enableHTTP {
 		baseParamValid()
@@ -321,6 +358,12 @@ func init() {
 		"Use 0 for TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 ,1 for TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256")
 	flag.BoolVar(&version, "version", false,
 		"If true,query the version of the program (default false)")
+	flag.StringVar(&containerMode, "containerMode", containerModeDocker,
+		"Set 'docker'(default) for monitoring docker containers or 'containerd' for CRI & containerd")
+	flag.StringVar(&containerd, "containerd", "",
+		"The endpoint of containerd used for listening containers' events")
+	flag.StringVar(&endpoint, "endpoint", "",
+		"The endpoint of the CRI or dockerd server to which will be connected")
 	flag.IntVar(&concurrency, "concurrency", defaultConcurrency,
 		"The max concurrency of the http server")
 
