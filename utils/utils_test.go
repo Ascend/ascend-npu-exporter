@@ -220,37 +220,46 @@ func TestValidateX509Pair(t *testing.T) {
 func TestCheckRevokedCert(t *testing.T) {
 	Convey("test for CheckRevokedCert", t, func() {
 		Convey("cert revoked", func() {
+			certByte,err := ReadBytes("./testdata/checkcrl_testdata/certificate.crt")
+			So(err, ShouldEqual, nil)
+			cert,_ := LoadCertsFromPEM(certByte)
+			cacert,err := ReadBytes("./testdata/checkcrl_testdata/ca.crt")
+			So(err, ShouldEqual, nil)
+			ca,_ := LoadCertsFromPEM(cacert)
 			r := &http.Request{
 				TLS: &tls.ConnectionState{
-					PeerCertificates: []*x509.Certificate{{
-						SerialNumber: big.NewInt(1),
-					}},
+					VerifiedChains: [][]*x509.Certificate{{cert,ca},},
+					PeerCertificates: []*x509.Certificate{
+						{ SerialNumber: big.NewInt(1), }, cert,},
 				},
 			}
-			revoked := []pkix.RevokedCertificate{{
-				SerialNumber:   big.NewInt(1),
-				RevocationTime: time.Time{},
-				Extensions:     nil,
-			}}
-			res := CheckRevokedCert(r, revoked)
-			So(res, ShouldBeTrue)
+			crlByte, err := ReadBytes("./testdata/checkcrl_testdata/certificate_revokelist.crl")
+			So( err, ShouldEqual, nil)
+			crl, err := x509.ParseCRL(crlByte)
+			if err == nil{
+				So( err, ShouldEqual, nil)
+			}
+			res := CheckRevokedCert(r, crl)
+			So( res, ShouldBeTrue)
 		})
 		Convey("cert not revoked", func() {
 			r := &http.Request{
 				TLS: &tls.ConnectionState{},
 			}
-			revoked := []pkix.RevokedCertificate{{
-				SerialNumber:   big.NewInt(1),
-				RevocationTime: time.Time{},
-				Extensions:     nil,
-			}}
-			res := CheckRevokedCert(r, revoked)
+			crlcerList := &pkix.CertificateList{
+				TBSCertList: pkix.TBSCertificateList{
+					RevokedCertificates: []pkix.RevokedCertificate{{
+						SerialNumber:    big.NewInt(1),
+						RevocationTime:  time.Time{},
+						Extensions:nil,
+					}},
+				},
+			}
+			res := CheckRevokedCert(r,nil)
 			So(res, ShouldBeFalse)
-		})
-		Convey("cert not exist", func() {
-			r := &http.Request{}
-			res := CheckRevokedCert(r, nil)
+			res = CheckRevokedCert(r, crlcerList)
 			So(res, ShouldBeFalse)
 		})
 	})
 }
+

@@ -75,8 +75,8 @@ const (
 	defaultLogFile     = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
 )
 
-var revokedCertificates []pkix.RevokedCertificate
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
+var crlcerList *pkix.CertificateList
 
 type limitHandler struct {
 	concurrency chan struct{}
@@ -331,7 +331,7 @@ func init() {
 
 func interceptor(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if len(revokedCertificates) > 0 && utils.CheckRevokedCert(r, revokedCertificates) {
+		if crlcerList != nil && utils.CheckRevokedCert(r, crlcerList) {
 			return
 		}
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000")
@@ -371,7 +371,7 @@ func loadCRL() {
 		hwlog.Fatal("parse crlFile failed")
 	}
 	if crlList != nil {
-		revokedCertificates = crlList.TBSCertList.RevokedCertificates
+		crlcerList = crlList
 		hwlog.Infof("load CRL success")
 	}
 }
