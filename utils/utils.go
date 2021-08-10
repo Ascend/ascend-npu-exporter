@@ -220,13 +220,34 @@ func GetPrivateKeyLength(cert *x509.Certificate, certificate *tls.Certificate) (
 }
 
 // CheckRevokedCert check the revoked certification
-func CheckRevokedCert(r *http.Request, revokedCertificates []pkix.RevokedCertificate) bool {
-	if r.TLS == nil || len(revokedCertificates) == 0 {
+func CheckRevokedCert(r *http.Request, crlcerList *pkix.CertificateList) bool {
+	if crlcerList == nil || r.TLS == nil {
+		hwlog.Warnf("certificate or revokelist is nil")
+		return false
+	}
+	revokedCertificates := crlcerList.TBSCertList.RevokedCertificates
+	if len(revokedCertificates) == 0 {
+		hwlog.Warnf("revoked certificate length is 0" )
+		return false
+	}
+	// r.TLS.VerifiedChains [][]*x509.Certificate ,certificateChain[0] : current chain
+	// certificateChain[0][0] : current certificate, certificateChain[0][1] :  certificate's issuer
+	certificateChain := r.TLS.VerifiedChains
+	if len(certificateChain) == 0 || len(certificateChain[0]) <= 1 {
+		hwlog.Warnf("VerifiedChains length is 0,or certificate is Cafile cannot revoke")
+		return false
+	}
+	hwlog.Infof("VerifiedChains length: %d,CertificatesChains length %d",
+		len(certificateChain), len(certificateChain[0]))
+	// CheckCRLSignature check CRL's issuer is certificate's issuer
+	error := certificateChain[0][1].CheckCRLSignature(crlcerList)
+	if error != nil {
+		hwlog.Warnf("CRL's issuer is not certificate's issuer")
 		return false
 	}
 	for _, revokeCert := range revokedCertificates {
 		for _, cert := range r.TLS.PeerCertificates {
-			if cert != nil && cert.SerialNumber.Cmp(revokeCert.SerialNumber) == 0 {
+			if cert.SerialNumber.Cmp(revokeCert.SerialNumber) == 0 {
 				hwlog.Warnf("revoked certificate SN: %s", cert.SerialNumber)
 				return true
 			}
