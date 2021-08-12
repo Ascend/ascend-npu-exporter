@@ -90,9 +90,13 @@ func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if !ok {
 			return
 		}
+		hwlog.Infof("received request:%s\t%s\t%s%s\t%s", req.Method, req.Proto, req.Host,
+			req.URL.String(), req.UserAgent())
 		h.httpHandler.ServeHTTP(w, req)
 		h.concurrency <- struct{}{}
 	default:
+		hwlog.Warnf("rejected request:%s\t%s\t%s%s\t%s", req.Method, req.Proto, req.Host,
+			req.URL.String(), req.UserAgent())
 		http.Error(w, "503 too busy", http.StatusServiceUnavailable)
 	}
 }
@@ -221,9 +225,11 @@ func baseParamValid() {
 		hwlog.Fatalf("the updateTime is invalid")
 	}
 	if encryptAlgorithm != utils.Aes128gcm && encryptAlgorithm != utils.Aes256gcm {
+		hwlog.Warn("reset invalid encryptAlgorithm ")
 		encryptAlgorithm = utils.Aes256gcm
 	}
 	if tlsSuites != 0 && tlsSuites != 1 {
+		hwlog.Warn("reset invalid tlsSuites ")
 		tlsSuites = 0
 	}
 	if tlsSuites == 0 {
