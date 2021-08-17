@@ -1,21 +1,21 @@
 #!/bin/bash
 # Perform  build npu-exporter
-# Copyright @ Huawei Technologies CO., Ltd. 2020-2021. All rights reserved
+# Copyright @ Huawei Technologies CO., Ltd. 2020-2020. All rights reserved
 
 set -e
 CUR_DIR=$(dirname $(readlink -f $0))
 TOP_DIR=$(realpath "${CUR_DIR}"/..)
 export GO111MODULE="on"
-unset GOPATH
 VER_FILE="${TOP_DIR}"/service_config.ini
-build_version="v2.0.1"
+build_version="v2.0.2"
 if [ -f "$VER_FILE" ]; then
   line=$(sed -n '5p' "$VER_FILE" 2>&1)
   #cut the chars after ':'
   build_version=${line#*:}
 fi
+
 arch=$(arch 2>&1)
-echo "Build Architecture  is" "${arch}"
+echo "Build Architecture is" "${arch}"
 if [ "${arch:0:5}" = 'aarch' ]; then
   arch=arm64
 else
@@ -35,9 +35,9 @@ function clear_env() {
 
 function build() {
   cd "${TOP_DIR}"
-  export CGO_CFLAGS="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -O2 -fPIC -ftrapv"
-  export CGO_CPPFLAGS="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -O2 -fPIC -ftrapv"
-  go build -buildmode=pie -ldflags "-s -extldflags=-Wl,-z,now -X huawei.com/npu-exporter/collector.BuildName=${OUTPUT_NAME} \
+  CGO_CFLAGS="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -O2 -fPIC -ftrapv"
+  CGO_CPPFLAGS="-fstack-protector-strong -D_FORTIFY_SOURCE=2 -O2 -fPIC -ftrapv"
+  go build -mod=mod -buildmode=pie -ldflags "-s -extldflags=-Wl,-z,now  -X huawei.com/npu-exporter/collector.BuildName=${OUTPUT_NAME} \
             -X huawei.com/npu-exporter/collector.BuildVersion=${build_version}" \
     -o ${OUTPUT_NAME}
   ls ${OUTPUT_NAME}
@@ -50,22 +50,16 @@ function build() {
 function mv_file() {
   mv "${TOP_DIR}"/${OUTPUT_NAME} "${TOP_DIR}"/output
   cp "${TOP_DIR}"/build/npu-exporter.yaml "${TOP_DIR}"/output/npu-exporter-"${build_version}".yaml
-}
-
-function build_docker_image() {
   cp "${TOP_DIR}"/build/${DOCKER_FILE_NAME} "${TOP_DIR}"/output
-  cd "${TOP_DIR}"/output
-  docker rmi "${docker_images_name}" || true
-  docker build -t "${docker_images_name}" --no-cache .
-  docker save "${docker_images_name}" | gzip >"${docker_zip_name}"
-  rm -f ${DOCKER_FILE_NAME}
+  chmod 640 "${TOP_DIR}"/output/*
+  chmod 500 "${TOP_DIR}"/output/${OUTPUT_NAME}
+
 }
 
 function main() {
   clear_env
   build
   mv_file
-  build_docker_image
 }
 
 main
