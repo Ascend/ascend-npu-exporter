@@ -28,8 +28,6 @@ const (
 	Healthy HealthEnum = "Healthy"
 	// UnHealthy status of unhealth
 	UnHealthy HealthEnum = "UnHealthy"
-	// when get temperature failed, use this value
-	defaultTemperatureWhenQueryFailed = -275
 	// convert base
 	base = 10
 	// log level
@@ -56,7 +54,7 @@ type HuaWeiAIChip struct {
 	// the healthy status of the  AI chip
 	HealthStatus HealthEnum `json:"health_status"`
 	// the error code of the chip
-	ErrorCode int `json:"error_code"`
+	ErrorCode int64 `json:"error_code"`
 	// the utiliaiton of the chip
 	Utilization int `json:"utilization"`
 	// the temperature of the chip

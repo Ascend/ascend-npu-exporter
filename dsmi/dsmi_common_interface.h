@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2020-2021. All rights reserved.
+ *  Copyright(C) 2020. Huawei Technologies Co.,Ltd. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,15 +34,15 @@ struct dsmi_power_info_stru {
     unsigned short power;
 };
 struct dsmi_memory_info_stru {
-    unsigned long memory_size;
+    unsigned long long memory_size;
     unsigned int freq;
     unsigned int utiliza;
 };
 
 struct dsmi_hbm_info_stru {
-    unsigned long memory_size;  /**< HBM total size, KB */
+    unsigned long long memory_size;      /**< HBM total size, KB */
     unsigned int freq;          /**< HBM freq, MHZ */
-    unsigned long memory_usage; /**< HBM memory_usage, KB */
+    unsigned long long memory_usage;     /**< HBM memory_usage, KB */
     int temp;                   /**< HBM temperature */
     unsigned int bandwith_util_rate;
 };

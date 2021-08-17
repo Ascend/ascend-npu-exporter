@@ -46,7 +46,7 @@ spec:
         workerselector: dls-worker-node
       containers:
       - name: npu-exporter
-        image: npu-exporter:v2.0.1
+        image: npu-exporter:beta
         resources:
           requests:
               memory: 300Mi
@@ -56,17 +56,20 @@ spec:
               cpu: 500m
         imagePullPolicy: Never
         command: [ "/bin/bash", "-c", "--"]
-        args: ["umask 027;npu-exporter -port=8082 -updateTime=5 -logtostderr=false -log_dir=/var/log/npu-exporter
-              -log_file=/var/log/npu-exporter/npu-exporter.log  -stderrthreshold=2 -v=3" ]
+        args: [ "umask 027;npu-exporter -port=8082 -ip=0.0.0.0  -updateTime=5
+                 -logFile=/var/log/mindx-dl/npu-exporter/npu-exporter.log -logLevel=0" ]
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: true
+          runAsUser: 0
+          runAsGroup: 0
         ports:
           - name: http
             containerPort: 8082
             protocol: TCP
         volumeMounts:
           - name: log-npu-exporter
-            mountPath: /var/log/npu-exporter
+            mountPath: /var/log/mindx-dl/npu-exporter
           - name: localtime
             mountPath: /etc/localtime
             readOnly: true
@@ -79,7 +82,8 @@ spec:
       volumes:
         - name: log-npu-exporter
           hostPath:
-            path: /var/log/npu-exporter
+            path: /var/log/mindx-dl/npu-exporter
+            type: Directory
         - name: localtime
           hostPath:
             path: /etc/localtime
@@ -89,3 +93,8 @@ spec:
         - name: ascend-dcmi
           hostPath:
             path: /usr/local/dcmi
+
+
+
+
+

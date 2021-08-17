@@ -20,7 +20,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 	"huawei.com/npu-exporter/dsmi"
-	"k8s.io/klog"
+	"huawei.com/npu-exporter/hwlog"
 	"math"
 	"os"
 	"reflect"
@@ -57,7 +57,7 @@ func NewNpuCollector(cacheTime time.Duration, updateTime time.Duration, stop cha
 		cacheTime:  cacheTime,
 		updateTime: updateTime,
 	}
-	go start(npuCollect, stop)
+	go start(npuCollect, stop, dsmi.GetDeviceManager())
 	return npuCollect
 }
 
@@ -65,14 +65,13 @@ var getNPUInfo = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 	var npuList []HuaWeiNPUCard
 	cardNum, cards, err := dmgr.GetCardList()
 	if cardNum == 0 || err != nil {
-		klog.Warning("Downgrade to user DSMI only,maybe need check ENV of LD_LIBRARY_PATH")
+		hwlog.Warn("Downgrade to user DSMI only,maybe need check ENV of LD_LIBRARY_PATH")
 		return assembleNPUInfoV1(dmgr)
 	}
 	var logicID int32 = 0
 	for _, cardID := range cards {
 		deviceNum, err := dmgr.GetDeviceNumOnCard(cardID)
 		if err != nil {
-			klog.Errorf("Can't get the device count on the card %d", cardID)
 			continue
 		}
 		var deviceList []*HuaWeiAIChip
@@ -96,7 +95,7 @@ var getNPUInfo = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 func assembleNPUInfoV2(cardID int32, logicID int32, dmgr dsmi.DeviceMgrInterface) *HuaWeiAIChip {
 	phyID, err := dmgr.GetPhyIDFromLogicID(uint32(logicID))
 	// check cardId, convert it to int type later
-	if phyID > math.MaxInt8 || err != nil {
+	if phyID > int32(math.MaxInt8) || err != nil {
 		return nil
 	}
 	chipInfo := packChipInfo(logicID, dmgr)
@@ -104,7 +103,7 @@ func assembleNPUInfoV2(cardID int32, logicID int32, dmgr dsmi.DeviceMgrInterface
 	if dsmi.GetChipTypeNow() == dsmi.Ascend710 {
 		cardPower, err := dmgr.GetCardPower(cardID)
 		if err != nil {
-			cardPower = dsmi.DefaultErrorValue
+			cardPower = float32(dsmi.DefaultErrorValue)
 		}
 		// Ascend710 use cardPower to replace chipPower
 		chipInfo.Power = cardPower
@@ -121,7 +120,7 @@ var assembleNPUInfoV1 = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 	for _, logicID := range devices {
 		phyID, err := dmgr.GetPhyIDFromLogicID(uint32(logicID))
 		// check cardId, convert it to int type later
-		if phyID > math.MaxInt8 || err != nil {
+		if phyID > int32(math.MaxInt8) || err != nil {
 			continue
 		}
 		chipInfo := packChipInfo(logicID, dmgr)
@@ -136,34 +135,34 @@ var assembleNPUInfoV1 = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 	return npuList
 }
 
-var start = func(n *npuCollector, stop <-chan os.Signal) {
+var start = func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface) {
 	defer func() {
 		if err := recover(); err != nil {
-			klog.Errorf("go routine failed with %v", err)
+			hwlog.Errorf("go routine failed with %v", err)
 		}
 	}()
 	if n == nil || stop == nil {
-		klog.Error("Invalid param in function start")
+		hwlog.Error("Invalid param in function start")
 		return
 	}
 	ticker := time.NewTicker(n.updateTime)
-	klog.Infof("Starting update cache every %d seconds", n.updateTime/time.Second)
+	hwlog.Infof("Starting update cache every %d seconds", n.updateTime/time.Second)
 	for {
 		select {
 		case _, ok := <-ticker.C:
 			if !ok {
 				return
 			}
-			npuInfo := getNPUInfo(dsmi.GetDeviceManager())
+			npuInfo := getNPUInfo(dmgr)
 			n.cache.Set(key, npuInfo, n.cacheTime)
-			klog.Infof("update cache,key is %s", key)
+			hwlog.Infof("update cache,key is %s", key)
 		case _, ok := <-stop:
 			if !ok {
-				klog.Error("closed")
+				hwlog.Error("closed")
 				return
 			}
 			ticker.Stop()
-			klog.Warning("received the stop signal,STOPPED")
+			hwlog.Warn("received the stop signal,STOPPED")
 			dsmi.ShutDown()
 			os.Exit(0)
 		}
@@ -173,7 +172,7 @@ var start = func(n *npuCollector, stop <-chan os.Signal) {
 // Describe implements prometheus.Collector
 func (n *npuCollector) Describe(ch chan<- *prometheus.Desc) {
 	if ch == nil {
-		klog.Error("Invalid param in function Describe")
+		hwlog.Error("Invalid param in function Describe")
 		return
 	}
 	ch <- versionInfoDesc
@@ -194,20 +193,20 @@ func (n *npuCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements prometheus.Collector
 func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 	if !validate(ch) {
-		klog.Error("Invalid param in function Collect")
+		hwlog.Error("Invalid param in function Collect")
 		return
 	}
 	obj, found := n.cache.Get(key)
 	if !found {
-		klog.Warning("no cache, start to get npulist and rebuild cache")
+		hwlog.Warn("no cache, start to get npulist and rebuild cache")
 		npuInfo := getNPUInfo(dsmi.GetDeviceManager())
 		n.cache.Set(key, npuInfo, n.cacheTime)
-		klog.Warning("rebuild cache successfully")
+		hwlog.Warn("rebuild cache successfully")
 		obj = npuInfo
 	}
 	npuList, ok := obj.([]HuaWeiNPUCard)
 	if !ok {
-		klog.Error("Error cache and convert failed")
+		hwlog.Error("Error cache and convert failed")
 		n.cache.Delete(key)
 	}
 	ch <- prometheus.MustNewConstMetric(versionInfoDesc, prometheus.GaugeValue, 1, []string{BuildVersion}...)
@@ -229,7 +228,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 
 func updateNPUOtherInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
 	if !validate(ch, npu, chip, chip.ChipIfo) {
-		klog.Error("Invalid param in function updateNPUOtherInfo")
+		hwlog.Error("Invalid param in function updateNPUOtherInfo")
 		return
 	}
 	ch <- prometheus.NewMetricWithTimestamp(
@@ -261,7 +260,7 @@ func validate(ch chan<- prometheus.Metric, objs ...interface{}) bool {
 
 func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
 	if !validate(ch, npu, chip, chip.HbmInfo, chip.Meminf) {
-		klog.Error("Invalid param in function updateNPUMemoryInfo")
+		hwlog.Error("Invalid param in function updateNPUMemoryInfo")
 		return
 	}
 	ch <- prometheus.NewMetricWithTimestamp(
@@ -278,7 +277,7 @@ func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 	ch <- prometheus.NewMetricWithTimestamp(
 		npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescUsedMemory, prometheus.GaugeValue,
-			float64(chip.Meminf.MemorySize*chip.Meminf.Utilization/dsmi.Percent),
+			float64(chip.Meminf.MemorySize*uint64(chip.Meminf.Utilization)/uint64(dsmi.Percent)),
 			[]string{strconv.FormatInt(int64(chip.DeviceID), base)}...))
 	ch <- prometheus.NewMetricWithTimestamp(
 		npu.Timestamp,
@@ -288,7 +287,7 @@ func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 
 func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
 	if !validate(ch, npu, chip) {
-		klog.Error("Invalid param in function updateNpuCommonInfo")
+		hwlog.Error("Invalid param in function updateNpuCommonInfo")
 		return
 	}
 	ch <- prometheus.NewMetricWithTimestamp(
@@ -322,7 +321,7 @@ var packChipInfo = func(logicID int32, dmgr dsmi.DeviceMgrInterface) *HuaWeiAICh
 	}
 	temp, err := dmgr.GetDeviceTemperature(logicID)
 	if err != nil {
-		temp = defaultTemperatureWhenQueryFailed
+		temp = dsmi.DefaultTemperatureWhenQueryFailed
 	}
 	vol, err := dmgr.GetDeviceVoltage(logicID)
 	if err != nil {
@@ -344,12 +343,13 @@ var packChipInfo = func(logicID int32, dmgr dsmi.DeviceMgrInterface) *HuaWeiAICh
 	if err != nil {
 		util = dsmi.DefaultErrorValue // valid data range 0-100
 	}
+	// return the first errorCode and data value type is int64
 	_, errCode, err := dmgr.GetDeviceErrCode(logicID)
 	if err != nil {
 		errCode = dsmi.DefaultErrorValue // valid data range 0-128
 	}
 	return &HuaWeiAIChip{
-		ErrorCode:    int(errCode),
+		ErrorCode:    errCode,
 		Utilization:  int(util),
 		Frequency:    int(freq),
 		Power:        power,

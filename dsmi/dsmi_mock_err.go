@@ -15,7 +15,6 @@
 // Package dsmi interface
 package dsmi
 
-import "C"
 import "fmt"
 
 // DeviceManagerMockErr  struct definition
@@ -71,9 +70,14 @@ func (d *DeviceManagerMockErr) GetDevicePower(logicID int32) (float32, error) {
 // GetDeviceFrequency get device frequency, unit MHz
 // Ascend910 1,6,7,9
 // Ascend310 1,2,3,4,5
-// subType enum:  Memory,6HBM,AICoreCurrentFreq,AICoreNormalFreq(1,6,7,9)    see DeviceType
+// subType enum:  Memory,6HBM,AI_Core_Current_Fre,AI_Core_Normal_Fre(1,6,7,9)    see DeviceType
 func (d *DeviceManagerMockErr) GetDeviceFrequency(logicID int32, subType DeviceType) (int32, error) {
 	return int32(0), fmt.Errorf(errorMsg)
+}
+
+// createMemoryInfoObj create Memory information object
+func (d *DeviceManagerMockErr) createMemoryInfoObj(cmInfo *CStructDsmiMemoryInfo) *MemoryInfo {
+	return nil
 }
 
 // GetDeviceMemoryInfo get memory information
@@ -88,8 +92,8 @@ func (d *DeviceManagerMockErr) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error)
 }
 
 // GetDeviceErrCode get the error count and errorcode of the device
-func (d *DeviceManagerMockErr) GetDeviceErrCode(logicID int32) (int32, int32, error) {
-	return int32(0), int32(0), fmt.Errorf(errorMsg)
+func (d *DeviceManagerMockErr) GetDeviceErrCode(logicID int32) (int32, int64, error) {
+	return int32(0), int64(0), fmt.Errorf(errorMsg)
 }
 
 // GetChipInfo get chip info
@@ -97,7 +101,7 @@ func (d *DeviceManagerMockErr) GetChipInfo(logicID int32) (*ChipInfo, error) {
 	return nil, fmt.Errorf(errorMsg)
 }
 
-// GetPhyIDFromLogicID convert the device physicalID to logicId
+// GetPhyIDFromLogicID convert the device physicalID to logicID
 func (d *DeviceManagerMockErr) GetPhyIDFromLogicID(logicID uint32) (int32, error) {
 	return int32(0), fmt.Errorf(errorMsg)
 }

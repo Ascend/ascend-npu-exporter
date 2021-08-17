@@ -22,7 +22,7 @@ const (
 	// HiAIMaxDeviceNum the max device num
 	HiAIMaxDeviceNum = 64
 	// HIAIMaxCardNum the max card num
-	HIAIMaxCardNum = 8
+	HIAIMaxCardNum = 16
 	// Ascend910 Enum
 	Ascend910 ChipType = "Ascend910"
 	// Ascend710 chip type enum

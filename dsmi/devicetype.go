@@ -31,11 +31,10 @@ const (
 	MEMBandWidth DeviceType = 5
 	// HBM             Ascend910 only
 	HBM DeviceType = 6
-	// AICoreCurrentFreq AI core current frequency
+	// AICoreCurrentFreq AI core current frequency  Ascend910 only
 	AICoreCurrentFreq DeviceType = 7
 	// AICoreNormalFreq AI core normal frequency  Ascend910 only
 	AICoreNormalFreq DeviceType = 9
 	// HBMBandWidth Ascend910 only
-	HBMBandWidth DeviceType = 10 // Ascend910 only
-
+	HBMBandWidth DeviceType = 10
 )
