@@ -171,6 +171,12 @@ npu-exporter
 │   ├── cov.out
 │   ├── npu_collector.go
 │   ├── npu_collector_test.go
+│   ├── container
+│   │   ├── cri_name.go
+│   │   ├── docker_name.go
+│   │   ├── name_fetcher.go
+│   │   ├── parser.go
+│   │   ├── runtime_ops.go
 │   ├── testdata                              # Test data
 │   │   ├── prometheus_metrics
 │   │   └── prometheus_metrics2
@@ -321,6 +327,13 @@ npu-exporter
 <td class="cellrowborder" valign="top" width="33.33333333333333%" headers="mcps1.2.4.1.2 "><p id="p1278895513413"><a name="p1278895513413"></a><a name="p1278895513413"></a>Voltage of an <span id="ph422882103813"><a name="ph422882103813"></a><a name="ph422882103813"></a>Ascend AI Processor</span></p>
 </td>
 <td class="cellrowborder" valign="top" width="33.33333333333333%" headers="mcps1.2.4.1.3 "><p id="p978815513344"><a name="p978815513344"></a><a name="p978815513344"></a>V</p>
+</td>
+</tr>
+<tr id="row1078813555344"><td class="cellrowborder" valign="top" width="33.33333333333333%" headers="mcps1.2.4.1.1 "><p id="p1788195511341"><a name="p1788195511341"></a><a name="p1788195511341"></a>npu_container_info</p>
+</td>
+<td class="cellrowborder" valign="top" width="33.33333333333333%" headers="mcps1.2.4.1.2 "><p id="p1278895513413"><a name="p1278895513413"></a><a name="p1278895513413"></a>Allocation status among containers of <span id="ph422882103813"><a name="ph422882103813"></a><a name="ph422882103813"></a>Ascend AI Processor</span></p>
+</td>
+<td class="cellrowborder" valign="top" width="33.33333333333333%" headers="mcps1.2.4.1.3 "><p id="p978815513344"><a name="p978815513344"></a><a name="p978815513344"></a>N/A</p>
 </td>
 </tr>
 </tbody>
