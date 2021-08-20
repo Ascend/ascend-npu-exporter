@@ -44,7 +44,6 @@ spec:
     spec:
       nodeSelector:
         workerselector: dls-worker-node
-      shareProcessNamespace: true
       containers:
       - name: npu-exporter
         image: npu-exporter:beta
@@ -60,8 +59,10 @@ spec:
         # NOTE: enable HTTPS needs to use
         # ./npu-exporter -certFile=../cert/rsa_aes.crt -keyFile=../cert/rsa_aes_private.key to import certificate
         # pair firstly
+        # To monitor NPU allocation status on system without docker, please set -containerMode=containerd and mount
+        # essential endpoint file (see volumes).
         args: [ "umask 027;npu-exporter -port=8082 -ip=0.0.0.0  -updateTime=5
-                 -logFile=/var/log/mindx-dl/npu-exporter/npu-exporter.log -logLevel=0" ]
+                 -logFile=/var/log/mindx-dl/npu-exporter/npu-exporter.log -logLevel=0 -containerMode=docker" ]
         securityContext:
           privileged: true
           readOnlyRootFilesystem: true
@@ -85,8 +86,19 @@ spec:
             readOnly: true
           - name: kmckeystore
             mountPath: /etc/npu-exporter
-          - name: containerd-endpoint
-            mountPath: /run/containerd/containerd.sock
+          - name: sys
+            mountPath: /sys
+            readOnly: true
+          # NOTICE: To set containerMode=containerd, please mount containerd endpoint into the container, eg.
+          #- name: containerd
+          #  mountPath: /run/containerd/containerd.sock
+          #  readOnly: true
+          - name: docker-sock
+            mountPath: /var/run/docker.sock
+            readOnly: true
+          - name: docker
+            mountPath: /var/run/docker
+            readOnly: true
       volumes:
         - name: log-npu-exporter
           hostPath:
@@ -104,10 +116,18 @@ spec:
         - name: kmckeystore
           hostPath:
             path: /etc/npu-exporter
-        - name: containerd-endpoint
+        - name: sys
           hostPath:
-            path: /run/containerd/containerd.sock
-
-
+            path: /sys
+        # NOTICE: To set containerMode=containerd, please mount containerd endpoint into the container, eg.
+        #- name: containerd
+        #  hostPath:
+        #    path: /run/containerd/containerd.sock
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: docker
+          hostPath:
+            path: /var/run/docker
 
 

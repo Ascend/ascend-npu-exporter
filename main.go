@@ -359,7 +359,7 @@ func init() {
 	flag.BoolVar(&version, "version", false,
 		"If true,query the version of the program (default false)")
 	flag.StringVar(&containerMode, "containerMode", containerModeDocker,
-		"Set 'docker'(default) for monitoring docker containers or 'containerd' for CRI & containerd")
+		"Set 'docker' for monitoring docker containers or 'containerd' for CRI & containerd")
 	flag.StringVar(&containerd, "containerd", "",
 		"The endpoint of containerd used for listening containers' events")
 	flag.StringVar(&endpoint, "endpoint", "",
