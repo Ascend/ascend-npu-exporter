@@ -132,6 +132,12 @@ npu-exporter
 │   ├── cov.out
 │   ├── npu_collector.go
 │   ├── npu_collector_test.go
+│   ├── container
+│   │   ├── cri_name.go
+│   │   ├── docker_name.go
+│   │   ├── name_fetcher.go
+│   │   ├── parser.go
+│   │   ├── runtime_ops.go
 │   ├── testdata                              #测试数据
 │   │   ├── prometheus_metrics
 │   │   └── prometheus_metrics2
@@ -209,4 +215,4 @@ npu-exporter
 | npu_chip_info_hbm_total_memory | 昇腾系列AI处理器HBM总内存（昇腾910 AI处理器专属）     | MB               |
 | npu_chip_info_utilization      | 昇腾系列AI处理器AI Core利用率                         | %                |
 | npu_chip_info_voltage          | 昇腾系列AI处理器电压                                  | 伏特（V）        |
-
+| npu_container_info             | 昇腾系列AI处理器在容器中的分配状态                     | N/A              |

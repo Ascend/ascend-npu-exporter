@@ -16,11 +16,13 @@
 package collector
 
 import (
+	"context"
 	"github.com/patrickmn/go-cache"
 	"github.com/prashantv/gostub"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
+	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/dsmi"
 	"os"
 	"testing"
@@ -33,6 +35,60 @@ const (
 	waitTime  = 2 * time.Second
 )
 
+type mockContainerRuntimeOperator struct{}
+
+// Init implements ContainerRuntimeOperator
+func (operator *mockContainerRuntimeOperator) Init() error {
+	return nil
+}
+
+// Close implements ContainerRuntimeOperator
+func (operator *mockContainerRuntimeOperator) Close() error {
+	return nil
+}
+
+// ContainerIDs implements ContainerRuntimeOperator
+func (operator *mockContainerRuntimeOperator) ContainerIDs(ctx context.Context) ([]string, error) {
+	return []string{"1", "2"}, nil
+}
+
+// CgroupsPath implements ContainerRuntimeOperator
+func (operator *mockContainerRuntimeOperator) CgroupsPath(ctx context.Context, id string) (string, error) {
+	return "/cgroups/" + id, nil
+}
+
+type mockNameFetcher struct{}
+
+// Init implements NameFetcher
+func (fetcher *mockNameFetcher) Init() error {
+	return nil
+}
+
+// Name implements NameFetcher
+func (fetcher *mockNameFetcher) Name(id string) string {
+	return "container_" + id
+}
+
+// Close implements NameFetcher
+func (fetcher *mockNameFetcher) Close() error {
+	return nil
+}
+
+func mockScan4AscendDevices(_ string) ([]int, bool, error) {
+	return []int{1}, true, nil
+}
+
+func mockGetCgroupPath(controller, specCgroupsPath string) (string, error) {
+	return "", nil
+}
+
+func makeMockDevicesParser() *container.DevicesParser {
+	return &container.DevicesParser{
+			RuntimeOperator: new(mockContainerRuntimeOperator),
+			NameFetcher:     new(mockNameFetcher),
+		}
+}
+
 // TestNewNpuCollector test method of NewNpuCollector
 func TestNewNpuCollector(t *testing.T) {
 	tests := []struct {
@@ -44,6 +100,7 @@ func TestNewNpuCollector(t *testing.T) {
 			name: "should return full list metrics when npuInfo not empty",
 			path: "testdata/prometheus_metrics",
 			mockFunc: func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface) {
+				_ = n.devicesParser.Init()
 				npuInfo := mockGetNPUInfo(nil)
 				n.cache.Set(key, npuInfo, n.cacheTime)
 			},
@@ -52,6 +109,7 @@ func TestNewNpuCollector(t *testing.T) {
 			name: "should return full list metrics when npuInfo is empty",
 			path: "testdata/prometheus_metrics2",
 			mockFunc: func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface) {
+				_ = n.devicesParser.Init()
 				var npuInfo []HuaWeiNPUCard
 				n.cache.Set(key, npuInfo, n.cacheTime)
 			},
@@ -72,7 +130,7 @@ func excuteTestCollector(t *testing.T, tt struct {
 	startStub := gostub.Stub(&start, tt.mockFunc)
 	defer startStub.Reset()
 	var stopChan chan os.Signal
-	c := NewNpuCollector(cacheTime, time.Second, stopChan)
+	c := NewNpuCollector(cacheTime, time.Second, stopChan, makeMockDevicesParser())
 	time.Sleep(1 * time.Second)
 	r := prometheus.NewRegistry()
 	r.MustRegister(c)
@@ -235,9 +293,10 @@ func TestStart(t *testing.T) {
 		{
 			name: "should set cache successfully",
 			collector: &npuCollector{
-				cache:      cache.New(cacheTime, five*time.Minute),
-				cacheTime:  cacheTime,
-				updateTime: time.Second,
+				cache:         cache.New(cacheTime, five*time.Minute),
+				cacheTime:     cacheTime,
+				updateTime:    time.Second,
+				devicesParser: makeMockDevicesParser(),
 			},
 		},
 	}
@@ -255,4 +314,9 @@ func TestStart(t *testing.T) {
 			}()
 		})
 	}
+}
+
+func init() {
+	gostub.Stub(&container.ScanForAscendDevices, mockScan4AscendDevices)
+	gostub.Stub(&container.GetCgroupPath, mockGetCgroupPath)
 }

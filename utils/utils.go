@@ -227,7 +227,7 @@ func CheckRevokedCert(r *http.Request, crlcerList *pkix.CertificateList) bool {
 	}
 	revokedCertificates := crlcerList.TBSCertList.RevokedCertificates
 	if len(revokedCertificates) == 0 {
-		hwlog.Warnf("revoked certificate length is 0" )
+		hwlog.Warnf("revoked certificate length is 0")
 		return false
 	}
 	// r.TLS.VerifiedChains [][]*x509.Certificate ,certificateChain[0] : current chain
