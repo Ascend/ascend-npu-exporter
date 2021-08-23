@@ -42,17 +42,23 @@ const (
 )
 
 var (
+	// ErrUnknownCgroupsPathType cgroups path format not recognized
 	ErrUnknownCgroupsPathType = errors.New("unknown cgroupsPath type")
+	// ErrParseFail parsing devices.list fail
 	ErrParseFail              = errors.New("parsing fail")
+	// ErrNoCgroupController no such cgroup controller
 	ErrNoCgroupController     = errors.New("no cgroup controller")
+	// ErrNoCgroupHierarchy cgroup path not found
 	ErrNoCgroupHierarchy      = errors.New("no cgroup hierarchy")
+	// ErrFromContext error is from the context
 	ErrFromContext            = errors.New("error from context")
 
 	npuMajorID               string
 	npuMajorFetchCtrl        sync.Once
-	parsingNpuDefaultTimeout = 5 * time.Second
+	parsingNpuDefaultTimeout = 3 * time.Second
 )
 
+// CntNpuMonitorOpts contains setting options for monitoring containers
 type CntNpuMonitorOpts struct {
 	ContainerdAddress string
 	EndpointType      int
@@ -268,6 +274,9 @@ func getCgroupControllerPath(controller string) (string, error) {
 	}
 	defer f.Close()
 
+	// parsing the /proc/self/mountinfo file content to find the mount point of specified
+	// cgroup subsystem.
+	// the format of the file is described in proc man page.
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		cols := strings.Split(scanner.Text(), procMountInfoColSep)
@@ -277,12 +286,15 @@ func getCgroupControllerPath(controller string) (string, error) {
 				"mount info record has less than %d columns", expectProcMountInfoColNum)
 		}
 
+		// finding cgroup mount point, ignore others
 		if cols[l-3] != "cgroup" {
 			continue
 		}
 
+		// finding the specified cgroup controller
 		for _, opt := range strings.Split(cols[l-1], ",") {
 			if opt == controller {
+				// returns the path of specified cgroup controller in fs
 				return cols[4], nil
 			}
 		}

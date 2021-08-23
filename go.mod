@@ -17,7 +17,7 @@ require (
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	huawei.com/kmc v1.0.6
-	k8s.io/cri-api v0.20.6
+	k8s.io/cri-api v0.19.4
 )
 
 replace huawei.com/kmc => codehub-dg-y.huawei.com/it-edge-native/edge-native-core/coastguard.git v1.0.6

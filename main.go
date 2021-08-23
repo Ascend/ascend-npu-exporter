@@ -79,8 +79,8 @@ const (
 	defaultLogFile            = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
 	defaultContainerdAddr     = "/run/containerd/containerd.sock"
 	defaultDockContainerdAddr = "/var/run/docker/containerd/docker-containerd.sock"
-	containerModeDocker = "docker"
-	containerModeContainerd = "containerd"
+	containerModeDocker       = "docker"
+	containerModeContainerd   = "containerd"
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}

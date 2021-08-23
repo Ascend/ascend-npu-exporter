@@ -31,7 +31,7 @@ var (
 	npuChipInfoDescHbmUsedMemory  = prometheus.NewDesc("npu_chip_info_hbm_used_memory", "the npu hbm used memory", []string{"id"}, nil)
 	npuChipInfoDescHbmTotalMemory = prometheus.NewDesc("npu_chip_info_hbm_total_memory", "the npu hbm total memory", []string{"id"}, nil)
 	npuChipInfoDescErrorCode      = prometheus.NewDesc("npu_chip_info_error_code", "the npu error code", []string{"id"}, nil)
-	npuContainerInfo              = prometheus.NewDesc("npu_container_info", "the container name and deviceID relationship", []string{"containerID", "containerName", "id"}, nil)
+	npuContainerInfo              = prometheus.NewDesc("npu_container_info", "the container name and deviceID relationship", []string{"containerID", "containerName", "npuID"}, nil)
 )
 
 type npuCollector struct {
@@ -256,7 +256,8 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 
 func updateContainerNPUInfo(ch chan<- prometheus.Metric, cntNpuInfos container.DevicesInfos) {
 	if ch == nil {
-		panic("sending metric channel is nil")
+		hwlog.Error("metric channel is nil")
+		return
 	}
 
 	for _, v := range cntNpuInfos {
