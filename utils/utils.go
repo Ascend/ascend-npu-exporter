@@ -359,7 +359,7 @@ func ReadOrUpdatePd(mainPath, backPath string, mode os.FileMode) []byte {
 var KmcInit = func(sdpAlgID int, primaryKey, standbyKey string) {
 	if Bootstrap == nil {
 		defaultLogLevel := loglevel.Info
-		var defaultLogger gateway.CryptoLogger = &log.KmcLoggerAdaptor{}
+		var defaultLogger gateway.CryptoLogger = &kmclog.KmcLoggerAdaptor{}
 		defaultInitConfig := vo.NewKmcInitConfigVO()
 		if primaryKey == "" {
 			primaryKey = "/etc/npu-exporter/kmc_primary_store/master.ks"

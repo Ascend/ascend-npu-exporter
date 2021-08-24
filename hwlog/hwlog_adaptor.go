@@ -49,7 +49,7 @@ func InitOperateLogger (config *LogConfig, stopCh <-chan struct{}) error {
 // InitSecurityLogger initialize security logger
 func InitSecurityLogger (config *LogConfig, stopCh <-chan struct{}) error {
 	if SecLog != nil && SecLog.ZapLogger != nil {
-		OpLog.Warn("operate logger is been initialized.")
+		SecLog.Warn("security logger is been initialized.")
 		return nil
 	}
 	SecLog = NewLogger()
@@ -58,7 +58,7 @@ func InitSecurityLogger (config *LogConfig, stopCh <-chan struct{}) error {
 		return err
 	}
 	if !SecLog.IsInit() {
-		return fmt.Errorf("op logger not init")
+		return fmt.Errorf("security logger not init")
 	}
 	return nil
 }

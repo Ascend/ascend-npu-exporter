@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package hwlog adapts to different logger
-package log
+// Package kmclog adapts to different logger
+package kmclog
 
 import (
 	"huawei.com/npu-exporter/hwlog"
