@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/dsmi"
+	"huawei.com/npu-exporter/hwlog"
 	"os"
 	"testing"
 	"time"
@@ -317,6 +318,11 @@ func TestStart(t *testing.T) {
 }
 
 func init() {
+	config := hwlog.LogConfig{
+		OnlyToStdout: true,
+	}
+	stopCh := make(chan struct{})
+	hwlog.InitRunLogger(&config, stopCh)
 	gostub.Stub(&container.ScanForAscendDevices, mockScan4AscendDevices)
 	gostub.Stub(&container.GetCgroupPath, mockGetCgroupPath)
 }

@@ -40,7 +40,7 @@ func (f *DockerNameFetcher) Init() error {
 func (f *DockerNameFetcher) Name(id string) string {
 	containerJSON, err := f.cli.ContainerInspect(context.TODO(), id)
 	if err != nil {
-		hwlog.Errorf("Docker name fetcher: inspecting container %s fail: %v", id, err)
+		hwlog.RunLog.Errorf("Docker name fetcher: inspecting container %s fail: %v", id, err)
 		return ""
 	}
 	return strings.TrimPrefix(containerJSON.Name, "/")

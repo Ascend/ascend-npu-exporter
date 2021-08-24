@@ -58,7 +58,7 @@ var getNPUInfo = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 	var npuList []HuaWeiNPUCard
 	cardNum, cards, err := dmgr.GetCardList()
 	if cardNum == 0 || err != nil {
-		hwlog.Warn("Downgrade to user DSMI only,maybe need check ENV of LD_LIBRARY_PATH")
+		hwlog.RunLog.Warn("Downgrade to user DSMI only,maybe need check ENV of LD_LIBRARY_PATH")
 		return assembleNPUInfoV1(dmgr)
 	}
 	var logicID int32 = 0
@@ -131,24 +131,24 @@ var assembleNPUInfoV1 = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 var start = func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface) {
 	defer func() {
 		if err := recover(); err != nil {
-			hwlog.Errorf("go routine failed with %v", err)
+			hwlog.RunLog.Errorf("go routine failed with %v", err)
 		}
 	}()
 
 	if n == nil || stop == nil {
-		hwlog.Error("Invalid param in function start")
+		hwlog.RunLog.Error("Invalid param in function start")
 		return
 	}
 
 	if err := n.devicesParser.Init(); err != nil {
-		hwlog.Errorf("failed to init devices parser: %v", err)
+		hwlog.RunLog.Errorf("failed to init devices parser: %v", err)
 		return
 	}
 	defer n.devicesParser.Close()
 	n.devicesParser.Timeout = n.updateTime
 
 	ticker := time.NewTicker(n.updateTime)
-	hwlog.Infof("Starting update cache every %d seconds", n.updateTime/time.Second)
+	hwlog.RunLog.Infof("Starting update cache every %d seconds", n.updateTime/time.Second)
 
 	for {
 		select {
@@ -159,19 +159,19 @@ var start = func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInte
 			n.devicesParser.FetchAndParse(nil)
 			npuInfo := getNPUInfo(dmgr)
 			n.cache.Set(key, npuInfo, n.cacheTime)
-			hwlog.Infof("update cache,key is %s", key)
+			hwlog.RunLog.Infof("update cache,key is %s", key)
 		case result := <-n.devicesParser.RecvResult():
 			n.cache.Set(containersDevicesInfoKey, result, n.cacheTime)
-			hwlog.Infof("update cache,key is %s", containersDevicesInfoKey)
+			hwlog.RunLog.Infof("update cache,key is %s", containersDevicesInfoKey)
 		case err := <-n.devicesParser.RecvErr():
-			hwlog.Errorf("received error from device parser: %v", err)
+			hwlog.RunLog.Errorf("received error from device parser: %v", err)
 		case _, ok := <-stop:
 			if !ok {
-				hwlog.Error("closed")
+				hwlog.RunLog.Error("closed")
 				return
 			}
 			ticker.Stop()
-			hwlog.Warn("received the stop signal,STOPPED")
+			hwlog.RunLog.Warn("received the stop signal,STOPPED")
 			dsmi.ShutDown()
 			os.Exit(0)
 		}
@@ -181,7 +181,7 @@ var start = func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInte
 // Describe implements prometheus.Collector
 func (n *npuCollector) Describe(ch chan<- *prometheus.Desc) {
 	if ch == nil {
-		hwlog.Error("Invalid param in function Describe")
+		hwlog.RunLog.Error("Invalid param in function Describe")
 		return
 	}
 	ch <- versionInfoDesc
@@ -203,21 +203,21 @@ func (n *npuCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements prometheus.Collector
 func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 	if !validate(ch) {
-		hwlog.Error("Invalid param in function Collect")
+		hwlog.RunLog.Error("Invalid param in function Collect")
 		return
 	}
 
 	obj, found := n.cache.Get(key)
 	if !found {
-		hwlog.Warn("no cache, start to get npulist and rebuild cache")
+		hwlog.RunLog.Warn("no cache, start to get npulist and rebuild cache")
 		npuInfo := getNPUInfo(dsmi.GetDeviceManager())
 		n.cache.Set(key, npuInfo, n.cacheTime)
-		hwlog.Warn("rebuild cache successfully")
+		hwlog.RunLog.Warn("rebuild cache successfully")
 		obj = npuInfo
 	}
 	npuList, ok := obj.([]HuaWeiNPUCard)
 	if !ok {
-		hwlog.Error("Error cache and convert failed")
+		hwlog.RunLog.Error("Error cache and convert failed")
 		n.cache.Delete(key)
 	}
 	ch <- prometheus.MustNewConstMetric(versionInfoDesc, prometheus.GaugeValue, 1, []string{BuildVersion}...)
@@ -238,16 +238,16 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(machineInfoNPUDesc, prometheus.GaugeValue, float64(totalCount))
 	obj, found = n.cache.Get(containersDevicesInfoKey)
 	if !found {
-		hwlog.Warn("containers' devices info not found in cache, rebuilding")
+		hwlog.RunLog.Warn("containers' devices info not found in cache, rebuilding")
 		resultChan := make(chan container.DevicesInfos, 1)
 		n.devicesParser.FetchAndParse(resultChan)
 		obj = <-resultChan
-		hwlog.Warn("rebuild cache successfully")
+		hwlog.RunLog.Warn("rebuild cache successfully")
 	}
 
 	containersDevicesInfo, ok := obj.(container.DevicesInfos)
 	if !ok {
-		hwlog.Error("Error cache and convert failed")
+		hwlog.RunLog.Error("Error cache and convert failed")
 		return
 	}
 
@@ -256,7 +256,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 
 func updateContainerNPUInfo(ch chan<- prometheus.Metric, cntNpuInfos container.DevicesInfos) {
 	if ch == nil {
-		hwlog.Error("metric channel is nil")
+		hwlog.RunLog.Error("metric channel is nil")
 		return
 	}
 
@@ -272,7 +272,7 @@ func updateContainerNPUInfo(ch chan<- prometheus.Metric, cntNpuInfos container.D
 
 func updateNPUOtherInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
 	if !validate(ch, npu, chip, chip.ChipIfo) {
-		hwlog.Error("Invalid param in function updateNPUOtherInfo")
+		hwlog.RunLog.Error("Invalid param in function updateNPUOtherInfo")
 		return
 	}
 	ch <- prometheus.NewMetricWithTimestamp(
@@ -304,7 +304,7 @@ func validate(ch chan<- prometheus.Metric, objs ...interface{}) bool {
 
 func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
 	if !validate(ch, npu, chip, chip.HbmInfo, chip.Meminf) {
-		hwlog.Error("Invalid param in function updateNPUMemoryInfo")
+		hwlog.RunLog.Error("Invalid param in function updateNPUMemoryInfo")
 		return
 	}
 	ch <- prometheus.NewMetricWithTimestamp(
@@ -331,7 +331,7 @@ func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 
 func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
 	if !validate(ch, npu, chip) {
-		hwlog.Error("Invalid param in function updateNpuCommonInfo")
+		hwlog.RunLog.Error("Invalid param in function updateNpuCommonInfo")
 		return
 	}
 	ch <- prometheus.NewMetricWithTimestamp(

@@ -41,7 +41,7 @@ func (f *CriNameFetcher) Init() error {
 func (f *CriNameFetcher) Name(id string) string {
 	containerStatus, err := f.client.ContainerStatus(id)
 	if err != nil {
-		hwlog.Errorf("CRI name fetcher: cannot get status of container %s: %v", id, err)
+		hwlog.RunLog.Errorf("CRI name fetcher: cannot get status of container %s: %v", id, err)
 		return ""
 	}
 

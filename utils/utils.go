@@ -34,6 +34,7 @@ import (
 	"huawei.com/kmc/pkg/application/gateway"
 	"huawei.com/kmc/pkg/application/gateway/loglevel"
 	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/npu-exporter/kmclog"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -95,10 +96,10 @@ func ReadPassWd() []byte {
 	fmt.Print("Enter Private Key Password: ")
 	bytePassword, err := terminal.ReadPassword(0)
 	if err != nil {
-		hwlog.Fatal("program error")
+		hwlog.RunLog.Fatal("program error")
 	}
 	if len(bytePassword) > maxLen {
-		hwlog.Fatal("input too long")
+		hwlog.RunLog.Fatal("input too long")
 	}
 	return bytePassword
 }
@@ -124,7 +125,7 @@ func ParsePrivateKeyWithPassword(keyBytes []byte, pd []byte) (*pem.Block, error)
 			return nil, errors.New("cannot decode encrypted private keys")
 		}
 	} else {
-		hwlog.Warn("detect that you provided private key is not encrypted")
+		hwlog.RunLog.Warn("detect that you provided private key is not encrypted")
 	}
 	return &pem.Block{
 		Type:    block.Type,
@@ -186,7 +187,7 @@ func CheckSignatureAlgorithm(cert *x509.Certificate) error {
 		strings.Contains(signAl, "SHA1") || signAl == "0" {
 		return errors.New("the signature algorithm is unsafe,please use safe algorithm ")
 	}
-	hwlog.Info("signature algorithm validation passed")
+	hwlog.RunLog.Info("signature algorithm validation passed")
 	return nil
 }
 
@@ -222,33 +223,33 @@ func GetPrivateKeyLength(cert *x509.Certificate, certificate *tls.Certificate) (
 // CheckRevokedCert check the revoked certification
 func CheckRevokedCert(r *http.Request, crlcerList *pkix.CertificateList) bool {
 	if crlcerList == nil || r.TLS == nil {
-		hwlog.Warnf("certificate or revokelist is nil")
+		hwlog.RunLog.Warnf("certificate or revokelist is nil")
 		return false
 	}
 	revokedCertificates := crlcerList.TBSCertList.RevokedCertificates
 	if len(revokedCertificates) == 0 {
-		hwlog.Warnf("revoked certificate length is 0")
+		hwlog.RunLog.Warnf("revoked certificate length is 0")
 		return false
 	}
 	// r.TLS.VerifiedChains [][]*x509.Certificate ,certificateChain[0] : current chain
 	// certificateChain[0][0] : current certificate, certificateChain[0][1] :  certificate's issuer
 	certificateChain := r.TLS.VerifiedChains
 	if len(certificateChain) == 0 || len(certificateChain[0]) <= 1 {
-		hwlog.Warnf("VerifiedChains length is 0,or certificate is Cafile cannot revoke")
+		hwlog.RunLog.Warnf("VerifiedChains length is 0,or certificate is Cafile cannot revoke")
 		return false
 	}
-	hwlog.Infof("VerifiedChains length: %d,CertificatesChains length %d",
+	hwlog.RunLog.Infof("VerifiedChains length: %d,CertificatesChains length %d",
 		len(certificateChain), len(certificateChain[0]))
 	// CheckCRLSignature check CRL's issuer is certificate's issuer
 	error := certificateChain[0][1].CheckCRLSignature(crlcerList)
 	if error != nil {
-		hwlog.Warnf("CRL's issuer is not certificate's issuer")
+		hwlog.RunLog.Warnf("CRL's issuer is not certificate's issuer")
 		return false
 	}
 	for _, revokeCert := range revokedCertificates {
 		for _, cert := range r.TLS.PeerCertificates {
 			if cert.SerialNumber.Cmp(revokeCert.SerialNumber) == 0 {
-				hwlog.Warnf("revoked certificate SN: %s", cert.SerialNumber)
+				hwlog.RunLog.Warnf("revoked certificate SN: %s", cert.SerialNumber)
 				return true
 			}
 		}
@@ -299,7 +300,7 @@ func ValidateX509Pair(certBytes []byte, keyBytes []byte) (*tls.Certificate, erro
 	}
 	// ED25519 private key length is stable and no need to verify
 	if "RSA" == keyType && keyLen < rsaLength || "ECC" == keyType && keyLen < eccLength {
-		hwlog.Warn("the private key length is not enough")
+		hwlog.RunLog.Warn("the private key length is not enough")
 	}
 	return &c, nil
 }
@@ -321,11 +322,11 @@ func DecryptPrivateKeyWithPd(keyFile string, passwd []byte) (*pem.Block, error) 
 func GetRandomPass() []byte {
 	k := make([]byte, byteSize, byteSize)
 	if _, err := rand.Read(k); err != nil {
-		hwlog.Error("get random words failed")
+		hwlog.RunLog.Error("get random words failed")
 	}
 	len := base64.RawStdEncoding.EncodedLen(byteSize)
 	if len > capacity || len < byteSize {
-		hwlog.Warn("the len of slice is abnormal")
+		hwlog.RunLog.Warn("the len of slice is abnormal")
 	}
 	dst := make([]byte, len, len)
 	base64.RawStdEncoding.Encode(dst, k)
@@ -336,19 +337,19 @@ func GetRandomPass() []byte {
 func ReadOrUpdatePd(mainPath, backPath string, mode os.FileMode) []byte {
 	mainPd, err := ReadBytes(mainPath)
 	if err != nil {
-		hwlog.Warn("there is no main passwd,start to find backup files")
+		hwlog.RunLog.Warn("there is no main passwd,start to find backup files")
 		backPd, err := ReadBytes(backPath)
 		if err != nil {
-			hwlog.Warn("there is no backup file found")
+			hwlog.RunLog.Warn("there is no backup file found")
 			return []byte{}
 		}
 		if err = ioutil.WriteFile(mainPath, backPd, mode); err != nil {
-			hwlog.Warn("revert passwd failed")
+			hwlog.RunLog.Warn("revert passwd failed")
 		}
 		return backPd
 	}
 	if err = ioutil.WriteFile(backPath, mainPd, mode); err != nil {
-		hwlog.Warn("backup passwd failed")
+		hwlog.RunLog.Warn("backup passwd failed")
 	}
 	return mainPd
 
@@ -358,7 +359,7 @@ func ReadOrUpdatePd(mainPath, backPath string, mode os.FileMode) []byte {
 var KmcInit = func(sdpAlgID int, primaryKey, standbyKey string) {
 	if Bootstrap == nil {
 		defaultLogLevel := loglevel.Info
-		var defaultLogger gateway.CryptoLogger = &hwlog.KmcLoggerApdaptor{}
+		var defaultLogger gateway.CryptoLogger = &kmclog.KmcLoggerAdaptor{}
 		defaultInitConfig := vo.NewKmcInitConfigVO()
 		if primaryKey == "" {
 			primaryKey = "/etc/npu-exporter/kmc_primary_store/master.ks"
@@ -377,7 +378,7 @@ var KmcInit = func(sdpAlgID int, primaryKey, standbyKey string) {
 	var err error
 	cryptoAPI, err = Bootstrap.Start()
 	if err != nil {
-		hwlog.Fatal("initial kmc failed,please make sure the LD_LIBRARY_PATH include the kmc-ext.so ")
+		hwlog.RunLog.Fatal("initial kmc failed,please make sure the LD_LIBRARY_PATH include the kmc-ext.so ")
 	}
 }
 
@@ -398,22 +399,22 @@ func EncryptPrivateKeyAgain(keyBlock *pem.Block, passwdFile, passwdBackup string
 	KmcInit(0, "", "")
 	encryptedPd, err := Encrypt(0, pd)
 	if err != nil {
-		hwlog.Fatal("encrypt passwd failed")
+		hwlog.RunLog.Fatal("encrypt passwd failed")
 	}
-	hwlog.Info("encrypt new passwd successfully")
+	hwlog.RunLog.Info("encrypt new passwd successfully")
 	if err := OverridePassWdFile(passwdFile, encryptedPd, FileMode); err != nil {
-		hwlog.Fatal("write encrypted passwd to file failed")
+		hwlog.RunLog.Fatal("write encrypted passwd to file failed")
 	}
-	hwlog.Info("create or update  passwd file successfully")
+	hwlog.RunLog.Info("create or update  passwd file successfully")
 	if err = OverridePassWdFile(passwdBackup, encryptedPd, FileMode); err != nil {
-		hwlog.Fatal("write encrypted passwd to back file failed")
+		hwlog.RunLog.Fatal("write encrypted passwd to back file failed")
 	}
-	hwlog.Info("create or update  passwd backup file successfully")
+	hwlog.RunLog.Info("create or update  passwd backup file successfully")
 	encryptedBlock, err := x509.EncryptPEMBlock(rand.Reader, keyBlock.Type, keyBlock.Bytes, pd, x509.PEMCipherAES256)
 	if err != nil {
-		hwlog.Fatal("encrypted private key failed")
+		hwlog.RunLog.Fatal("encrypted private key failed")
 	}
-	hwlog.Info("encrypt private key by new passwd successfully")
+	hwlog.RunLog.Info("encrypt private key by new passwd successfully")
 	// clean password
 	PaddingAndCleanSlice(pd)
 	// wait certificate verify passed and then write key to file together
@@ -443,7 +444,7 @@ func PeriodCheck(cert *x509.Certificate) {
 			}
 			now := time.Now()
 			if now.After(cert.NotAfter) || now.Before(cert.NotBefore) {
-				hwlog.Warn("the certificate is already overdue")
+				hwlog.RunLog.Warn("the certificate is already overdue")
 				continue
 			}
 			gapHours := cert.NotAfter.Sub(now).Hours()
@@ -452,9 +453,9 @@ func PeriodCheck(cert *x509.Certificate) {
 				overdueDays = math.MaxInt64
 			}
 			if overdueDays < overdueTime && overdueDays > 0 {
-				hwlog.Warnf("the certificate will overdue after %d days later", int64(overdueDays))
+				hwlog.RunLog.Warnf("the certificate will overdue after %d days later", int64(overdueDays))
 			} else {
-				hwlog.Error("the certificate was expired")
+				hwlog.RunLog.Error("the certificate was expired")
 			}
 		}
 	}
@@ -475,7 +476,7 @@ func OverridePassWdFile(path string, data []byte, mode os.FileMode) error {
 	}
 	if _, err := rand.Read(overrideByte); err != nil {
 		err := errors.New("get random words failed")
-		hwlog.Error(err)
+		hwlog.RunLog.Error(err)
 		return err
 	}
 	if err := write(path, overrideByte, mode); err != nil {
