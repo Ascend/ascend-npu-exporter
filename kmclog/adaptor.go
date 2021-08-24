@@ -19,7 +19,7 @@ import (
 	"huawei.com/npu-exporter/hwlog"
 )
 
-// KmcLoggerApdaptor is used to adapt to the log module of the KMC.
+// KmcLoggerAdaptor is used to adapt to the log module of the KMC.
 // it implements the CryptoLogger interface of KMC.
 // it will invoke the method of hwlog .
 type KmcLoggerAdaptor struct {
