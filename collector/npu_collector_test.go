@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/dsmi"
+	"huawei.com/npu-exporter/hwlog"
 	"os"
 	"testing"
 	"time"
@@ -36,6 +37,14 @@ const (
 )
 
 type mockContainerRuntimeOperator struct{}
+
+func init() {
+	config := hwlog.LogConfig{
+		OnlyToStdout: true,
+	}
+	stopCh := make(chan struct{})
+	hwlog.InitRunLogger(&config, stopCh)
+}
 
 // Init implements ContainerRuntimeOperator
 func (operator *mockContainerRuntimeOperator) Init() error {

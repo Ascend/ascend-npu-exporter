@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/prashantv/gostub"
 	. "github.com/smartystreets/goconvey/convey"
+	"huawei.com/npu-exporter/hwlog"
 	"math/big"
 	"net/http"
 	"os"
@@ -32,6 +33,14 @@ import (
 )
 
 const testMode = 0660
+
+func init() {
+	config := hwlog.LogConfig{
+		OnlyToStdout: true,
+	}
+	stopCh := make(chan struct{})
+	hwlog.InitRunLogger(&config, stopCh)
+}
 
 // TestCheckCRL test CheckCRL
 func TestCheckCRL(t *testing.T) {
