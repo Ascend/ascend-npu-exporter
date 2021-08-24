@@ -347,21 +347,21 @@ func GetDeviceManager() DeviceMgrInterface {
 		instance = &deviceManager310{}
 		num, _, err := instance.GetDeviceList()
 		if err != nil || num == 0 {
-			hwlog.Error("This is no device on this machine")
+			hwlog.RunLog.Error("This is no device on this machine")
 			return
 		}
 		chip, err := instance.GetChipInfo(0)
 		if err != nil {
-			hwlog.Error(err)
+			hwlog.RunLog.Error(err)
 			return
 		}
 		if IsAscend710(chip.ChipName) {
-			hwlog.Info("change the instance to deviceManager710")
+			hwlog.RunLog.Info("change the instance to deviceManager710")
 			instance = &deviceManager710{}
 			chipType = Ascend710
 		}
 		if IsAscend910(chip.ChipName) {
-			hwlog.Info("change the instance to deviceManager910")
+			hwlog.RunLog.Info("change the instance to deviceManager910")
 			instance = &deviceManager910{}
 			chipType = Ascend910
 		}
@@ -374,13 +374,13 @@ func (d *baseDeviceManager) GetDeviceCount() (int32, error) {
 	var count C.int
 	if err := C.dsmi_get_device_count(&count); err != 0 {
 		errInfo := fmt.Errorf("get device quantity failed, error code: %d", int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 	// Invalid number of devices.
 	if count < 0 {
 		errInfo := fmt.Errorf("get device quantity failed, the number of devices is: %d", int32(count))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 	return int32(count), nil
@@ -397,7 +397,7 @@ func (d *baseDeviceManager) GetDeviceList() (int32, []int32, error) {
 	var ids [HiAIMaxDeviceNum]C.int
 	if err := C.dsmi_list_device(&ids[0], C.int(devNum)); err != 0 {
 		errInfo := fmt.Errorf("unable to get device list, return error: %d", int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, devices, errInfo
 	}
 	// transfer device list
@@ -406,7 +406,7 @@ func (d *baseDeviceManager) GetDeviceList() (int32, []int32, error) {
 		deviceId := int32(ids[i])
 		if deviceId < 0 {
 			errInfo := fmt.Errorf("the device ids array has invalid id(%d)", deviceId)
-			hwlog.Error(errInfo)
+			hwlog.RunLog.Error(errInfo)
 			continue
 		}
 		devices = append(devices, deviceId)
@@ -421,12 +421,12 @@ func (d *baseDeviceManager) GetDeviceHealth(logicID int32) (int32, error) {
 
 	if err := C.dsmi_get_device_health(C.int(logicID), &health); err != 0 {
 		errInfo := fmt.Errorf("get device%d health state failed, error code: %d", logicID, int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 	if isGreaterThanOrEqualInt32(int64(health)) {
 		errInfo := fmt.Errorf("get wrong health state , device: %d health: %d", logicID, int64(health))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 
@@ -441,9 +441,9 @@ func (d *baseDeviceManager) GetDeviceUtilizationRate(logicID int32, deviceType D
 
 	err := C.dsmi_get_device_utilization_rate(C.int(logicID), C.int(deviceType), &utilRate)
 	if err != 0 {
-		hwlog.Errorf("get device%d utilize rate failed, error code: %d, try again ... ", logicID, int32(err))
+		hwlog.RunLog.Errorf("get device%d utilize rate failed, error code: %d, try again ... ", logicID, int32(err))
 		for i := 0; i < 3; i++ {
-			hwlog.Errorf("try again %d", i)
+			hwlog.RunLog.Errorf("try again %d", i)
 			err = C.dsmi_get_device_utilization_rate(C.int(logicID), C.int(deviceType), &utilRate)
 			if err == 0 && isValidUtilizationRate(uint32(utilRate)) {
 				return int32(utilRate), nil
@@ -466,13 +466,13 @@ func (d *baseDeviceManager) GetPhyIDFromLogicID(logicID uint32) (int32, error) {
 
 	if err := C.dsmi_get_phyid_from_logicid(C.uint(logicID), &phyID); err != 0 {
 		errInfo := fmt.Errorf("get device%d phy id failed ,error code is: %d", logicID, int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 	// check whether phyID is too big
 	if uint32(phyID) > uint32(math.MaxInt8) {
 		errInfo := fmt.Errorf("get error phyID from logicID, phyID is: %d, logicID is: %d", uint32(phyID), logicID)
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 
@@ -485,13 +485,13 @@ func (d *baseDeviceManager) GetLogicIDFromPhyID(phyID uint32) (int32, error) {
 
 	if err := C.dsmi_get_logicid_from_phyid(C.uint(phyID), &logicID); err != 0 {
 		errInfo := fmt.Errorf("get device%d logic id failed ,error code is : %d", phyID, int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 	// check whether logicID is too big
 	if uint32(logicID) > uint32(math.MaxInt8) {
 		errInfo := fmt.Errorf("get error logicID from phyID, logicID is: %d, phyID is: %d", uint32(logicID), phyID)
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 
@@ -520,13 +520,13 @@ func (d *baseDeviceManager) GetDeviceVoltage(logicID int32) (float32, error) {
 	var vol C.uint
 	if err := C.dsmi_get_device_voltage(C.int(logicID), &vol); err != 0 {
 		errInfo := fmt.Errorf("get device%d voltage failed ,error code is : %d", logicID, int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 	// the voltage's value is error if it's greater than or equal to MaxInt32(1<<31 - 1)
 	if isGreaterThanOrEqualInt32(int64(vol)) {
 		errInfo := fmt.Errorf("get wrong device voltage, device: %d, voltage: %d", logicID, int64(vol))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 	voltage := float32(vol) * 0.01
@@ -538,13 +538,13 @@ func (d *baseDeviceManager) GetDevicePower(logicID int32) (float32, error) {
 	var cpower C.struct_dsmi_power_info_stru
 	if err := C.dsmi_get_device_power_info(C.int(logicID), &cpower); err != 0 {
 		errInfo := fmt.Errorf("get device%d power failed, error code: %d", logicID, int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 	parsedPower := float32(cpower.power)
 	if parsedPower < 0 {
 		errInfo := fmt.Errorf("get wrong device power, device: %d, power: %f", logicID, parsedPower)
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 	power := parsedPower * 0.1
@@ -560,13 +560,13 @@ func (d *baseDeviceManager) GetDeviceFrequency(logicID int32, subType DeviceType
 	var cFrequency C.uint
 	if err := C.dsmi_get_device_frequency(C.int(logicID), C.int(subType), &cFrequency); err != 0 {
 		errInfo := fmt.Errorf("get device%d frequency failed, error code: %d", logicID, int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 	// check whether cFrequency is too big
 	if isGreaterThanOrEqualInt32(int64(cFrequency)) {
 		errInfo := fmt.Errorf("get wrong device frequency, device: %d, frequency: %d", logicID, int64(cFrequency))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 	return int32(cFrequency), nil
@@ -583,13 +583,13 @@ func (d *deviceManager910) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
 	var cHbmInfo C.struct_dsmi_hbm_info_stru
 	if err := C.dsmi_get_hbm_info(C.int(logicID), &cHbmInfo); err != 0 {
 		errInfo := fmt.Errorf("get device%d HBM information failed, error code: %d", logicID, int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return nil, errInfo
 	}
 	hbmTemp := int32(cHbmInfo.temp)
 	if hbmTemp < 0 {
 		errInfo := fmt.Errorf("get wrong device HBM information, device: %d, HBM.temp: %d", logicID, hbmTemp)
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return nil, errInfo
 	}
 	hbmInfo := NewHbmInfo(uint64(cHbmInfo.memory_size)/uint64(OneKilo), uint32(cHbmInfo.freq),
@@ -610,13 +610,13 @@ func (d *baseDeviceManager) GetDeviceMemoryInfo(logicID int32) (*MemoryInfo, err
 	var cmInfo CStructDsmiMemoryInfo
 	if err := C.dsmi_get_memory_info(C.int(logicID), &cmInfo); err != 0 {
 		errInfo := fmt.Errorf("get device%d memory information failed, error code: %d", logicID, int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return nil, errInfo
 	}
 	if !isValidUtilizationRate(uint32(cmInfo.utiliza)) {
 		errInfo := fmt.Errorf("get wrong memory utilization, device: %d, utilization: %d", logicID,
 			uint32(cmInfo.utiliza))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return nil, errInfo
 	}
 
@@ -645,13 +645,13 @@ func (d *baseDeviceManager) GetDeviceErrCode(logicID int32) (int32, int64, error
 	var errCodeArray [MaxErrorCodeCount]C.uint
 	if err := C.dsmi_get_device_errorcode(C.int(logicID), &errCount, &errCodeArray[0]); err != 0 {
 		errInfo := fmt.Errorf("get device%d error code failed, error code: %d", logicID, int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, retError, errInfo
 	}
 	errorCodeCount := int32(errCount)
 	if errorCodeCount < 0 || errorCodeCount > MaxErrorCodeCount {
 		errInfo := fmt.Errorf("get wrong errorcode count, device: %d, errorcode count: %d", logicID, int32(errCount))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, retError, errInfo
 	}
 
@@ -663,7 +663,7 @@ func (d *baseDeviceManager) GetChipInfo(logicID int32) (*ChipInfo, error) {
 	var chipInfo C.struct_dsmi_chip_info_stru
 	if err := C.dsmi_get_chip_info(C.int(logicID), &chipInfo); err != 0 {
 		errInfo := fmt.Errorf("get device%d ChipIno information failed, error code: %d", logicID, int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return nil, errInfo
 	}
 	var name []rune
@@ -680,7 +680,7 @@ func (d *baseDeviceManager) GetChipInfo(logicID int32) (*ChipInfo, error) {
 	// If the name, type, and version are both empty, false is returned
 	if !isValidChipInfo(chip) {
 		errInfo := fmt.Errorf("get device%d ChipIno information failed, chip info is empty", logicID)
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return nil, errInfo
 	}
 	return chip, nil
@@ -692,40 +692,40 @@ func (d *baseDeviceManager) GetNPUMajorID() (string, error) {
 	cmd := exec.Command("/bin/sh", "-c", command)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		hwlog.Errorf("command exec failed:%s", command)
+		hwlog.RunLog.Errorf("command exec failed:%s", command)
 		return "", fmt.Errorf("ls command exec failed")
 	}
 	err = cmd.Start()
 	if err != nil {
-		hwlog.Errorf("start cmd error:%v", err)
+		hwlog.RunLog.Errorf("start cmd error:%v", err)
 	}
 	reader := bufio.NewReader(stdout)
 	var firstResult string
 	for {
 		line, err2 := reader.ReadString('\n')
 		if err2 != nil || io.EOF == err2 {
-			hwlog.Errorf("err:%v", err2)
+			hwlog.RunLog.Errorf("err:%v", err2)
 			break
 		}
-		hwlog.Infof("LINE:%v", line)
+		hwlog.RunLog.Infof("LINE:%v", line)
 		if line != "" {
 			firstResult = line
 			break
 		}
 	}
 	if err := cmd.Wait(); err != nil {
-		hwlog.Errorf("command exec failed,%v", err)
+		hwlog.RunLog.Errorf("command exec failed,%v", err)
 		return "", err
 	}
 	if firstResult == "" {
-		hwlog.Errorf("can't to find NPU majorId")
+		hwlog.RunLog.Errorf("can't to find NPU majorId")
 		return "", fmt.Errorf("can't find NPU majorId")
 	}
 	// for example like this : crw-rw---- 1 HwHiAiUser HwHiAiUser 239, 0 Sep 28 21:56 /dev/davinci0
 	reg := regexp.MustCompile("\\d{3},")
 	res := reg.FindString(firstResult)
 	if res == "" {
-		hwlog.Errorf("regex match error,original string is %s", firstResult)
+		hwlog.RunLog.Errorf("regex match error,original string is %s", firstResult)
 		return "", fmt.Errorf("regex match error")
 	}
 	return strings.TrimSuffix(res, ","), nil
@@ -737,13 +737,13 @@ func (d *baseDeviceManager) GetCardList() (int32, []int32, error) {
 	var cNum C.int
 	if err := C.dcmi_get_card_num_list(&cNum, &ids[0], HIAIMaxCardNum); err != 0 {
 		errInfo := fmt.Errorf("get card list failed, error code: %d", int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, nil, errInfo
 	}
 	// checking card's quantity
 	if cNum <= 0 {
 		errInfo := fmt.Errorf("get error card quantity: %d", int32(cNum))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, nil, errInfo
 	}
 	var cardNum = int32(cNum)
@@ -753,7 +753,7 @@ func (d *baseDeviceManager) GetCardList() (int32, []int32, error) {
 		cardID := int32(ids[i])
 		if cardID < 0 {
 			errInfo := fmt.Errorf("get invalid card ID: %d", cardID)
-			hwlog.Error(errInfo)
+			hwlog.RunLog.Error(errInfo)
 			continue
 		}
 		cardIDList = append(cardIDList, cardID)
@@ -766,12 +766,12 @@ func (d *baseDeviceManager) GetDeviceNumOnCard(cardID int32) (int32, error) {
 	var deviceNum C.int
 	if err := C.dcmi_get_device_num_in_card(C.int(cardID), &deviceNum); err != 0 {
 		errInfo := fmt.Errorf("get device count on the card failed, error code: %d", int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 	if deviceNum <= 0 {
 		errInfo := fmt.Errorf("the number of chips obtained is invalid, the number is: %d", int32(deviceNum))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 	return int32(deviceNum), nil
@@ -782,14 +782,14 @@ func (d *baseDeviceManager) GetCardPower(cardID int32) (float32, error) {
 	var power C.int
 	if err := C.dcmi_mcu_get_power_info(C.int(cardID), &power); err != 0 {
 		errInfo := fmt.Errorf("get card power failed, error code: %d", int32(err))
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 
 	parsedPower := float32(power)
 	if parsedPower < 0 {
 		errInfo := fmt.Errorf("get wrong device power, cardID: %d, power: %f", int32(cardID), parsedPower)
-		hwlog.Error(errInfo)
+		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
 	return parsedPower * 0.1, nil

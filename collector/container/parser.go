@@ -84,7 +84,7 @@ func MakeDevicesParser(opts CntNpuMonitorOpts) *DevicesParser {
 			Endpoint: opts.Endpoint,
 		}
 	default:
-		hwlog.Errorf("Invalid type value %d", opts.EndpointType)
+		hwlog.RunLog.Errorf("Invalid type value %d", opts.EndpointType)
 	}
 
 	return parser
@@ -141,7 +141,7 @@ func (dp *DevicesParser) Close() {
 
 func (dp *DevicesParser) parseDevices(ctx context.Context, containerID string, result chan<- DevicesInfo) error {
 	if result == nil {
-		hwlog.Fatal("empty result channel")
+		hwlog.RunLog.Fatal("empty result channel")
 	}
 
 	deviceInfo := DevicesInfo{}
@@ -176,7 +176,7 @@ func (dp *DevicesParser) parseDevices(ctx context.Context, containerID string, r
 
 func (dp *DevicesParser) collect(ctx context.Context, r <-chan DevicesInfo, counter int32) DevicesInfos {
 	if r == nil {
-		hwlog.Fatal("receiving channel is empty")
+		hwlog.RunLog.Fatal("receiving channel is empty")
 	}
 	if counter < 0 {
 		return nil
@@ -327,13 +327,13 @@ func toCgroupHierarchy(cgroupsPath string) (string, error) {
 func parseSystemdCgroup(cgroup string) string {
 	cols := strings.Split(cgroup, ":")
 	if len(cols) != expectSystemdCgroupPathCols {
-		hwlog.Error("systemd cgroup path must have three parts separated by colon")
+		hwlog.RunLog.Error("systemd cgroup path must have three parts separated by colon")
 		return ""
 	}
 
 	slicePath := parseSlice(cols[0])
 	if slicePath == "" {
-		hwlog.Error("failed to parse the slice part of the cgroupsPath")
+		hwlog.RunLog.Error("failed to parse the slice part of the cgroupsPath")
 		return ""
 	}
 
@@ -348,7 +348,7 @@ func parseSlice(slice string) string {
 	if len(slice) < len(suffixSlice) ||
 		!strings.HasSuffix(slice, suffixSlice) ||
 		strings.ContainsRune(slice, '/') {
-		hwlog.Errorf("invalid slice %s when parsing slice part of systemd cgroup path", slice)
+		hwlog.RunLog.Errorf("invalid slice %s when parsing slice part of systemd cgroup path", slice)
 		return ""
 	}
 
@@ -361,7 +361,7 @@ func parseSlice(slice string) string {
 	prefix := ""
 	for _, part := range strings.Split(sliceMain, systemdSliceHierarchySep) {
 		if part == "" {
-			hwlog.Errorf("slice %s contains invalid content of continuous double dashes", slice)
+			hwlog.RunLog.Errorf("slice %s contains invalid content of continuous double dashes", slice)
 			return ""
 		}
 		b.WriteRune('/')

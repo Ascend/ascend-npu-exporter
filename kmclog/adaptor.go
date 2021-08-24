@@ -13,40 +13,44 @@
 // limitations under the License.
 
 // Package hwlog adapts to different logger
-package hwlog
+package log
+
+import (
+	"huawei.com/npu-exporter/hwlog"
+)
 
 // KmcLoggerApdaptor is used to adapt to the log module of the KMC.
 // it implements the CryptoLogger interface of KMC.
 // it will invoke the method of hwlog .
-type KmcLoggerApdaptor struct {
+type KmcLoggerAdaptor struct {
 }
 
 // Error print error log
-func (kla *KmcLoggerApdaptor) Error(msg string) {
-	Error(msg)
+func (kla *KmcLoggerAdaptor) Error(msg string) {
+	hwlog.RunLog.Error(msg)
 }
 
 // Warn print warning log
-func (kla *KmcLoggerApdaptor) Warn(msg string) {
-	Warn(msg)
+func (kla *KmcLoggerAdaptor) Warn(msg string) {
+	hwlog.RunLog.Warn(msg)
 }
 
 // Info print info log
-func (kla *KmcLoggerApdaptor) Info(msg string) {
-	Info(msg)
+func (kla *KmcLoggerAdaptor) Info(msg string) {
+	hwlog.RunLog.Info(msg)
 }
 
 // Debug print debug log
-func (kla *KmcLoggerApdaptor) Debug(msg string) {
-	Debug(msg)
+func (kla *KmcLoggerAdaptor) Debug(msg string) {
+	hwlog.RunLog.Debug(msg)
 }
 
 // Trace print trace log
-func (kla *KmcLoggerApdaptor) Trace(msg string) {
-	Debug(msg)
+func (kla *KmcLoggerAdaptor) Trace(msg string) {
+	hwlog.RunLog.Debug(msg)
 }
 
 // Log print log
-func (kla *KmcLoggerApdaptor) Log(msg string) {
-	Info(msg)
+func (kla *KmcLoggerAdaptor) Log(msg string) {
+	hwlog.RunLog.Info(msg)
 }

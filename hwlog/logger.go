@@ -1,16 +1,4 @@
 //  Copyright(C) 2021. Huawei Technologies Co.,Ltd.  All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 // Package hwlog provides the capability of processing Huawei log rules.
 package hwlog
@@ -23,9 +11,6 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"os"
 	"path"
-	"runtime/debug"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -51,8 +36,6 @@ const (
 	LengthOfFileInfo = 20
 )
 
-var logger *zap.Logger
-
 // LogConfig log module config
 type LogConfig struct {
 	// log file path
@@ -77,34 +60,27 @@ type LogConfig struct {
 
 type validateFunc func(config *LogConfig) error
 
-// IsInit check logger initialized
-func IsInit() bool {
-	return logger != nil
-}
-
-// Init to get Logger
-func Init(config *LogConfig, stopCh <-chan struct{}) error {
-	if logger != nil {
-		return fmt.Errorf("the logger has been initialized and does not need to be initialized again")
-	}
+// Init initialize and return the logger
+func Init(config *LogConfig, stopCh <-chan struct{}) (*zap.Logger, error) {
 	if err := validateLogConfigFiled(config); err != nil {
-		return err
+		return nil, err
 	}
-	logger = create(*config)
-	if logger == nil {
-		return fmt.Errorf("create logger error")
+	zapLogger := create(*config)
+	if zapLogger == nil {
+		return nil, fmt.Errorf("create logger error")
 	}
-	logger.Info("logger init success")
+	msg := fmt.Sprintf("%s's logger init success.", path.Base(config.LogFileName))
+	zapLogger.Info(msg)
 	// skip change file mode and fs notify
 	if config.OnlyToStdout {
-		return nil
+		return zapLogger, nil
 	}
 	if err := os.Chmod(config.LogFileName, config.LogMode); err != nil {
-		logger.Error("config log path error")
-		return fmt.Errorf("set log file mode failed")
+		zapLogger.Error("config log path error")
+		return zapLogger, fmt.Errorf("set log file mode failed")
 	}
-	go workerWatcher(*config, stopCh)
-	return nil
+	go workerWatcher(zapLogger, *config, stopCh)
+	return zapLogger, nil
 }
 
 func create(config LogConfig) *zap.Logger {
@@ -283,55 +259,55 @@ func validateLogConfigFiled(config *LogConfig) error {
 	return nil
 }
 
-func workerWatcher(config LogConfig, stopCh <-chan struct{}) {
-	if logger == nil {
+func workerWatcher(l *zap.Logger, config LogConfig, stopCh <-chan struct{}) {
+	if l == nil {
 		fmt.Println("workerWatcher logger is nil")
 		return
 	}
 	if stopCh == nil {
-		logger.Error("stop channel is nil")
+		l.Error("stop channel is nil")
 		return
 	}
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		logger.Error("NewWatcher failed", zap.String("err", err.Error()))
+		l.Error("NewWatcher failed", zap.String("err", err.Error()))
 		return
 	}
 	defer watcher.Close()
 	logPath := path.Dir(config.LogFileName)
 	if err = watcher.Add(logPath); err != nil {
-		logger.Error("watcher add log path failed")
+		l.Error("watcher add log path failed")
 		return
 	}
 	for {
 		select {
 		case _, ok := <-stopCh:
 			if !ok {
-				logger.Error("recv stop signal")
+				l.Error("recv stop signal")
 				return
 			}
 		case event, ok := <-watcher.Events:
 			if !ok {
-				logger.Error("watcher event failed, exit")
+				l.Error("watcher event failed, exit")
 				return
 			}
 			if event.Op&fsnotify.Create == 0 {
 				break
 			}
-			changeFileMode(event, config.LogFileName)
+			changeFileMode(l, event, config.LogFileName)
 		case errWatcher, ok := <-watcher.Errors:
 			if !ok {
-				logger.Error("watcher error failed, exit")
+				l.Error("watcher error failed, exit")
 				return
 			}
-			logger.Error("watcher error", zap.String("err", errWatcher.Error()))
+			l.Error("watcher error", zap.String("err", errWatcher.Error()))
 			return
 		}
 	}
 }
 
-func changeFileMode(event fsnotify.Event, logFileFullPath string) {
-	if logger == nil {
+func changeFileMode(l *zap.Logger, event fsnotify.Event, logFileFullPath string) {
+	if l == nil {
 		fmt.Println("changeFileMode logger is nil")
 		return
 	}
@@ -347,199 +323,6 @@ func changeFileMode(event fsnotify.Event, logFileFullPath string) {
 		return
 	}
 	if errChmod := os.Chmod(changedLogFilePath, logMode); errChmod != nil {
-		logger.Error("set file mode failed", zap.String("filename", changedFileName))
+		l.Error("set file mode failed", zap.String("filename", changedFileName))
 	}
-}
-
-// printHelper helper function for log printing
-func printHelper(f func(string, ...zap.Field), msg string) {
-	str := getCallerInfo()
-	f(str + msg)
-}
-
-// getCallerInfo gets the caller's information
-func getCallerInfo() string {
-	path := string(debug.Stack())
-	paths := strings.Split(path, "\n")
-
-	callerPath := getCallerPath(paths)
-	goroutineID := getGorouineID(paths)
-
-	str := fmt.Sprintf("%s\t%-8d\t", callerPath, goroutineID)
-
-	return str
-}
-
-// getCallerPath gets the file path and line number of the caller
-func getCallerPath(paths []string) string {
-	if len(paths) <= IndexOfCallerFileInfo {
-		return ""
-	}
-	str := paths[IndexOfCallerFileInfo]
-	spaceIndex := strings.LastIndex(str, " ")
-	if spaceIndex != -1 {
-		str = str[:spaceIndex]
-	}
-	slashIndex1 := strings.LastIndex(str, "/")
-	if slashIndex1 == -1 {
-		return ""
-	}
-	slashIndex2 := strings.LastIndex(str[:slashIndex1], "/")
-	if slashIndex2 == -1 {
-		return ""
-	}
-
-	if len(str)-slashIndex2-1 > LengthOfFileInfo {
-		str = str[slashIndex1+1:]
-	} else {
-		str = str[slashIndex2+1:]
-	}
-
-	if len(str) < LengthOfFileInfo {
-		str += strings.Repeat(" ", LengthOfFileInfo-len(str))
-	}
-	return str
-}
-
-// getCallerGoroutineID gets the goroutineID
-func getGorouineID(paths []string) int {
-	if len(paths) <= IndexOfGoroutineIDInfo {
-		return -1
-	}
-	str := paths[IndexOfGoroutineIDInfo]
-	strs := strings.Split(str, " ")
-	if len(strs) <= IndexOfGoroutineID {
-		return -1
-	}
-	curGoroutineID, err := strconv.Atoi(strs[IndexOfGoroutineID])
-	if err != nil {
-		return -1
-	}
-	return curGoroutineID
-}
-
-// Debug record debug not format
-func Debug(args ...interface{}) {
-	if logger == nil {
-		fmt.Println("Debug function's logger is nil")
-		return
-	}
-	printHelper(logger.Debug, fmt.Sprint(args...))
-}
-
-// Debugf record debug
-func Debugf(format string, args ...interface{}) {
-	if logger == nil {
-		fmt.Println("Debugf function's logger is nil")
-		return
-	}
-	printHelper(logger.Debug, fmt.Sprintf(format, args...))
-}
-
-// Info record info not format
-func Info(args ...interface{}) {
-	if logger == nil {
-		fmt.Println("Info function's logger is nil")
-		return
-	}
-	printHelper(logger.Info, fmt.Sprint(args...))
-}
-
-// Infof record info
-func Infof(format string, args ...interface{}) {
-	if logger == nil {
-		fmt.Println("Infof function's logger is nil")
-		return
-	}
-	printHelper(logger.Info, fmt.Sprintf(format, args...))
-}
-
-// Warn record warn not format
-func Warn(args ...interface{}) {
-	if logger == nil {
-		fmt.Println("Warn function's logger is nil")
-		return
-	}
-	printHelper(logger.Warn, fmt.Sprint(args...))
-}
-
-// Warnf record warn
-func Warnf(format string, args ...interface{}) {
-	if logger == nil {
-		fmt.Println("Warnf function's logger is nil")
-		return
-	}
-	printHelper(logger.Warn, fmt.Sprintf(format, args...))
-}
-
-// Error record error not format
-func Error(args ...interface{}) {
-	if logger == nil {
-		fmt.Println("Error function's logger is nil")
-		return
-	}
-	printHelper(logger.Error, fmt.Sprint(args...))
-}
-
-// Errorf record error
-func Errorf(format string, args ...interface{}) {
-	if logger == nil {
-		fmt.Println("Errorf function's logger is nil")
-		return
-	}
-	printHelper(logger.Error, fmt.Sprintf(format, args...))
-}
-
-// Dpanic record panic not format
-func Dpanic(args ...interface{}) {
-	if logger == nil {
-		fmt.Println("Dpanic function's logger is nil")
-		return
-	}
-	printHelper(logger.DPanic, fmt.Sprint(args...))
-}
-
-// Dpanicf record panic
-func Dpanicf(format string, args ...interface{}) {
-	if logger == nil {
-		fmt.Println("Dpanicf function's logger is nil")
-		return
-	}
-	printHelper(logger.DPanic, fmt.Sprintf(format, args...))
-}
-
-// Panic record panic not format
-func Panic(args ...interface{}) {
-	if logger == nil {
-		fmt.Println("Panic function's logger is nil")
-		return
-	}
-	printHelper(logger.Panic, fmt.Sprint(args...))
-}
-
-// Panicf record panic
-func Panicf(format string, args ...interface{}) {
-	if logger == nil {
-		fmt.Println("Panicf function's logger is nil")
-		return
-	}
-	printHelper(logger.Panic, fmt.Sprintf(format, args...))
-}
-
-// Fatal record fatal not format
-func Fatal(args ...interface{}) {
-	if logger == nil {
-		fmt.Println("Fatal function's logger is nil")
-		return
-	}
-	printHelper(logger.Fatal, fmt.Sprint(args...))
-}
-
-// Fatalf record fatal
-func Fatalf(format string, args ...interface{}) {
-	if logger == nil {
-		fmt.Println("Fatalf function's logger is nil")
-		return
-	}
-	printHelper(logger.Fatal, fmt.Sprintf(format, args...))
 }
