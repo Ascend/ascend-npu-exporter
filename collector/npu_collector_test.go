@@ -38,14 +38,6 @@ const (
 
 type mockContainerRuntimeOperator struct{}
 
-func init() {
-	config := hwlog.LogConfig{
-		OnlyToStdout: true,
-	}
-	stopCh := make(chan struct{})
-	hwlog.InitRunLogger(&config, stopCh)
-}
-
 // Init implements ContainerRuntimeOperator
 func (operator *mockContainerRuntimeOperator) Init() error {
 	return nil
@@ -326,6 +318,11 @@ func TestStart(t *testing.T) {
 }
 
 func init() {
+	config := hwlog.LogConfig{
+		OnlyToStdout: true,
+	}
+	stopCh := make(chan struct{})
+	hwlog.InitRunLogger(&config, stopCh)
 	gostub.Stub(&container.ScanForAscendDevices, mockScan4AscendDevices)
 	gostub.Stub(&container.GetCgroupPath, mockGetCgroupPath)
 }
