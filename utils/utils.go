@@ -1,16 +1,4 @@
 //  Copyright(C) 2021. Huawei Technologies Co.,Ltd.  All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 // Package utils offer the some utils for certificate handling
 package utils
@@ -158,13 +146,13 @@ func CheckCRL(crlFile string) ([]byte, error) {
 	return crlBytes, nil
 }
 
-var osMkdir = os.Mkdir
+var osMkdirAll = os.MkdirAll
 
 // MakeSureDir make sure the directory was existed
 func MakeSureDir(path string) error {
 	dir := filepath.Dir(path)
 	if !IsExists(dir) {
-		err := osMkdir(dir, dirMode)
+		err := osMkdirAll(dir, dirMode)
 		if err != nil {
 			return errors.New("create config directory failed")
 		}
@@ -362,10 +350,10 @@ var KmcInit = func(sdpAlgID int, primaryKey, standbyKey string) {
 		var defaultLogger gateway.CryptoLogger = &kmclog.KmcLoggerAdaptor{}
 		defaultInitConfig := vo.NewKmcInitConfigVO()
 		if primaryKey == "" {
-			primaryKey = "/etc/npu-exporter/kmc_primary_store/master.ks"
+			primaryKey = "/etc/mindx-dl/kmc_primary_store/master.ks"
 		}
 		if standbyKey == "" {
-			standbyKey = "/etc/npu-exporter/.config/backup.ks"
+			standbyKey = "/etc//mindx-dl/.config/backup.ks"
 		}
 		defaultInitConfig.PrimaryKeyStoreFile = primaryKey
 		defaultInitConfig.StandbyKeyStoreFile = standbyKey
@@ -393,24 +381,24 @@ var Decrypt = func(domainID int, data []byte) ([]byte, error) {
 }
 
 // EncryptPrivateKeyAgain encrypt PrivateKey with local password again, and encrypted save password into files
-func EncryptPrivateKeyAgain(keyBlock *pem.Block, passwdFile, passwdBackup string) (*pem.Block, error) {
+func EncryptPrivateKeyAgain(key *pem.Block, psFile, psBkFile string, encrypt int) (*pem.Block, error) {
 	// generate new passwd for private key
 	pd := GetRandomPass()
-	KmcInit(0, "", "")
+	KmcInit(encrypt, "", "")
 	encryptedPd, err := Encrypt(0, pd)
 	if err != nil {
 		hwlog.RunLog.Fatal("encrypt passwd failed")
 	}
 	hwlog.RunLog.Info("encrypt new passwd successfully")
-	if err := OverridePassWdFile(passwdFile, encryptedPd, FileMode); err != nil {
+	if err := OverridePassWdFile(psFile, encryptedPd, FileMode); err != nil {
 		hwlog.RunLog.Fatal("write encrypted passwd to file failed")
 	}
 	hwlog.RunLog.Info("create or update  passwd file successfully")
-	if err = OverridePassWdFile(passwdBackup, encryptedPd, FileMode); err != nil {
+	if err = OverridePassWdFile(psBkFile, encryptedPd, FileMode); err != nil {
 		hwlog.RunLog.Fatal("write encrypted passwd to back file failed")
 	}
 	hwlog.RunLog.Info("create or update  passwd backup file successfully")
-	encryptedBlock, err := x509.EncryptPEMBlock(rand.Reader, keyBlock.Type, keyBlock.Bytes, pd, x509.PEMCipherAES256)
+	encryptedBlock, err := x509.EncryptPEMBlock(rand.Reader, key.Type, key.Bytes, pd, x509.PEMCipherAES256)
 	if err != nil {
 		hwlog.RunLog.Fatal("encrypted private key failed")
 	}
@@ -476,7 +464,6 @@ func OverridePassWdFile(path string, data []byte, mode os.FileMode) error {
 	}
 	if _, err := rand.Read(overrideByte); err != nil {
 		err := errors.New("get random words failed")
-		hwlog.RunLog.Error(err)
 		return err
 	}
 	if err := write(path, overrideByte, mode); err != nil {
@@ -486,6 +473,95 @@ func OverridePassWdFile(path string, data []byte, mode os.FileMode) error {
 		return err
 	}
 	return nil
+}
+
+// CheckCaCert check the import ca cert
+func CheckCaCert(caFile string) ([]byte, error) {
+	if caFile == "" {
+		return nil, nil
+	}
+	ca, err := filepath.Abs(caFile)
+	if err != nil {
+		return nil, errors.New("the caFile is invalid")
+	}
+	if !IsExists(caFile) {
+		return nil, nil
+	}
+	caBytes, err := ioutil.ReadFile(ca)
+	if err != nil {
+		return nil, errors.New("failed to load caFile")
+	}
+	caCrt, err := LoadCertsFromPEM(caBytes)
+	if err != nil {
+		return nil, errors.New("convert ca certificate failed")
+	}
+	if !caCrt.IsCA {
+		return nil, errors.New("this is not ca certificate")
+	}
+	err = CheckValidityPeriod(caCrt)
+	if err != nil {
+		return nil, errors.New("ca certificate is overdue")
+	}
+	if err = caCrt.CheckSignature(caCrt.SignatureAlgorithm, caCrt.RawTBSCertificate, caCrt.Signature); err != nil {
+		return nil, errors.New("check ca certificate signature failed")
+	}
+	hwlog.RunLog.Infof("certificate signature check pass")
+	return caBytes, nil
+}
+
+// LoadCertPair load and valid encrypted certificate and private key
+func LoadCertPair(cert, key, psFile, psFileBk string, encryptAlgorithm int) (*tls.Certificate, error) {
+	certBytes, err := ioutil.ReadFile(cert)
+	if err != nil {
+		return nil, errors.New("there is no certFile provided")
+	}
+	encodedPd := ReadOrUpdatePd(psFile, psFileBk, FileMode)
+	KmcInit(encryptAlgorithm, "", "")
+	pd, err := Decrypt(0, encodedPd)
+	if err != nil {
+		return nil, errors.New("decrypt passwd failed")
+	}
+	hwlog.RunLog.Info("decrypt passwd successfully")
+	keyBlock, err := DecryptPrivateKeyWithPd(key, pd)
+	if err != nil {
+		return nil, err
+	}
+	hwlog.RunLog.Info("decrypt success")
+	if Bootstrap != nil {
+		Bootstrap.Shutdown()
+	}
+	PaddingAndCleanSlice(pd)
+	// preload cert and key files
+	c, err := ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock))
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// NewTLSConfig  create the tls config struct
+func NewTLSConfig(caBytes []byte, certificate tls.Certificate, cipherSuites uint16) (*tls.Config, error) {
+	tlsConfig := &tls.Config{
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		Certificates: []tls.Certificate{certificate},
+		MinVersion:   tls.VersionTLS12,
+		CipherSuites: []uint16{cipherSuites},
+	}
+	if len(caBytes) > 0 {
+		// Two-way SSL
+		pool := x509.NewCertPool()
+		if ok := pool.AppendCertsFromPEM(caBytes); !ok {
+			return nil, errors.New("append the CA file failed")
+		}
+		tlsConfig.ClientCAs = pool
+		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+		hwlog.RunLog.Info("enable Two-way SSL mode")
+	} else {
+		// One-way SSL
+		tlsConfig.ClientAuth = tls.NoClientCert
+		hwlog.RunLog.Info("enable One-way SSL mode")
+	}
+	return tlsConfig, nil
 }
 
 func write(path string, overideByte []byte, mode os.FileMode) error {

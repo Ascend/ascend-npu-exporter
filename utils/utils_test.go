@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"github.com/prashantv/gostub"
 	. "github.com/smartystreets/goconvey/convey"
@@ -69,7 +70,7 @@ func TestMakeSureDir(t *testing.T) {
 			So(err, ShouldEqual, nil)
 		})
 		Convey("abnormal situation,err returned", func() {
-			mock := gostub.Stub(&osMkdir, func(name string, perm os.FileMode) error {
+			mock := gostub.Stub(&osMkdirAll, func(name string, perm os.FileMode) error {
 				return fmt.Errorf("error")
 			})
 			defer mock.Reset()
@@ -134,7 +135,7 @@ func TestEncryptPrivateKeyAgain(t *testing.T) {
 		So(err, ShouldEqual, nil)
 		block, _ := pem.Decode(keyBytes)
 		Convey("read from main file", func() {
-			encryptedBlock, err := EncryptPrivateKeyAgain(block, mainks, backupks)
+			encryptedBlock, err := EncryptPrivateKeyAgain(block, mainks, backupks, 0)
 			So(err, ShouldEqual, nil)
 			_, ok := encryptedBlock.Headers["DEK-Info"]
 			So(ok, ShouldBeTrue)
@@ -201,7 +202,6 @@ func TestCheckSignatureAlgorithm(t *testing.T) {
 
 // TestValidateX509Pair test ValidateX509Pair
 func TestValidateX509Pair(t *testing.T) {
-
 	Convey("test for ValidateX509Pair", t, func() {
 		Convey("normal cert", func() {
 			certByte, err := ReadBytes("./testdata/cert/client.crt")
@@ -269,5 +269,104 @@ func TestCheckRevokedCert(t *testing.T) {
 			res = CheckRevokedCert(r, crlcerList)
 			So(res, ShouldBeFalse)
 		})
+	})
+}
+
+// TestCheckCaCert test for CheckCaCert
+func TestCheckCaCert(t *testing.T) {
+	Convey("test for CheckCaCert", t, func() {
+		Convey("normal cert", func() {
+			_, err := CheckCaCert("./testdata/cert/ca.crt")
+			So(err, ShouldEqual, nil)
+		})
+		Convey("cert is nil", func() {
+			_, err := CheckCaCert("")
+			So(err, ShouldEqual, nil)
+		})
+		Convey("cert file is not exsit", func() {
+			_, err := CheckCaCert("/djdsk.../dsd")
+			So(err, ShouldEqual, nil)
+		})
+		Convey("ca file not right", func() {
+			_, err := CheckCaCert("./testdata/cert/ca_err.crt")
+			So(err, ShouldNotBeEmpty)
+		})
+		Convey("cert file is not ca", func() {
+			_, err := CheckCaCert("./testdata/cert/server.crt")
+			So(err, ShouldNotBeEmpty)
+		})
+	})
+}
+
+// TestLoadEncryptedCertPair  test load function
+func TestLoadEncryptedCertPair(t *testing.T) {
+	Convey("test for LoadCertPair", t, func() {
+		var mainks = "./testdata/mainks"
+		var backupks = "./testdata/backupks"
+		// mock kmcInit
+		initStub := gostub.Stub(&KmcInit, func(sdpAlgID int, primaryKey, standbyKey string) {})
+		defer initStub.Reset()
+
+		Convey("normal cert", func() {
+			encryptStub := gostub.Stub(&Decrypt, func(domainID int, data []byte) ([]byte, error) {
+				return []byte("111111"), nil
+			})
+			defer encryptStub.Reset()
+			c, err := LoadCertPair("./testdata/cert/client.crt",
+				"./testdata/cert/client.key", mainks, backupks, 0)
+			So(err, ShouldEqual, nil)
+			So(c, ShouldNotBeEmpty)
+		})
+		Convey("cert not match", func() {
+			encryptStub := gostub.Stub(&Decrypt, func(domainID int, data []byte) ([]byte, error) {
+				return []byte("111111"), nil
+			})
+			defer encryptStub.Reset()
+			c, err := LoadCertPair("./testdata/cert/server.crt",
+				"./testdata/cert/client.key", mainks, backupks, 0)
+			So(c, ShouldEqual, nil)
+			So(err, ShouldNotBeEmpty)
+		})
+		Convey("cert not exist", func() {
+			c, err := LoadCertPair("./testdata/xxx.crt",
+				"./testdata/xxx/client.key", mainks, backupks, 0)
+			So(c, ShouldEqual, nil)
+			So(err, ShouldNotBeEmpty)
+		})
+		Convey("decrypt failed", func() {
+			encryptStub := gostub.Stub(&Decrypt, func(domainID int, data []byte) ([]byte, error) {
+				return nil, errors.New("mock err")
+			})
+			defer encryptStub.Reset()
+			c, err := LoadCertPair("./testdata/cert/client.crt",
+				"./testdata/cert/client.key", mainks, backupks, 0)
+			So(c, ShouldEqual, nil)
+			So(err.Error(), ShouldEqual, "decrypt passwd failed")
+		})
+
+	})
+}
+
+// TestNewTLSConfig test for new tls
+func TestNewTLSConfig(t *testing.T) {
+	Convey("test for NewTLSConfig", t, func() {
+		c := tls.Certificate{}
+		Convey("One-way HTTPS", func() {
+			conf, err := NewTLSConfig([]byte{}, c, tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)
+			So(err, ShouldEqual, nil)
+			So(conf, ShouldNotBeEmpty)
+		})
+		Convey("Two-way HTTPS,but ca check failed", func() {
+			conf, err := NewTLSConfig([]byte("sdsddd"), c, tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)
+			So(conf, ShouldEqual, nil)
+			So(err, ShouldNotBeEmpty)
+		})
+		Convey("Two-way HTTPS", func() {
+			ca, err := CheckCaCert("./testdata/cert/ca.crt")
+			conf, err := NewTLSConfig(ca, c, tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)
+			So(err, ShouldEqual, nil)
+			So(conf, ShouldNotBeEmpty)
+		})
+
 	})
 }

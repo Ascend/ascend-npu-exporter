@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/pem"
 	"flag"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,14 +26,12 @@ import (
 	"huawei.com/npu-exporter/collector"
 	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/npu-exporter/limiter"
 	"huawei.com/npu-exporter/utils"
-	"io/ioutil"
-	"math"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -44,10 +41,6 @@ var (
 	port             int
 	updateTime       int
 	needGoInfo       bool
-	certFile         string
-	keyFile          string
-	caFile           string
-	crlFile          string
 	certificate      *tls.Certificate
 	ip               string
 	enableHTTP       bool
@@ -60,68 +53,33 @@ var (
 	containerMode    string
 	containerd       string
 	endpoint         string
+	crlcerList       *pkix.CertificateList
 )
 
 const (
+	dirPrefix                 = "/etc/mindx-dl/npu-exporter/"
 	portConst                 = 8082
 	updateTimeConst           = 5
 	cacheTime                 = 65 * time.Second
 	portLeft                  = 1025
 	portRight                 = 40000
 	oneMinute                 = 60
-	keyStore                  = "/etc/npu-exporter/.config/config1"
-	certStore                 = "/etc/npu-exporter/.config/config2"
-	caStore                   = "/etc/npu-exporter/.config/config3"
-	crlStore                  = "/etc/npu-exporter/.config/config4"
-	passFile                  = "/etc/npu-exporter/.config/config5"
-	passFileBackUp            = "/etc/npu-exporter/.conf"
+	keyStore                  = dirPrefix + ".config/config1"
+	certStore                 = dirPrefix + ".config/config2"
+	caStore                   = dirPrefix + ".config/config3"
+	crlStore                  = dirPrefix + ".config/config4"
+	passFile                  = dirPrefix + ".config/config5"
+	passFileBackUp            = dirPrefix + ".conf"
 	defaultConcurrency        = 5
 	defaultLogFile            = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
 	defaultContainerdAddr     = "/run/containerd/containerd.sock"
 	defaultDockContainerdAddr = "/var/run/docker/containerd/docker-containerd.sock"
 	containerModeDocker       = "docker"
 	containerModeContainerd   = "containerd"
+	maxConcurrency            = 50
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
-var crlcerList *pkix.CertificateList
-
-type limitHandler struct {
-	concurrency chan struct{}
-	httpHandler http.Handler
-}
-
-// ServeHTTP implement http.Handler
-func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	select {
-	case _, ok := <-h.concurrency:
-		if !ok {
-			return
-		}
-		hwlog.RunLog.Infof("received request:%s\t%s\t%s%s\t%s", req.Method, req.Proto, req.Host,
-			req.URL.String(), req.UserAgent())
-		h.httpHandler.ServeHTTP(w, req)
-		h.concurrency <- struct{}{}
-	default:
-		hwlog.RunLog.Warnf("rejected request:%s\t%s\t%s%s\t%s", req.Method, req.Proto, req.Host,
-			req.URL.String(), req.UserAgent())
-		http.Error(w, "503 too busy", http.StatusServiceUnavailable)
-	}
-}
-
-func newLimitHandler(maxConcur int, handler http.Handler) http.Handler {
-	if maxConcur < 1 || maxConcur > math.MaxInt16 {
-		hwlog.RunLog.Fatal("maxConcurrency parameter error")
-	}
-	h := &limitHandler{
-		concurrency: make(chan struct{}, maxConcur),
-		httpHandler: handler,
-	}
-	for i := 0; i < maxConcur; i++ {
-		h.concurrency <- struct{}{}
-	}
-	return h
-}
 
 func main() {
 	flag.Parse()
@@ -147,12 +105,16 @@ func main() {
 	http.Handle("/", http.HandlerFunc(indexHandler))
 	s := &http.Server{
 		Addr:    ip + ":" + strconv.Itoa(port),
-		Handler: newLimitHandler(concurrency, http.DefaultServeMux),
+		Handler: limiter.NewLimitHandler(concurrency, maxConcurrency, http.DefaultServeMux),
 	}
 
 	if certificate != nil {
-		s.TLSConfig = newTLSConfig(caBytes)
-		s.Handler = newLimitHandler(concurrency, interceptor(http.DefaultServeMux))
+		tlsConf, err := utils.NewTLSConfig(caBytes, *certificate, cipherSuites)
+		if err != nil {
+			hwlog.RunLog.Fatal(err)
+		}
+		s.TLSConfig = tlsConf
+		s.Handler = limiter.NewLimitHandler(concurrency, maxConcurrency, interceptor(http.DefaultServeMux))
 		hwlog.RunLog.Info("start https server now...")
 		if err := s.ListenAndServeTLS("", ""); err != nil {
 			hwlog.RunLog.Fatal("Https server error and stopped")
@@ -163,30 +125,6 @@ func main() {
 	if err := s.ListenAndServe(); err != nil {
 		hwlog.RunLog.Fatal("Http server error and stopped")
 	}
-}
-
-func newTLSConfig(caBytes []byte) *tls.Config {
-	tlsConfig := &tls.Config{
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		Certificates: []tls.Certificate{*certificate},
-		MinVersion:   tls.VersionTLS12,
-		CipherSuites: []uint16{cipherSuites},
-	}
-	if len(caBytes) > 0 {
-		// Two-way SSL
-		pool := x509.NewCertPool()
-		if ok := pool.AppendCertsFromPEM(caBytes); !ok {
-			hwlog.RunLog.Fatalf("append the CA file failed")
-		}
-		tlsConfig.ClientCAs = pool
-		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-		hwlog.RunLog.Info("enable Two-way SSL mode")
-	} else {
-		// One-way SSL
-		tlsConfig.ClientAuth = tls.NoClientCert
-		hwlog.RunLog.Info("enable One-way SSL mode")
-	}
-	return tlsConfig
 }
 
 func readCntMonitoringFlags() container.CntNpuMonitorOpts {
@@ -224,18 +162,17 @@ func regPrometheus(stop chan os.Signal, opts container.CntNpuMonitorOpts) *prome
 }
 
 func validate() {
-	if (certFile == "" && keyFile == "") && enableHTTP {
-		baseParamValid()
+	baseParamValid()
+	if enableHTTP {
 		return
 	}
-
-	// start to import certificate and keys
-	importCertFiles(certFile, keyFile, caFile, crlFile)
-	baseParamValid()
 	// key file exist and need init kmc
 	hwlog.RunLog.Info("start load imported certificate files")
-	tlsCert := handleCert()
-	certificate = &tlsCert
+	tlsCert, err := utils.LoadCertPair(certStore, keyStore, passFile, passFileBackUp, encryptAlgorithm)
+	if err != nil {
+		hwlog.RunLog.Fatal(err)
+	}
+	certificate = tlsCert
 	if certificate == nil {
 		return
 	}
@@ -245,7 +182,10 @@ func validate() {
 	}
 	go utils.PeriodCheck(cc)
 	loadCRL()
-	checkCaCert(caStore)
+	caBytes, err = utils.CheckCaCert(caStore)
+	if err != nil {
+		hwlog.RunLog.Fatal(err)
+	}
 }
 
 func baseParamValid() {
@@ -260,6 +200,9 @@ func baseParamValid() {
 	hwlog.RunLog.Infof("listen on: %s", ip)
 	if updateTime > oneMinute || updateTime < 1 {
 		hwlog.RunLog.Fatalf("the updateTime is invalid")
+	}
+	if enableHTTP {
+		return
 	}
 	if encryptAlgorithm != utils.Aes128gcm && encryptAlgorithm != utils.Aes256gcm {
 		hwlog.RunLog.Warn("reset invalid encryptAlgorithm ")
@@ -276,66 +219,6 @@ func baseParamValid() {
 	}
 }
 
-func checkCaCert(caFile string) []byte {
-	if caFile == "" {
-		return nil
-	}
-	ca, err := filepath.Abs(caFile)
-	if err != nil {
-		hwlog.RunLog.Fatalf("the caFile is invalid")
-	}
-	if !utils.IsExists(caFile) {
-		return nil
-	}
-	caBytes, err = ioutil.ReadFile(ca)
-	if err != nil {
-		hwlog.RunLog.Fatalf("failed to load caFile")
-	}
-	caCrt, err := utils.LoadCertsFromPEM(caBytes)
-	if err != nil {
-		hwlog.RunLog.Fatal("convert ca certificate failed")
-	}
-	if !caCrt.IsCA {
-		hwlog.RunLog.Fatal("this is not ca certificate")
-	}
-	err = utils.CheckValidityPeriod(caCrt)
-	if err != nil {
-		hwlog.RunLog.Fatal("ca certificate is overdue")
-	}
-	if err = caCrt.CheckSignature(caCrt.SignatureAlgorithm, caCrt.RawTBSCertificate, caCrt.Signature); err != nil {
-		hwlog.RunLog.Fatal("check ca certificate signature failed")
-	}
-	hwlog.RunLog.Infof("certificate signature check pass")
-	return caBytes
-}
-
-func handleCert() tls.Certificate {
-	certBytes, err := ioutil.ReadFile(certStore)
-	if err != nil {
-		hwlog.RunLog.Fatal("there is no certFile provided")
-	}
-	encodedPd := utils.ReadOrUpdatePd(passFile, passFileBackUp, utils.FileMode)
-	utils.KmcInit(encryptAlgorithm, "", "")
-	pd, err := utils.Decrypt(0, encodedPd)
-	if err != nil {
-		hwlog.RunLog.Info("decrypt passwd failed")
-	}
-	hwlog.RunLog.Info("decrypt passwd successfully")
-	keyBlock, err := utils.DecryptPrivateKeyWithPd(keyStore, pd)
-	if err != nil {
-		hwlog.RunLog.Fatal(err)
-	}
-	hwlog.RunLog.Info("decrypt success")
-	utils.Bootstrap.Shutdown()
-	utils.PaddingAndCleanSlice(pd)
-	// preload cert and key files
-	c, err := utils.ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock))
-	if err != nil {
-		hwlog.RunLog.Fatal(err)
-	}
-	return *c
-}
-
 func init() {
 	flag.IntVar(&port, "port", portConst,
 		"The server port of the http service,range[1025-40000]")
@@ -345,15 +228,10 @@ func init() {
 		"Interval (seconds) to update the npu metrics cache,range[1-60]")
 	flag.BoolVar(&needGoInfo, "needGoInfo", false,
 		"If true,show golang metrics (default false)")
-	flag.StringVar(&caFile, "caFile", "", "The root certificate file path")
-	flag.StringVar(&certFile, "certFile", "", "The certificate file path")
-	flag.StringVar(&keyFile, "keyFile", "",
-		"The key file path,If both the certificate and key file exist,system will enable https")
-	flag.StringVar(&crlFile, "crlFile", "", "The offline CRL file path")
 	flag.BoolVar(&enableHTTP, "enableHTTP", false,
 		"If true, the program will not check certificate files and enable http server (default false)")
 	flag.IntVar(&encryptAlgorithm, "encryptAlgorithm", utils.Aes256gcm,
-		"Use 8 for aes128gcm,9 for aes256gcm")
+		"Use 8 for aes128gcm,9 for aes256gcm,not recommended config it in general")
 	flag.IntVar(&tlsSuites, "tlsSuites", 1,
 		"Use 0 for TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 ,1 for TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256")
 	flag.BoolVar(&version, "version", false,
@@ -423,61 +301,6 @@ func loadCRL() {
 		crlcerList = crlList
 		hwlog.RunLog.Infof("load CRL success")
 	}
-}
-
-func importCertFiles(certFile, keyFile, caFile, crlFile string) {
-	if certFile == "" && keyFile == "" && caFile == "" && crlFile == "" {
-		hwlog.RunLog.Info("no new certificate files need to be imported")
-		return
-	}
-	if certFile == "" || keyFile == "" {
-		hwlog.RunLog.Fatal("need input certFile and keyFile together")
-	}
-	if encryptAlgorithm != utils.Aes128gcm && encryptAlgorithm != utils.Aes256gcm {
-		hwlog.RunLog.Warn("reset invalid encryptAlgorithm ")
-		encryptAlgorithm = utils.Aes256gcm
-	}
-	keyBlock, err := utils.DecryptPrivateKeyWithPd(keyFile, nil)
-	if err != nil {
-		hwlog.RunLog.Fatal(err)
-	}
-	// start to import the  certificate file
-	certBytes, err := utils.ReadBytes(certFile)
-	if err != nil {
-		hwlog.RunLog.Fatal("read certFile failed")
-	}
-	// validate certification and private key, if not pass, program will exit
-	if _, err = utils.ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock)); err != nil {
-		hwlog.RunLog.Fatal(err)
-	}
-	// encrypt private key again with passwd
-	encryptedBlock, err := utils.EncryptPrivateKeyAgain(keyBlock, passFile, passFileBackUp)
-	if err = utils.MakeSureDir(keyStore); err != nil {
-		hwlog.RunLog.Fatal(err)
-	}
-	if err := utils.OverridePassWdFile(keyStore, pem.EncodeToMemory(encryptedBlock), utils.FileMode); err != nil {
-		hwlog.RunLog.Fatal(err)
-	}
-	if err = ioutil.WriteFile(certStore, certBytes, utils.FileMode); err != nil {
-		hwlog.RunLog.Fatal("write certBytes to config failed ")
-	}
-	// start to import the ca certificate file
-	if caBytes = checkCaCert(caFile); len(caBytes) != 0 {
-		if err = ioutil.WriteFile(caStore, caBytes, utils.FileMode); err != nil {
-			hwlog.RunLog.Fatal("write caBytes to config failed ")
-		}
-	}
-	// start to import the crl file
-	crlBytes, err := utils.CheckCRL(crlFile)
-	if err != nil {
-		hwlog.RunLog.Fatal(err)
-	}
-	if len(crlBytes) != 0 {
-		if err = ioutil.WriteFile(crlStore, crlBytes, utils.FileMode); err != nil {
-			hwlog.RunLog.Fatal("write crlBytes to config failed ")
-		}
-	}
-	hwlog.RunLog.Fatal("import certificate successfully")
 }
 
 func initHwLogger(stopCh <-chan struct{}) {
