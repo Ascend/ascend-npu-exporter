@@ -11,6 +11,7 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"os"
 	"path"
+	"regexp"
 )
 
 const (
@@ -34,6 +35,7 @@ const (
 	IndexOfGoroutineID = 1
 	// LengthOfFileInfo the length of the log printed file information
 	LengthOfFileInfo = 20
+	backUpLogRegex   = `^.+-[0-9]{4}-[0-9]{2}-[0-9T]{5}-[0-9]{2}-[0-9]{2}\.[0-9]{2,4}`
 )
 
 // LogConfig log module config
@@ -57,6 +59,8 @@ type LogConfig struct {
 	// whether backup files need to be compressed, default value: false
 	IsCompress bool
 }
+
+var reg = regexp.MustCompile(backUpLogRegex)
 
 type validateFunc func(config *LogConfig) error
 
@@ -311,12 +315,11 @@ func changeFileMode(l *zap.Logger, event fsnotify.Event, logFileFullPath string)
 		fmt.Println("changeFileMode logger is nil")
 		return
 	}
-	var logMode = BackupLogFileMode
-	logFileName := path.Base(logFileFullPath)
+	var logMode = LogFileMode
 	logPath := path.Dir(logFileFullPath)
 	changedFileName := path.Base(event.Name)
-	if changedFileName == logFileName {
-		logMode = LogFileMode
+	if isTargetLog(changedFileName) {
+		logMode = BackupLogFileMode
 	}
 	changedLogFilePath := path.Join(logPath, changedFileName)
 	if !isExist(changedLogFilePath) {
@@ -325,4 +328,7 @@ func changeFileMode(l *zap.Logger, event fsnotify.Event, logFileFullPath string)
 	if errChmod := os.Chmod(changedLogFilePath, logMode); errChmod != nil {
 		l.Error("set file mode failed", zap.String("filename", changedFileName))
 	}
+}
+func isTargetLog(fileName string) bool {
+	return reg.MatchString(fileName)
 }

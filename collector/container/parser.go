@@ -45,13 +45,13 @@ var (
 	// ErrUnknownCgroupsPathType cgroups path format not recognized
 	ErrUnknownCgroupsPathType = errors.New("unknown cgroupsPath type")
 	// ErrParseFail parsing devices.list fail
-	ErrParseFail              = errors.New("parsing fail")
+	ErrParseFail = errors.New("parsing fail")
 	// ErrNoCgroupController no such cgroup controller
-	ErrNoCgroupController     = errors.New("no cgroup controller")
+	ErrNoCgroupController = errors.New("no cgroup controller")
 	// ErrNoCgroupHierarchy cgroup path not found
-	ErrNoCgroupHierarchy      = errors.New("no cgroup hierarchy")
+	ErrNoCgroupHierarchy = errors.New("no cgroup hierarchy")
 	// ErrFromContext error is from the context
-	ErrFromContext            = errors.New("error from context")
+	ErrFromContext = errors.New("error from context")
 
 	npuMajorID               string
 	npuMajorFetchCtrl        sync.Once
@@ -239,7 +239,7 @@ func (dp *DevicesParser) doParse(resultOut chan<- DevicesInfos) {
 	}
 }
 
-// FetchAndParse triggers the asynchronized process of querying and analyzing all containers
+// FetchAndParse triggers the asynchronous process of querying and analyzing all containers
 // resultOut channel is for fetching the current result
 func (dp *DevicesParser) FetchAndParse(resultOut chan<- DevicesInfos) {
 	go dp.doParse(resultOut)
