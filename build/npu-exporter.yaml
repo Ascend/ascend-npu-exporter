@@ -85,7 +85,7 @@ spec:
             mountPath: /usr/local/dcmi
             readOnly: true
           - name: kmckeystore
-            mountPath: /etc/npu-exporter
+            mountPath: /etc/mindx-dl
           - name: sys
             mountPath: /sys
             readOnly: true
@@ -115,7 +115,7 @@ spec:
             path: /usr/local/dcmi
         - name: kmckeystore
           hostPath:
-            path: /etc/npu-exporter
+            path: /etc/mindx-dl
         - name: sys
           hostPath:
             path: /sys
