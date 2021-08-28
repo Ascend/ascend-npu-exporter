@@ -105,7 +105,7 @@ func main() {
 	http.Handle("/", http.HandlerFunc(indexHandler))
 	s := &http.Server{
 		Addr:    ip + ":" + strconv.Itoa(port),
-		Handler: limiter.NewLimitHandler(concurrency, maxConcurrency, http.DefaultServeMux),
+		Handler: limiter.NewLimitHandler(concurrency, maxConcurrency, http.DefaultServeMux, true),
 	}
 
 	if certificate != nil {
@@ -114,7 +114,7 @@ func main() {
 			hwlog.RunLog.Fatal(err)
 		}
 		s.TLSConfig = tlsConf
-		s.Handler = limiter.NewLimitHandler(concurrency, maxConcurrency, interceptor(http.DefaultServeMux))
+		s.Handler = limiter.NewLimitHandler(concurrency, maxConcurrency, interceptor(http.DefaultServeMux), true)
 		hwlog.RunLog.Info("start https server now...")
 		if err := s.ListenAndServeTLS("", ""); err != nil {
 			hwlog.RunLog.Fatal("Https server error and stopped")
