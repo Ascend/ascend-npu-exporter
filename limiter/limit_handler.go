@@ -11,6 +11,7 @@ import (
 type limitHandler struct {
 	concurrency chan struct{}
 	httpHandler http.Handler
+	log         bool
 }
 
 // ServeHTTP implement http.Handler
@@ -20,25 +21,28 @@ func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if !ok {
 			return
 		}
-		hwlog.RunLog.Infof("received request:%s\t%s\t%s%s\t%s", req.Method, req.Proto, req.Host,
-			req.URL.String(), req.UserAgent())
+		if h.log {
+			hwlog.RunLog.Infof("received request:%s\t%s\t%s%s\t%s", req.Method, req.Proto, req.Host,
+				req.URL.Path, req.UserAgent())
+		}
 		h.httpHandler.ServeHTTP(w, req)
 		h.concurrency <- struct{}{}
 	default:
 		hwlog.RunLog.Warnf("rejected request:%s\t%s\t%s%s\t%s", req.Method, req.Proto, req.Host,
-			req.URL.String(), req.UserAgent())
+			req.URL.Path, req.UserAgent())
 		http.Error(w, "503 too busy", http.StatusServiceUnavailable)
 	}
 }
 
 // NewLimitHandler new a bucket-token limiter
-func NewLimitHandler(maxConcur, maxConcurrency int, handler http.Handler) http.Handler {
+func NewLimitHandler(maxConcur, maxConcurrency int, handler http.Handler, printLog bool) http.Handler {
 	if maxConcur < 1 || maxConcur > maxConcurrency {
 		hwlog.RunLog.Fatal("maxConcurrency parameter error")
 	}
 	h := &limitHandler{
 		concurrency: make(chan struct{}, maxConcur),
 		httpHandler: handler,
+		log:         printLog,
 	}
 	for i := 0; i < maxConcur; i++ {
 		h.concurrency <- struct{}{}
