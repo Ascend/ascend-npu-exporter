@@ -2,7 +2,6 @@
 # Perform  build npu-exporter
 # Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
 
-
 set -e
 CUR_DIR=$(dirname $(readlink -f $0))
 TOP_DIR=$(realpath "${CUR_DIR}"/..)
@@ -25,7 +24,12 @@ fi
 
 OUTPUT_NAME="cert-importer"
 function clear_env() {
-  rm -rf "${TOP_DIR}"/output/${OUTPUT_NAME}
+  if [ -d "${TOP_DIR}/output" ]; then
+    rm -rf "${TOP_DIR}"/output/${OUTPUT_NAME}
+  else
+    mkdir -p "${TOP_DIR}"/output
+  fi
+
 }
 
 function build() {
