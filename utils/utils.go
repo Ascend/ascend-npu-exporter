@@ -353,7 +353,7 @@ var KmcInit = func(sdpAlgID int, primaryKey, standbyKey string) {
 			primaryKey = "/etc/mindx-dl/kmc_primary_store/master.ks"
 		}
 		if standbyKey == "" {
-			standbyKey = "/etc//mindx-dl/.config/backup.ks"
+			standbyKey = "/etc/mindx-dl/.config/backup.ks"
 		}
 		defaultInitConfig.PrimaryKeyStoreFile = primaryKey
 		defaultInitConfig.StandbyKeyStoreFile = standbyKey
