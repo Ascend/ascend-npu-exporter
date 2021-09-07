@@ -57,26 +57,24 @@ var (
 )
 
 const (
-	dirPrefix                 = "/etc/mindx-dl/npu-exporter/"
-	portConst                 = 8082
-	updateTimeConst           = 5
-	cacheTime                 = 65 * time.Second
-	portLeft                  = 1025
-	portRight                 = 40000
-	oneMinute                 = 60
-	keyStore                  = dirPrefix + ".config/config1"
-	certStore                 = dirPrefix + ".config/config2"
-	caStore                   = dirPrefix + ".config/config3"
-	crlStore                  = dirPrefix + ".config/config4"
-	passFile                  = dirPrefix + ".config/config5"
-	passFileBackUp            = dirPrefix + ".conf"
-	defaultConcurrency        = 5
-	defaultLogFile            = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
-	defaultContainerdAddr     = "/run/containerd/containerd.sock"
-	defaultDockContainerdAddr = "/var/run/docker/containerd/docker-containerd.sock"
-	containerModeDocker       = "docker"
-	containerModeContainerd   = "containerd"
-	maxConcurrency            = 50
+	dirPrefix               = "/etc/mindx-dl/npu-exporter/"
+	portConst               = 8082
+	updateTimeConst         = 5
+	cacheTime               = 65 * time.Second
+	portLeft                = 1025
+	portRight               = 40000
+	oneMinute               = 60
+	keyStore                = dirPrefix + ".config/config1"
+	certStore               = dirPrefix + ".config/config2"
+	caStore                 = dirPrefix + ".config/config3"
+	crlStore                = dirPrefix + ".config/config4"
+	passFile                = dirPrefix + ".config/config5"
+	passFileBackUp          = dirPrefix + ".conf"
+	defaultConcurrency      = 5
+	defaultLogFile          = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
+	containerModeDocker     = "docker"
+	containerModeContainerd = "containerd"
+	maxConcurrency          = 50
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
@@ -128,23 +126,25 @@ func main() {
 }
 
 func readCntMonitoringFlags() container.CntNpuMonitorOpts {
-	opts := container.CntNpuMonitorOpts{}
+	opts := container.CntNpuMonitorOpts{UserBackUp: true}
 	switch containerMode {
 	case containerModeDocker:
 		opts.EndpointType = container.EndpointTypeDockerd
-		opts.ContainerdAddress = defaultDockContainerdAddr
+		opts.OciEndpoint = container.DefaultContainerdAddr
+		opts.CriEndpoint = container.DefaultDockerShim
 	case containerModeContainerd:
 		opts.EndpointType = container.EndpointTypeContainerd
-		opts.ContainerdAddress = defaultContainerdAddr
-		opts.Endpoint = "unix://" + defaultContainerdAddr
+		opts.OciEndpoint = container.DefaultContainerdAddr
+		opts.CriEndpoint = container.DefaultContainerdAddr
 	default:
 		hwlog.RunLog.Fatal("invalid container mode setting")
 	}
 	if containerd != "" {
-		opts.ContainerdAddress = containerd
+		opts.OciEndpoint = containerd
+		opts.UserBackUp = false
 	}
 	if endpoint != "" {
-		opts.Endpoint = endpoint
+		opts.CriEndpoint = endpoint
 	}
 	return opts
 }
@@ -241,7 +241,7 @@ func init() {
 	flag.StringVar(&containerd, "containerd", "",
 		"The endpoint of containerd used for listening containers' events")
 	flag.StringVar(&endpoint, "endpoint", "",
-		"The endpoint of the CRI or dockerd server to which will be connected")
+		"The endpoint of the CRI  server to which will be connected")
 	flag.IntVar(&concurrency, "concurrency", defaultConcurrency,
 		"The max concurrency of the http server")
 

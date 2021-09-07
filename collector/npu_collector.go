@@ -142,7 +142,6 @@ var start = func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInte
 
 	if err := n.devicesParser.Init(); err != nil {
 		hwlog.RunLog.Errorf("failed to init devices parser: %v", err)
-		return
 	}
 	defer n.devicesParser.Close()
 	n.devicesParser.Timeout = n.updateTime
@@ -206,7 +205,6 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 		hwlog.RunLog.Error("Invalid param in function Collect")
 		return
 	}
-
 	obj, found := n.cache.Get(key)
 	if !found {
 		hwlog.RunLog.Warn("no cache, start to get npulist and rebuild cache")
@@ -236,30 +234,33 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	ch <- prometheus.MustNewConstMetric(machineInfoNPUDesc, prometheus.GaugeValue, float64(totalCount))
-	obj, found = n.cache.Get(containersDevicesInfoKey)
-	if !found {
-		hwlog.RunLog.Warn("containers' devices info not found in cache, rebuilding")
-		resultChan := make(chan container.DevicesInfos, 1)
-		n.devicesParser.FetchAndParse(resultChan)
-		obj = <-resultChan
-		hwlog.RunLog.Warn("rebuild cache successfully")
-	}
 
-	containersDevicesInfo, ok := obj.(container.DevicesInfos)
-	if !ok {
-		hwlog.RunLog.Error("Error cache and convert failed")
-		return
-	}
-
-	updateContainerNPUInfo(ch, containersDevicesInfo)
+	updateContainerNPUInfo(ch, n)
 }
 
-func updateContainerNPUInfo(ch chan<- prometheus.Metric, cntNpuInfos container.DevicesInfos) {
+func updateContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) {
 	if ch == nil {
 		hwlog.RunLog.Error("metric channel is nil")
 		return
 	}
-
+	obj, found := n.cache.Get(containersDevicesInfoKey)
+	if !found {
+		hwlog.RunLog.Warn("containers' devices info not found in cache, rebuilding")
+		resultChan := make(chan container.DevicesInfos, 1)
+		n.devicesParser.FetchAndParse(resultChan)
+		select {
+		case obj = <-resultChan:
+		case <-time.After(time.Second):
+			hwlog.RunLog.Warn("rebuild cache timeout")
+			return
+		}
+		hwlog.RunLog.Warn("rebuild cache successfully")
+	}
+	cntNpuInfos, ok := obj.(container.DevicesInfos)
+	if !ok {
+		hwlog.RunLog.Error("Error cache and convert failed")
+		return
+	}
 	for _, v := range cntNpuInfos {
 		for _, deviceID := range v.Devices {
 			ch <- prometheus.MustNewConstMetric(

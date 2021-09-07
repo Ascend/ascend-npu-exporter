@@ -25,6 +25,7 @@ import (
 	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/dsmi"
 	"huawei.com/npu-exporter/hwlog"
+	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 	"os"
 	"testing"
 	"time"
@@ -49,30 +50,13 @@ func (operator *mockContainerRuntimeOperator) Close() error {
 }
 
 // ContainerIDs implements ContainerRuntimeOperator
-func (operator *mockContainerRuntimeOperator) ContainerIDs(ctx context.Context) ([]string, error) {
-	return []string{"1", "2"}, nil
+func (operator *mockContainerRuntimeOperator) GetContainers(ctx context.Context) ([]*runtimeapi.Container, error) {
+	return []*runtimeapi.Container{}, nil
 }
 
 // CgroupsPath implements ContainerRuntimeOperator
 func (operator *mockContainerRuntimeOperator) CgroupsPath(ctx context.Context, id string) (string, error) {
 	return "/cgroups/" + id, nil
-}
-
-type mockNameFetcher struct{}
-
-// Init implements NameFetcher
-func (fetcher *mockNameFetcher) Init() error {
-	return nil
-}
-
-// Name implements NameFetcher
-func (fetcher *mockNameFetcher) Name(id string) string {
-	return "container_" + id
-}
-
-// Close implements NameFetcher
-func (fetcher *mockNameFetcher) Close() error {
-	return nil
 }
 
 func mockScan4AscendDevices(_ string) ([]int, bool, error) {
@@ -85,9 +69,8 @@ func mockGetCgroupPath(controller, specCgroupsPath string) (string, error) {
 
 func makeMockDevicesParser() *container.DevicesParser {
 	return &container.DevicesParser{
-			RuntimeOperator: new(mockContainerRuntimeOperator),
-			NameFetcher:     new(mockNameFetcher),
-		}
+		RuntimeOperator: new(mockContainerRuntimeOperator),
+	}
 }
 
 // TestNewNpuCollector test method of NewNpuCollector
