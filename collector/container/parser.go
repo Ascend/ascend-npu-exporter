@@ -190,8 +190,9 @@ func (dp *DevicesParser) collect(ctx context.Context, r <-chan DevicesInfo, ct i
 			if !ok {
 				return nil
 			}
+			// print the error and continue
 			hwlog.RunLog.Error(err)
-			return nil
+			continue
 		case <-ctx.Done():
 			dp.err <- ErrFromContext
 			return nil
@@ -223,6 +224,7 @@ func (dp *DevicesParser) doParse(resultOut chan<- DevicesInfos) {
 	r := make(chan DevicesInfo)
 	e := make(chan error)
 	defer close(r)
+	defer close(e)
 	ctx, cancelFn := context.WithTimeout(ctx, withDefault(dp.Timeout, parsingNpuDefaultTimeout))
 	defer cancelFn()
 	for _, container := range containers {

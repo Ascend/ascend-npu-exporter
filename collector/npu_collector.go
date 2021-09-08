@@ -14,6 +14,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -32,6 +33,8 @@ var (
 	npuChipInfoDescHbmTotalMemory = prometheus.NewDesc("npu_chip_info_hbm_total_memory", "the npu hbm total memory", []string{"id"}, nil)
 	npuChipInfoDescErrorCode      = prometheus.NewDesc("npu_chip_info_error_code", "the npu error code", []string{"id"}, nil)
 	npuContainerInfo              = prometheus.NewDesc("npu_container_info", "the container name and deviceID relationship", []string{"containerID", "containerName", "npuID"}, nil)
+	npuContainerInfoInit          sync.Once
+	npuChipInfoInit               sync.Once
 )
 
 type npuCollector struct {
@@ -206,13 +209,15 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 	obj, found := n.cache.Get(key)
-	if !found {
-		hwlog.RunLog.Warn("no cache, start to get npulist and rebuild cache")
-		npuInfo := getNPUInfo(dsmi.GetDeviceManager())
-		n.cache.Set(key, npuInfo, n.cacheTime)
-		hwlog.RunLog.Warn("rebuild cache successfully")
-		obj = npuInfo
-	}
+	npuChipInfoInit.Do(func() {
+		if !found {
+			hwlog.RunLog.Warn("no cache, start to get npulist and rebuild cache")
+			npuInfo := getNPUInfo(dsmi.GetDeviceManager())
+			n.cache.Set(key, npuInfo, n.cacheTime)
+			hwlog.RunLog.Warn("rebuild cache successfully")
+			obj = npuInfo
+		}
+	})
 	npuList, ok := obj.([]HuaWeiNPUCard)
 	if !ok {
 		hwlog.RunLog.Error("Error cache and convert failed")
@@ -244,18 +249,21 @@ func updateContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) {
 		return
 	}
 	obj, found := n.cache.Get(containersDevicesInfoKey)
-	if !found {
-		hwlog.RunLog.Warn("containers' devices info not found in cache, rebuilding")
-		resultChan := make(chan container.DevicesInfos, 1)
-		n.devicesParser.FetchAndParse(resultChan)
-		select {
-		case obj = <-resultChan:
-		case <-time.After(time.Second):
-			hwlog.RunLog.Warn("rebuild cache timeout")
-			return
+	// only run once to prevent wait when container info get failed
+	npuContainerInfoInit.Do(func() {
+		if !found {
+			hwlog.RunLog.Warn("containers' devices info not found in cache, rebuilding")
+			resultChan := make(chan container.DevicesInfos, 1)
+			n.devicesParser.FetchAndParse(resultChan)
+			select {
+			case obj = <-resultChan:
+			case <-time.After(time.Second):
+				hwlog.RunLog.Warn("rebuild cache timeout")
+				return
+			}
+			hwlog.RunLog.Warn("rebuild cache successfully")
 		}
-		hwlog.RunLog.Warn("rebuild cache successfully")
-	}
+	})
 	cntNpuInfos, ok := obj.(container.DevicesInfos)
 	if !ok {
 		hwlog.RunLog.Error("Error cache and convert failed")

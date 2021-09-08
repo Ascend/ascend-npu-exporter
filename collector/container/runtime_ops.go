@@ -86,7 +86,7 @@ func (operator *ContainerdRuntimeOperator) Close() error {
 	if err != nil {
 		return err
 	}
-	operator.criConn.Close()
+	err = operator.criConn.Close()
 	if err != nil {
 		return err
 	}
