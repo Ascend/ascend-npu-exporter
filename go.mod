@@ -7,6 +7,7 @@ require (
 	github.com/docker/docker v20.10.0+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9
+	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prashantv/gostub v1.0.1-0.20191007164320-bbe3712b9c4a
@@ -15,6 +16,8 @@ require (
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+	google.golang.org/grpc v1.33.2
+	google.golang.org/protobuf v1.26.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	huawei.com/kmc v1.0.6
 	k8s.io/cri-api v0.20.6
