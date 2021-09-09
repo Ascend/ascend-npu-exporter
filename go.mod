@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/fsnotify/fsnotify v1.4.9
+	github.com/golang/protobuf v1.5.1
 	github.com/patrickmn/go-cache v2.1.1-0.20191004192108-46f407853014+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prashantv/gostub v1.0.1-0.20191007164320-bbe3712b9c4a
@@ -19,6 +20,6 @@ require (
 )
 
 replace (
-	huawei.com/kmc => codehub-dg-y.huawei.com/it-edge-native/edge-native-core/coastguard.git v1.0.6
 	google.golang.org/grpc => github.com/grpc/grpc-go v1.28.0
+	huawei.com/kmc => codehub-dg-y.huawei.com/it-edge-native/edge-native-core/coastguard.git v1.0.6
 )
