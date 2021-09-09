@@ -101,7 +101,6 @@ func main() {
 
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 	http.Handle("/", http.HandlerFunc(indexHandler))
-	http.Handle("/version", http.HandlerFunc(versionQuery))
 	s := &http.Server{
 		Addr:    ip + ":" + strconv.Itoa(port),
 		Handler: limiter.NewLimitHandler(concurrency, maxConcurrency, http.DefaultServeMux, true),
@@ -281,12 +280,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			strconv.Itoa(port) + `/metrics: <a href="./metrics">Metrics</a></p>
 			</body>
 			</html>`))
-	if err != nil {
-		hwlog.RunLog.Error("Write to response error")
-	}
-}
-func versionQuery(w http.ResponseWriter, r *http.Request) {
-	_, err := w.Write([]byte(collector.BuildVersion))
 	if err != nil {
 		hwlog.RunLog.Error("Write to response error")
 	}
