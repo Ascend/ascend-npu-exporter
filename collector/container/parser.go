@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"huawei.com/npu-exporter/dsmi"
 	"huawei.com/npu-exporter/hwlog"
+	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -60,29 +61,29 @@ var (
 
 // CntNpuMonitorOpts contains setting options for monitoring containers
 type CntNpuMonitorOpts struct {
-	ContainerdAddress string
-	EndpointType      int
-	Endpoint          string
+	CriEndpoint  string // CRI server address
+	EndpointType int    // containerd or docker
+	OciEndpoint  string // OCI server, now is containerd address
+	UserBackUp   bool   // whether try to use backup address
 }
 
 // MakeDevicesParser evaluates option settings and make an instance according to it
 func MakeDevicesParser(opts CntNpuMonitorOpts) *DevicesParser {
-	runtimeOperator := &ContainerdRuntimeOperator{Endpoint: opts.ContainerdAddress}
+	runtimeOperator := &ContainerdRuntimeOperator{UseBackup: opts.UserBackUp}
 	parser := &DevicesParser{}
 
 	switch opts.EndpointType {
 	case EndpointTypeContainerd:
 		runtimeOperator.Namespace = namespaceK8s
+		runtimeOperator.CriEndpoint = opts.CriEndpoint
+		runtimeOperator.OciEndpoint = opts.OciEndpoint
 		parser.RuntimeOperator = runtimeOperator
-		parser.NameFetcher = &CriNameFetcher{
-			Endpoint: opts.Endpoint,
-		}
 	case EndpointTypeDockerd:
 		runtimeOperator.Namespace = namespaceMoby
 		parser.RuntimeOperator = runtimeOperator
-		parser.NameFetcher = &DockerNameFetcher{
-			Endpoint: opts.Endpoint,
-		}
+		runtimeOperator.CriEndpoint = opts.CriEndpoint
+		runtimeOperator.OciEndpoint = opts.OciEndpoint
+
 	default:
 		hwlog.RunLog.Errorf("Invalid type value %d", opts.EndpointType)
 	}
@@ -104,7 +105,6 @@ type DevicesParser struct {
 	err    chan error
 	// configuration
 	RuntimeOperator RuntimeOperator
-	NameFetcher     NameFetcher
 	Timeout         time.Duration
 }
 
@@ -113,11 +113,6 @@ func (dp *DevicesParser) Init() error {
 	if err := dp.RuntimeOperator.Init(); err != nil {
 		return errors.Wrapf(err, "connecting to container runtime failed")
 	}
-
-	if err := dp.NameFetcher.Init(); err != nil {
-		return errors.Wrapf(err, "init name fetcher fail")
-	}
-
 	dp.result = make(chan DevicesInfos, 1)
 	dp.err = make(chan error, 1)
 	return nil
@@ -136,20 +131,19 @@ func (dp *DevicesParser) RecvErr() <-chan error {
 // Close closes all connections and channels established during initializing
 func (dp *DevicesParser) Close() {
 	_ = dp.RuntimeOperator.Close()
-	_ = dp.NameFetcher.Close()
 }
 
-func (dp *DevicesParser) parseDevices(ctx context.Context, containerID string, result chan<- DevicesInfo) error {
-	if result == nil {
+func (dp *DevicesParser) parseDevices(ctx context.Context, c *runtimeapi.Container, rs chan<- DevicesInfo) error {
+	if rs == nil {
 		hwlog.RunLog.Fatal("empty result channel")
 	}
 
 	deviceInfo := DevicesInfo{}
 	defer func(di *DevicesInfo) {
-		result <- *di
+		rs <- *di
 	}(&deviceInfo)
 
-	p, err := dp.RuntimeOperator.CgroupsPath(ctx, containerID)
+	p, err := dp.RuntimeOperator.CgroupsPath(ctx, c.Id)
 	if err != nil {
 		return errors.Wrapf(err, "getting cgroup path of container fail")
 	}
@@ -163,35 +157,42 @@ func (dp *DevicesParser) parseDevices(ctx context.Context, containerID string, r
 	if err == ErrNoCgroupHierarchy {
 		return nil
 	} else if err != nil {
-		return errors.Wrapf(err, "parsing Ascend devices of container %s fail", containerID)
+		return errors.Wrapf(err, "parsing Ascend devices of container %s fail", c.Id)
 	}
 
 	if hasAscend {
-		deviceInfo.ID = containerID
-		deviceInfo.Name = dp.NameFetcher.Name(containerID)
+		deviceInfo.ID = c.Id
+		deviceInfo.Name = c.Labels[labelK8sPodNamespace] + "_" + c.Labels[labelK8sPodName] + "_" + c.Metadata.Name
 		deviceInfo.Devices = devicesIDs
 	}
 	return nil
 }
 
-func (dp *DevicesParser) collect(ctx context.Context, r <-chan DevicesInfo, counter int32) DevicesInfos {
-	if r == nil {
+func (dp *DevicesParser) collect(ctx context.Context, r <-chan DevicesInfo, ct int32, e <-chan error) DevicesInfos {
+	if r == nil || e == nil {
 		hwlog.RunLog.Fatal("receiving channel is empty")
 	}
-	if counter < 0 {
+	if ct < 0 {
 		return nil
 	}
 
-	results := make(map[string]DevicesInfo, counter)
+	results := make(map[string]DevicesInfo, ct)
 	for {
 		select {
 		case info := <-r:
 			if info.ID != "" {
 				results[info.ID] = info
 			}
-			if counter -= 1; counter <= 0 {
+			if ct -= 1; ct <= 0 {
 				return results
 			}
+		case err, ok := <-e:
+			if !ok {
+				return nil
+			}
+			// print the error and continue
+			hwlog.RunLog.Error(err)
+			continue
 		case <-ctx.Done():
 			dp.err <- ErrFromContext
 			return nil
@@ -209,32 +210,32 @@ func (dp *DevicesParser) doParse(resultOut chan<- DevicesInfos) {
 	}(result)
 
 	ctx := context.Background()
-	ids, err := dp.RuntimeOperator.ContainerIDs(ctx)
-	if err == ErrNoContainers {
-		return
-	} else if err != nil {
+	containers, err := dp.RuntimeOperator.GetContainers(ctx)
+	if err != nil {
 		dp.err <- err
 		return
 	}
 
-	l := len(ids)
+	l := len(containers)
 	if l == 0 {
 		return
 	}
 
 	r := make(chan DevicesInfo)
+	e := make(chan error)
 	defer close(r)
+	defer close(e)
 	ctx, cancelFn := context.WithTimeout(ctx, withDefault(dp.Timeout, parsingNpuDefaultTimeout))
 	defer cancelFn()
-	for _, id := range ids {
-		go func(containerId string) {
-			if err := dp.parseDevices(ctx, containerId, r); err != nil {
-				dp.err <- err
+	for _, container := range containers {
+		go func(container *runtimeapi.Container, errChan chan error) {
+			if err := dp.parseDevices(ctx, container, r); err != nil && errChan != nil {
+				errChan <- err
 			}
-		}(id)
+		}(container, e)
 	}
 
-	if result = dp.collect(ctx, r, int32(l)); result != nil {
+	if result = dp.collect(ctx, r, int32(l), e); result != nil {
 		dp.result <- result
 	}
 }

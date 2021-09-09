@@ -48,6 +48,7 @@ function build() {
 
 function mv_file() {
   mv "${TOP_DIR}"/cmd/importer/${OUTPUT_NAME} "${TOP_DIR}"/output
+  chmod 500 "${TOP_DIR}"/output/${OUTPUT_NAME}
 }
 
 function main() {

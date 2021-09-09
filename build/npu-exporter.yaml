@@ -57,10 +57,8 @@ spec:
         imagePullPolicy: Never
         command: [ "/bin/bash", "-c", "--"]
         # NOTE: enable HTTPS needs to use
-        # ./npu-exporter -certFile=../cert/rsa_aes.crt -keyFile=../cert/rsa_aes_private.key to import certificate
+        # ./cert-importer -certFile=../cert/rsa_aes.crt -keyFile=../cert/rsa_aes_private.key to import certificate
         # pair firstly
-        # To monitor NPU allocation status on system without docker, please set -containerMode=containerd and mount
-        # essential endpoint file (see volumes).
         args: [ "umask 027;npu-exporter -port=8082 -ip=0.0.0.0  -updateTime=5
                  -logFile=/var/log/mindx-dl/npu-exporter/npu-exporter.log -logLevel=0 -containerMode=docker" ]
         securityContext:
@@ -89,15 +87,14 @@ spec:
           - name: sys
             mountPath: /sys
             readOnly: true
-          # NOTICE: To set containerMode=containerd, please mount containerd endpoint into the container, eg.
-          #- name: containerd
-          #  mountPath: /run/containerd/containerd.sock
-          #  readOnly: true
-          - name: docker-sock
-            mountPath: /var/run/docker.sock
+          - name: docker-shim  # delete when only use containerd
+            mountPath: /var/run/dockershim.sock
             readOnly: true
-          - name: docker
+          - name: docker  # delete when only use containerd
             mountPath: /var/run/docker
+            readOnly: true
+          - name: containerd
+            mountPath: /run/containerd
             readOnly: true
       volumes:
         - name: log-npu-exporter
@@ -119,15 +116,12 @@ spec:
         - name: sys
           hostPath:
             path: /sys
-        # NOTICE: To set containerMode=containerd, please mount containerd endpoint into the container, eg.
-        #- name: containerd
-        #  hostPath:
-        #    path: /run/containerd/containerd.sock
-        - name: docker-sock
+        - name: docker-shim # delete when only use containerd
           hostPath:
-            path: /var/run/docker.sock
-        - name: docker
+            path: /var/run/dockershim.sock
+        - name: docker  # delete when only use containerd
           hostPath:
             path: /var/run/docker
-
-
+        - name: containerd
+          hostPath:
+            path: /run/containerd
