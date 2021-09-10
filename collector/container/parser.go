@@ -152,7 +152,6 @@ func (dp *DevicesParser) parseDevices(ctx context.Context, c *runtimeapi.Contain
 	if err != nil {
 		return errors.Wrapf(err, "parsing cgroup path from spec fail")
 	}
-
 	devicesIDs, hasAscend, err := ScanForAscendDevices(filepath.Join(p, devicesList))
 	if err == ErrNoCgroupHierarchy {
 		return nil
@@ -168,8 +167,8 @@ func (dp *DevicesParser) parseDevices(ctx context.Context, c *runtimeapi.Contain
 	return nil
 }
 
-func (dp *DevicesParser) collect(ctx context.Context, r <-chan DevicesInfo, ct int32, e <-chan error) DevicesInfos {
-	if r == nil || e == nil {
+func (dp *DevicesParser) collect(ctx context.Context, r <-chan DevicesInfo, ct int32) DevicesInfos {
+	if r == nil {
 		hwlog.RunLog.Fatal("receiving channel is empty")
 	}
 	if ct < 0 {
@@ -186,13 +185,6 @@ func (dp *DevicesParser) collect(ctx context.Context, r <-chan DevicesInfo, ct i
 			if ct -= 1; ct <= 0 {
 				return results
 			}
-		case err, ok := <-e:
-			if !ok {
-				return nil
-			}
-			// print the error and continue
-			hwlog.RunLog.Error(err)
-			continue
 		case <-ctx.Done():
 			dp.err <- ErrFromContext
 			return nil
@@ -222,20 +214,18 @@ func (dp *DevicesParser) doParse(resultOut chan<- DevicesInfos) {
 	}
 
 	r := make(chan DevicesInfo)
-	e := make(chan error)
 	defer close(r)
-	defer close(e)
 	ctx, cancelFn := context.WithTimeout(ctx, withDefault(dp.Timeout, parsingNpuDefaultTimeout))
 	defer cancelFn()
 	for _, container := range containers {
-		go func(container *runtimeapi.Container, errChan chan error) {
-			if err := dp.parseDevices(ctx, container, r); err != nil && errChan != nil {
-				errChan <- err
+		go func(container *runtimeapi.Container) {
+			if err := dp.parseDevices(ctx, container, r); err != nil {
+				dp.err <- err
 			}
-		}(container, e)
+		}(container)
 	}
 
-	if result = dp.collect(ctx, r, int32(l), e); result != nil {
+	if result = dp.collect(ctx, r, int32(l)); result != nil {
 		dp.result <- result
 	}
 }
