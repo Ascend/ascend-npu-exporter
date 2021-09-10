@@ -21,9 +21,9 @@ const (
 	DefaultDockerShim = "unix:///var/run/dockershim.sock"
 	// DefaultContainerdAddr default containerd sock address
 	DefaultContainerdAddr = "unix:///run/containerd/containerd.sock"
-	// DefaultContainerdBackupAdrr default docker containerd sock address
-	DefaultContainerdBackupAdrr = "unix:///var/run/docker/containerd/docker-containerd.sock"
-	grpcHeader                  = "containerd-namespace"
+	// DefaultDockerAddr default docker containerd sock address
+	DefaultDockerAddr = "unix:///var/run/docker/containerd/docker-containerd.sock"
+	grpcHeader        = "containerd-namespace"
 )
 
 var (
@@ -69,7 +69,7 @@ func (operator *ContainerdRuntimeOperator) Init() error {
 		hwlog.RunLog.Errorf("failed to get OCI connection")
 		if operator.UseBackup {
 			hwlog.RunLog.Errorf("try again")
-			conn, err = GetConnection(DefaultContainerdBackupAdrr)
+			conn, err = GetConnection(DefaultContainerdAddr)
 			if err != nil {
 				return err
 			}

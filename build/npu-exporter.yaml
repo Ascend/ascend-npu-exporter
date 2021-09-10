@@ -96,6 +96,8 @@ spec:
           - name: containerd
             mountPath: /run/containerd
             readOnly: true
+          - name: tmp
+            mountPath: /tmp
       volumes:
         - name: log-npu-exporter
           hostPath:
@@ -125,3 +127,7 @@ spec:
         - name: containerd
           hostPath:
             path: /run/containerd
+        - name: tmp
+          hostPath:
+            path: /tmp
+

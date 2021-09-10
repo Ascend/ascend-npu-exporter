@@ -130,7 +130,7 @@ func readCntMonitoringFlags() container.CntNpuMonitorOpts {
 	switch containerMode {
 	case containerModeDocker:
 		opts.EndpointType = container.EndpointTypeDockerd
-		opts.OciEndpoint = container.DefaultContainerdAddr
+		opts.OciEndpoint = container.DefaultDockerAddr
 		opts.CriEndpoint = container.DefaultDockerShim
 	case containerModeContainerd:
 		opts.EndpointType = container.EndpointTypeContainerd
