@@ -203,8 +203,18 @@ func TestCheckSignatureAlgorithm(t *testing.T) {
 // TestValidateX509Pair test ValidateX509Pair
 func TestValidateX509Pair(t *testing.T) {
 	Convey("test for ValidateX509Pair", t, func() {
+		Convey("normal v1 cert", func() {
+			certByte, err := ReadBytes("./testdata/cert/client-v1.crt")
+			So(err, ShouldEqual, nil)
+			keyByte, err := ReadBytes("./testdata/cert/client.key")
+			So(err, ShouldEqual, nil)
+			// validate period is 10 years, after that this case maybe failed
+			c, err := ValidateX509Pair(certByte, keyByte)
+			So(err, ShouldNotBeEmpty)
+			So(c, ShouldEqual, nil)
+		})
 		Convey("normal cert", func() {
-			certByte, err := ReadBytes("./testdata/cert/client.crt")
+			certByte, err := ReadBytes("./testdata/cert/client-v3.crt")
 			So(err, ShouldEqual, nil)
 			keyByte, err := ReadBytes("./testdata/cert/client.key")
 			So(err, ShouldEqual, nil)
@@ -306,13 +316,12 @@ func TestLoadEncryptedCertPair(t *testing.T) {
 		// mock kmcInit
 		initStub := gostub.Stub(&KmcInit, func(sdpAlgID int, primaryKey, standbyKey string) {})
 		defer initStub.Reset()
-
 		Convey("normal cert", func() {
 			encryptStub := gostub.Stub(&Decrypt, func(domainID int, data []byte) ([]byte, error) {
 				return []byte("111111"), nil
 			})
 			defer encryptStub.Reset()
-			c, err := LoadCertPair("./testdata/cert/client.crt",
+			c, err := LoadCertPair("./testdata/cert/client-v3.crt",
 				"./testdata/cert/client.key", mainks, backupks, 0)
 			So(err, ShouldEqual, nil)
 			So(c, ShouldNotBeEmpty)
@@ -338,7 +347,7 @@ func TestLoadEncryptedCertPair(t *testing.T) {
 				return nil, errors.New("mock err")
 			})
 			defer encryptStub.Reset()
-			c, err := LoadCertPair("./testdata/cert/client.crt",
+			c, err := LoadCertPair("./testdata/cert/client-v1.crt",
 				"./testdata/cert/client.key", mainks, backupks, 0)
 			So(c, ShouldEqual, nil)
 			So(err.Error(), ShouldEqual, "decrypt passwd failed")

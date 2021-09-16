@@ -47,6 +47,7 @@ const (
 	Aes256gcm   = 9
 	overdueTime = 100
 	dayHours    = 24
+	x509v3      = 3
 )
 
 var cryptoAPI api.CryptoApi
@@ -276,6 +277,9 @@ func ValidateX509Pair(certBytes []byte, keyBytes []byte) (*tls.Certificate, erro
 	if err != nil {
 		return nil, errors.New("parse certificate failed")
 	}
+	if err := checkExtension(cc); err != nil {
+		return nil, err
+	}
 	if err = CheckSignatureAlgorithm(cc); err != nil {
 		return nil, err
 	}
@@ -498,6 +502,9 @@ func CheckCaCert(caFile string) ([]byte, error) {
 	if !caCrt.IsCA {
 		return nil, errors.New("this is not ca certificate")
 	}
+	if err := checkExtension(caCrt); err != nil {
+		return nil, err
+	}
 	err = CheckValidityPeriod(caCrt)
 	if err != nil {
 		return nil, errors.New("ca certificate is overdue")
@@ -567,6 +574,24 @@ func NewTLSConfig(caBytes []byte, certificate tls.Certificate, cipherSuites uint
 func write(path string, overideByte []byte, mode os.FileMode) error {
 	if err := ioutil.WriteFile(path, overideByte, mode); err != nil {
 		return errors.New("write encrypted key to config failed")
+	}
+	return nil
+}
+
+// check the certificate extensions, the cert version must be x509v3 and if the cert is ca, need check keyUsage,
+// the keyUsage must include keyCertSign.
+// detail information refer to https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.3
+func checkExtension(cert *x509.Certificate) error {
+	if cert.Version != x509v3 {
+		return errors.New("the certificate must be x509v3")
+	}
+	if !cert.IsCA {
+		return nil
+	}
+	// ca cert need check whether the keyUsage include CertSign
+	if (cert.KeyUsage & x509.KeyUsageCertSign) != x509.KeyUsageCertSign {
+		msg := "CA certificate keyUsage didn't include keyCertSign"
+		return errors.New(msg)
 	}
 	return nil
 }
