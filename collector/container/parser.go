@@ -178,14 +178,20 @@ func (dp *DevicesParser) collect(ctx context.Context, r <-chan DevicesInfo, ct i
 	results := make(map[string]DevicesInfo, ct)
 	for {
 		select {
-		case info := <-r:
+		case info, ok := <-r:
+			if !ok {
+				return nil
+			}
 			if info.ID != "" {
 				results[info.ID] = info
 			}
 			if ct -= 1; ct <= 0 {
 				return results
 			}
-		case <-ctx.Done():
+		case _, ok := <-ctx.Done():
+			if !ok {
+				return nil
+			}
 			dp.err <- ErrFromContext
 			return nil
 		}
@@ -355,10 +361,13 @@ func parseSlice(slice string) string {
 			hwlog.RunLog.Errorf("slice %s contains invalid content of continuous double dashes", slice)
 			return ""
 		}
-		b.WriteRune('/')
-		b.WriteString(prefix)
-		b.WriteString(part)
-		b.WriteString(suffixSlice)
+		_, err := b.WriteRune('/')
+		_, err = b.WriteString(prefix)
+		_, err = b.WriteString(part)
+		_, err = b.WriteString(suffixSlice)
+		if err != nil {
+			return "" // err is always nil
+		}
 		prefix += part + "-"
 	}
 
