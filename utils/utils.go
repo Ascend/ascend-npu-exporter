@@ -8,10 +8,12 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -50,10 +52,23 @@ const (
 	x509v3      = 3
 )
 
-var cryptoAPI api.CryptoApi
+var (
+	cryptoAPI api.CryptoApi
+	// Bootstrap kmc bootstrap
+	Bootstrap *kmc.ManualBootstrap
+	// CertificateMap  using certificate information
+	CertificateMap = make(map[string]*CertStatus, 4)
+)
 
-// Bootstrap kmc bootstrap
-var Bootstrap *kmc.ManualBootstrap
+// CertStatus  the certificate valid period
+type CertStatus struct {
+	NotBefore         time.Time `json: not_before,omitempty`
+	NotAfter          time.Time `json: not_after,omitempty`
+	IsCA              bool      `json: is_ca,omitempty`
+	FingerprintSHA256 string    `json: fingerprint_sha256,omitempty`
+	FingerprintSHA1   string    `json: fingerprint_sha1,omitempty`
+	FingerprintMD5    string    `json: fingerprint_md5,omitempty`
+}
 
 // ReadBytes read contents from file path
 func ReadBytes(path string) ([]byte, error) {
@@ -426,7 +441,7 @@ func PaddingAndCleanSlice(pd []byte) {
 
 // PeriodCheck  period check certificate
 func PeriodCheck(cert *x509.Certificate) {
-	ticker := time.NewTicker(time.Hour)
+	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
 		select {
@@ -446,8 +461,6 @@ func PeriodCheck(cert *x509.Certificate) {
 			}
 			if overdueDays < overdueTime && overdueDays > 0 {
 				hwlog.RunLog.Warnf("the certificate will overdue after %d days later", int64(overdueDays))
-			} else {
-				hwlog.RunLog.Error("the certificate was expired")
 			}
 		}
 	}
@@ -512,6 +525,9 @@ func CheckCaCert(caFile string) ([]byte, error) {
 	if err = caCrt.CheckSignature(caCrt.SignatureAlgorithm, caCrt.RawTBSCertificate, caCrt.Signature); err != nil {
 		return nil, errors.New("check ca certificate signature failed")
 	}
+	if err = AddToCertStatusTrace(caCrt); err != nil {
+		hwlog.RunLog.Fatal(err)
+	}
 	hwlog.RunLog.Infof("certificate signature check pass")
 	return caBytes, nil
 }
@@ -539,11 +555,19 @@ func LoadCertPair(cert, key, psFile, psFileBk string, encryptAlgorithm int) (*tl
 	}
 	PaddingAndCleanSlice(pd)
 	// preload cert and key files
-	c, err := ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock))
-	if err != nil {
+	tlsCert, err := ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock))
+	if err != nil || tlsCert == nil {
 		return nil, err
 	}
-	return c, nil
+	x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+	if err != nil {
+		return nil, errors.New("parse certificate failed")
+	}
+	if err = AddToCertStatusTrace(x509Cert); err != nil {
+		return nil, err
+	}
+	go PeriodCheck(x509Cert)
+	return tlsCert, nil
 }
 
 // NewTLSConfig  create the tls config struct
@@ -593,5 +617,59 @@ func checkExtension(cert *x509.Certificate) error {
 		msg := "CA certificate keyUsage didn't include keyCertSign"
 		return errors.New(msg)
 	}
+	return nil
+}
+
+var dirPrefix = "/etc/mindx-dl/npu-exporter/"
+
+// GetTLSConfigForClient get the tls config for client
+func GetTLSConfigForClient(compomentType string, encryptAlgorithm int) (*tls.Config, error) {
+	if compomentType != "npu-exporter" {
+		dirPrefix = strings.Replace(dirPrefix, "npu-exporter", compomentType, -1)
+	}
+	keyStore := dirPrefix + ".config/config1"
+	certStore := dirPrefix + ".config/config2"
+	caStore := dirPrefix + ".config/config3"
+	passFile := dirPrefix + ".config/config5"
+	passFileBackUp := dirPrefix + ".conf"
+	tlsCert, err := LoadCertPair(certStore, keyStore, passFile, passFileBackUp, encryptAlgorithm)
+	if err != nil {
+		return nil, err
+	}
+	caBytes, err := CheckCaCert(caStore)
+	if err != nil {
+		return nil, err
+	}
+	pool := x509.NewCertPool()
+	if ok := pool.AppendCertsFromPEM(caBytes); !ok {
+		return nil, errors.New("append the CA file failed")
+	}
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{*tlsCert},
+		RootCAs:      pool,
+	}
+	return tlsConfig, nil
+}
+
+// AddToCertStatusTrace  add certstatus to trace map
+func AddToCertStatusTrace(cert *x509.Certificate) error {
+	if cert == nil {
+		return errors.New("cert is nil")
+	}
+
+	sh256 := sha256.New()
+	_, err := sh256.Write(cert.Raw)
+	if err != nil {
+		return err
+	}
+	fpsha256 := hex.EncodeToString(sh256.Sum(nil))
+
+	cs := &CertStatus{
+		NotBefore:         cert.NotBefore,
+		NotAfter:          cert.NotAfter,
+		IsCA:              cert.IsCA,
+		FingerprintSHA256: fpsha256,
+	}
+	CertificateMap[fpsha256] = cs
 	return nil
 }

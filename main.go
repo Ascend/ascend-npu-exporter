@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
@@ -101,6 +102,7 @@ func main() {
 
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 	http.Handle("/", http.HandlerFunc(indexHandler))
+	http.Handle("/v1/certStatus", http.HandlerFunc(getCertStatus))
 	s := &http.Server{
 		Addr:    ip + ":" + strconv.Itoa(port),
 		Handler: limiter.NewLimitHandler(concurrency, maxConcurrency, http.DefaultServeMux, true),
@@ -173,14 +175,6 @@ func validate() {
 		hwlog.RunLog.Fatal(err)
 	}
 	certificate = tlsCert
-	if certificate == nil {
-		return
-	}
-	cc, err := x509.ParseCertificate(certificate.Certificate[0])
-	if err != nil {
-		hwlog.RunLog.Fatal("parse certificate failed")
-	}
-	go utils.PeriodCheck(cc)
 	loadCRL()
 	caBytes, err = utils.CheckCaCert(caStore)
 	if err != nil {
@@ -280,6 +274,17 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			strconv.Itoa(port) + `/metrics: <a href="./metrics">Metrics</a></p>
 			</body>
 			</html>`))
+	if err != nil {
+		hwlog.RunLog.Error("Write to response error")
+	}
+}
+
+func getCertStatus(w http.ResponseWriter, _ *http.Request) {
+	b, err := json.Marshal(utils.CertificateMap)
+	if err != nil {
+		hwlog.RunLog.Error("fail to marshal cert status")
+	}
+	_, err = w.Write(b)
 	if err != nil {
 		hwlog.RunLog.Error("Write to response error")
 	}
