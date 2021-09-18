@@ -102,7 +102,7 @@ func main() {
 
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 	http.Handle("/", http.HandlerFunc(indexHandler))
-	http.Handle("/v1/certStatus", http.HandlerFunc(getCertStatus))
+	http.Handle("/v1/certstatus", http.HandlerFunc(getCertStatus))
 	s := &http.Server{
 		Addr:    ip + ":" + strconv.Itoa(port),
 		Handler: limiter.NewLimitHandler(concurrency, maxConcurrency, http.DefaultServeMux, true),
