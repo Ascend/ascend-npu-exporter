@@ -62,9 +62,9 @@ var (
 
 // CertStatus  the certificate valid period
 type CertStatus struct {
-	NotBefore         time.Time `json:"not_before,omitempty"`
-	NotAfter          time.Time `json:"not_after,omitempty"`
-	IsCA              bool      `json:"is_ca,omitempty"`
+	NotBefore         time.Time `json:"not_before"`
+	NotAfter          time.Time `json:"not_after"`
+	IsCA              bool      `json:"is_ca"`
 	FingerprintSHA256 string    `json:"fingerprint_sha256,omitempty"`
 	FingerprintSHA1   string    `json:"fingerprint_sha1,omitempty"`
 	FingerprintMD5    string    `json:"fingerprint_md5,omitempty"`
