@@ -673,3 +673,22 @@ func AddToCertStatusTrace(cert *x509.Certificate) error {
 	CertificateMap[fpsha256] = cs
 	return nil
 }
+
+// CheckPath  validate path
+func CheckPath(path string) (string, error) {
+	if path == "" {
+		return path, nil
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", errors.New("get the absolute path failed")
+	}
+	resoledPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return "", errors.New("get the symlinks path failed")
+	}
+	if absPath != resoledPath {
+		return "", errors.New("can't support symlinks")
+	}
+	return resoledPath, nil
+}

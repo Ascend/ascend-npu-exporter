@@ -34,6 +34,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -76,6 +77,7 @@ const (
 	containerModeDocker     = "docker"
 	containerModeContainerd = "containerd"
 	maxConcurrency          = 50
+	unixPre                 = "unix://"
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
@@ -194,6 +196,20 @@ func baseParamValid() {
 	hwlog.RunLog.Infof("listen on: %s", ip)
 	if updateTime > oneMinute || updateTime < 1 {
 		hwlog.RunLog.Fatalf("the updateTime is invalid")
+	}
+	if endpoint != "" {
+		ep, err := utils.CheckPath(strings.TrimPrefix(endpoint, unixPre))
+		if err != nil {
+			hwlog.RunLog.Fatal(err)
+		}
+		endpoint = unixPre + ep
+	}
+	if containerd != "" {
+		cnd, err := utils.CheckPath(strings.TrimPrefix(containerd, unixPre))
+		if err != nil {
+			hwlog.RunLog.Fatal(err)
+		}
+		containerd = unixPre + cnd
 	}
 	if enableHTTP {
 		return

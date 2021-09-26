@@ -4,10 +4,10 @@
 package hwlog
 
 import (
+	"bytes"
 	"fmt"
 	"go.uber.org/zap"
-	"runtime/debug"
-	"strconv"
+	"runtime"
 	"strings"
 )
 
@@ -19,61 +19,29 @@ func printHelper(f func(string, ...zap.Field), msg string) {
 
 // getCallerInfo gets the caller's information
 func getCallerInfo() string {
-	path := string(debug.Stack())
-	paths := strings.Split(path, "\n")
-
-	callerPath := getCallerPath(paths)
-	goroutineID := getGoroutineID(paths)
-
-	str := fmt.Sprintf("%s\t%-8d\t", callerPath, goroutineID)
-
-	return str
-}
-
-// getCallerPath gets the file path and line number of the caller
-func getCallerPath(paths []string) string {
-	if len(paths) <= IndexOfCallerFileInfo {
-		return ""
+	var funcName string
+	pc, codePath, codeLine, ok := runtime.Caller(stackDeep)
+	if ok {
+		funcName = runtime.FuncForPC(pc).Name()
 	}
-	str := paths[IndexOfCallerFileInfo]
-	spaceIndex := strings.LastIndex(str, " ")
-	if spaceIndex != -1 {
-		str = str[:spaceIndex]
+	p := strings.Split(codePath, "/")
+	l := len(p)
+	if l == pathLen {
+		funcName = p[l-1]
+	} else if l > pathLen {
+		funcName = fmt.Sprintf("%s/%s", p[l-pathLen], p[l-1])
 	}
-	slashIndex1 := strings.LastIndex(str, "/")
-	if slashIndex1 == -1 {
-		return ""
-	}
-	slashIndex2 := strings.LastIndex(str[:slashIndex1], "/")
-	if slashIndex2 == -1 {
-		return ""
-	}
-
-	if len(str)-slashIndex2-1 > LengthOfFileInfo {
-		str = str[slashIndex1+1:]
-	} else {
-		str = str[slashIndex2+1:]
-	}
-
-	if len(str) < LengthOfFileInfo {
-		str += strings.Repeat(" ", LengthOfFileInfo-len(str))
-	}
+	callerPath := fmt.Sprintf("%s:%d", funcName, codeLine)
+	goroutineID := getGoroutineID()
+	str := fmt.Sprintf("%-8s%s    ", goroutineID, callerPath)
 	return str
 }
 
 // getCallerGoroutineID gets the goroutineID
-func getGoroutineID(paths []string) int {
-	if len(paths) <= IndexOfGoroutineIDInfo {
-		return -1
-	}
-	str := paths[IndexOfGoroutineIDInfo]
-	strs := strings.Split(str, " ")
-	if len(strs) <= IndexOfGoroutineID {
-		return -1
-	}
-	curGoroutineID, err := strconv.Atoi(strs[IndexOfGoroutineID])
-	if err != nil {
-		return -1
-	}
-	return curGoroutineID
+func getGoroutineID() string {
+	b := make([]byte, bitsize, bitsize)
+	b = b[:runtime.Stack(b, false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	b = b[:bytes.IndexByte(b, ' ')]
+	return string(b)
 }

@@ -379,3 +379,22 @@ func TestNewTLSConfig(t *testing.T) {
 
 	})
 }
+
+// TestCheckPath test for file path check
+func TestCheckPath(t *testing.T) {
+	Convey("test for file path check", t, func() {
+		Convey("file standardize", func() {
+			conf, err := CheckPath("./testdata/cert/ca.crt")
+			So(err, ShouldEqual, nil)
+			So(conf, ShouldNotEqual, "./testdata/cert/ca.crt")
+		})
+		Convey("symlinks check", func() {
+			err := os.Symlink("./testdata/cert/ca.crt", "./testdata/cert/ca.crtlnk")
+			if err != nil {
+				t.Error(err)
+			}
+			_, err = CheckPath("./testdata/cert/ca.crtlnk")
+			So(err, ShouldNotBeEmpty)
+		})
+	})
+}
