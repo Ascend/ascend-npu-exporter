@@ -26,16 +26,11 @@ const (
 	// BackupLogFileMode backup log file mode
 	BackupLogFileMode os.FileMode = 0400
 	// LogDirMode log dir mode
-	LogDirMode = 0750
-	// IndexOfCallerFileInfo the index of the caller's file information
-	IndexOfCallerFileInfo = 10
-	// IndexOfGoroutineIDInfo the index of the goroutineID information
-	IndexOfGoroutineIDInfo = 0
-	// IndexOfGoroutineID the index of the goroutineID
-	IndexOfGoroutineID = 1
-	// LengthOfFileInfo the length of the log printed file information
-	LengthOfFileInfo = 20
-	backUpLogRegex   = `^.+-[0-9]{4}-[0-9]{2}-[0-9T]{5}-[0-9]{2}-[0-9]{2}\.[0-9]{2,4}`
+	LogDirMode     = 0750
+	backUpLogRegex = `^.+-[0-9]{4}-[0-9]{2}-[0-9T]{5}-[0-9]{2}-[0-9]{2}\.[0-9]{2,4}`
+	bitsize        = 64
+	stackDeep      = 3
+	pathLen        = 2
 )
 
 // LogConfig log module config

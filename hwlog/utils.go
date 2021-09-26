@@ -20,28 +20,26 @@ func printHelper(f func(string, ...zap.Field), msg string) {
 // getCallerInfo gets the caller's information
 func getCallerInfo() string {
 	var funcName string
-	pc, codePath, codeLine, ok := runtime.Caller(3)
-	if !ok {
-		funcName = ""
-	} else {
+	pc, codePath, codeLine, ok := runtime.Caller(stackDeep)
+	if ok {
 		funcName = runtime.FuncForPC(pc).Name()
 	}
 	p := strings.Split(codePath, "/")
 	l := len(p)
-	if l == 2 {
+	if l == pathLen {
 		funcName = p[l-1]
-	} else if l > 2 {
-		funcName = fmt.Sprintf("%s/%s", p[l-2], p[l-1])
+	} else if l > pathLen {
+		funcName = fmt.Sprintf("%s/%s", p[l-pathLen], p[l-1])
 	}
 	callerPath := fmt.Sprintf("%s:%d", funcName, codeLine)
 	goroutineID := getGoroutineID()
-	str := fmt.Sprintf("%-4s%s    ", goroutineID, callerPath)
+	str := fmt.Sprintf("%-8s%s    ", goroutineID, callerPath)
 	return str
 }
 
 // getCallerGoroutineID gets the goroutineID
 func getGoroutineID() string {
-	b := make([]byte, 64)
+	b := make([]byte, bitsize, bitsize)
 	b = b[:runtime.Stack(b, false)]
 	b = bytes.TrimPrefix(b, []byte("goroutine "))
 	b = b[:bytes.IndexByte(b, ' ')]
