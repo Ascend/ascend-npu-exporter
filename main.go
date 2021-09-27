@@ -85,7 +85,7 @@ var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
 func main() {
 	flag.Parse()
 	if version {
-		fmt.Printf("NPU-exporter version: %s \n", collector.BuildVersion)
+		fmt.Printf("NPU-exporter version: %s \n", hwlog.BuildVersion)
 		os.Exit(0)
 	}
 
@@ -94,7 +94,7 @@ func main() {
 	// init hwlog
 	initHwLogger(stopCH)
 	validate()
-	hwlog.RunLog.Infof("npu exporter starting and the version is %s", collector.BuildVersion)
+	hwlog.RunLog.Infof("npu exporter starting and the version is %s", hwlog.BuildVersion)
 
 	opts := readCntMonitoringFlags()
 	stop := make(chan os.Signal)

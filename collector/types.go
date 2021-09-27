@@ -38,13 +38,6 @@ const (
 	containersDevicesInfoKey = "npu-exporter-containers-devices"
 )
 
-var (
-	// BuildName build name
-	BuildName string
-	// BuildVersion build version
-	BuildVersion string
-)
-
 // HuaWeiAIChip chip info
 type HuaWeiAIChip struct {
 	// the memoryInfo of the chip
