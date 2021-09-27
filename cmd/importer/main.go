@@ -118,8 +118,9 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 			hwlog.RunLog.Fatal("write crlBytes to config failed ")
 		}
 	}
-
-	hwlog.RunLog.Fatal("import certificate successfully")
+	hwlog.RunLog.Info("import certificate successfully")
+	hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
+	os.Exit(0)
 }
 
 func valid(certFile string, keyFile string, caFile string, crlFile string) {
