@@ -178,8 +178,17 @@ func MakeSureDir(path string) error {
 
 // CheckValidityPeriod check certification validity period
 func CheckValidityPeriod(cert *x509.Certificate) error {
-	if time.Now().After(cert.NotAfter) || time.Now().Before(cert.NotBefore) {
+	now := time.Now()
+	if now.After(cert.NotAfter) || now.Before(cert.NotBefore) {
 		return errors.New("the certificate overdue ")
+	}
+	gapHours := cert.NotAfter.Sub(now).Hours()
+	overdueDays := gapHours / dayHours
+	if overdueDays > math.MaxInt64 {
+		overdueDays = math.MaxInt64
+	}
+	if overdueDays < overdueTime && overdueDays > 0 {
+		hwlog.RunLog.Warnf("the certificate will overdue after %d days later", int64(overdueDays))
 	}
 	return nil
 }
