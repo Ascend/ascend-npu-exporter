@@ -223,7 +223,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 		hwlog.RunLog.Error("Error cache and convert failed")
 		n.cache.Delete(key)
 	}
-	ch <- prometheus.MustNewConstMetric(versionInfoDesc, prometheus.GaugeValue, 1, []string{BuildVersion}...)
+	ch <- prometheus.MustNewConstMetric(versionInfoDesc, prometheus.GaugeValue, 1, []string{hwlog.BuildVersion}...)
 	var totalCount = 0
 	for _, card := range npuList {
 		deviceCount := len(card.DeviceList)

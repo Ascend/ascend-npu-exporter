@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
-	"huawei.com/npu-exporter/collector"
 	"huawei.com/npu-exporter/hwlog"
 	"huawei.com/npu-exporter/utils"
 	"io/ioutil"
@@ -47,13 +46,13 @@ var hwLogConfig = &hwlog.LogConfig{FileMaxSize: hwlog.DefaultFileMaxSize}
 func main() {
 	flag.Parse()
 	if version {
-		fmt.Printf("cert-importer version: %s \n", collector.BuildVersion)
+		fmt.Printf("cert-importer version: %s \n", hwlog.BuildVersion)
 		os.Exit(0)
 	}
 	stopCH := make(chan struct{})
 	defer close(stopCH)
 	initHwLogger(stopCH)
-	hwlog.RunLog.Infof("start to import certificate and the program version is %s", collector.BuildVersion)
+	hwlog.RunLog.Infof("start to import certificate and the program version is %s", hwlog.BuildVersion)
 	importCertFiles(certFile, keyFile, caFile, crlFile)
 }
 
