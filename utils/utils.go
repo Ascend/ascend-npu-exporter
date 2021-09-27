@@ -441,7 +441,7 @@ func PaddingAndCleanSlice(pd []byte) {
 
 // PeriodCheck  period check certificate
 func PeriodCheck(cert *x509.Certificate) {
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
 	for {
 		select {
