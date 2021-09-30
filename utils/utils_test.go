@@ -395,6 +395,8 @@ func TestCheckPath(t *testing.T) {
 			}
 			_, err = CheckPath("./testdata/cert/ca.crtlnk")
 			So(err, ShouldNotBeEmpty)
+			err = os.Remove("./testdata/cert/ca.crtlnk")
+			fmt.Printf("remove file faild:%s", err)
 		})
 	})
 }
