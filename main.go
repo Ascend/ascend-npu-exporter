@@ -253,7 +253,7 @@ func init() {
 	flag.StringVar(&endpoint, "endpoint", "",
 		"The endpoint of the CRI  server to which will be connected")
 	flag.IntVar(&concurrency, "concurrency", defaultConcurrency,
-		"The max concurrency of the http server, range[1-50]")
+		"The max concurrency of the http server, range is [1-50]")
 
 	// hwlog configuration
 	flag.IntVar(&hwLogConfig.LogLevel, "logLevel", 0,
@@ -263,7 +263,7 @@ func init() {
 	flag.StringVar(&hwLogConfig.LogFileName, "logFile", defaultLogFile,
 		"Log file path. If the file size exceeds 20MB, will be rotated")
 	flag.IntVar(&hwLogConfig.MaxBackups, "maxBackups", hwlog.DefaultMaxBackups,
-		"Maximum number of backup log files, range (0, 30]")
+		"Maximum number of backup log files, range is (0, 30]")
 }
 
 func interceptor(h http.Handler) http.Handler {
