@@ -31,6 +31,8 @@ const (
 	bitsize        = 64
 	stackDeep      = 3
 	pathLen        = 2
+	minLogLevel    = -1
+	maxLogLevel    = 5
 )
 
 // LogConfig log module config
@@ -199,23 +201,22 @@ func validateLogConfigFileMaxSize(config *LogConfig) error {
 }
 
 func validateLogConfigBackups(config *LogConfig) error {
-	if config.MaxBackups == 0 {
-		config.MaxBackups = DefaultMaxBackups
-		return nil
-	}
-	if config.MaxBackups < 0 || config.MaxBackups > DefaultMaxBackups {
+	if config.MaxBackups <= 0 || config.MaxBackups > DefaultMaxBackups {
 		return fmt.Errorf("the number of backup log file range is (0, 30]")
 	}
 	return nil
 }
 
 func validateLogConfigMaxAge(config *LogConfig) error {
-	if config.MaxAge == 0 {
-		config.MaxAge = DefaultMinSaveAge
-		return nil
-	}
 	if config.MaxAge < DefaultMinSaveAge {
 		return fmt.Errorf("the maxage should be greater than 7 days")
+	}
+	return nil
+}
+
+func validateLogLevel(config *LogConfig) error {
+	if config.LogLevel < minLogLevel || config.LogLevel > maxLogLevel {
+		return fmt.Errorf("the log level range should be [-1, 5]")
 	}
 	return nil
 }
@@ -233,7 +234,7 @@ func validateLogConfigFileMode(config *LogConfig) error {
 func getValidateFuncList() []validateFunc {
 	var funcList []validateFunc
 	funcList = append(funcList, validateLogConfigFileMaxSize, validateLogConfigBackups,
-		validateLogConfigMaxAge, validateLogConfigFileMode)
+		validateLogConfigMaxAge, validateLogConfigFileMode, validateLogLevel)
 	return funcList
 }
 
