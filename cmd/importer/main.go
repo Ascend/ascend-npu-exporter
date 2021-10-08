@@ -41,7 +41,10 @@ var (
 	}
 )
 
-var hwLogConfig = &hwlog.LogConfig{FileMaxSize: hwlog.DefaultFileMaxSize}
+var hwLogConfig = &hwlog.LogConfig{FileMaxSize: hwlog.DefaultFileMaxSize,
+	MaxBackups: hwlog.DefaultMaxBackups,
+	MaxAge:     hwlog.DefaultMinSaveAge,
+}
 
 func main() {
 	flag.Parse()
