@@ -27,6 +27,7 @@ import (
 	"huawei.com/npu-exporter/kmclog"
 	"io/ioutil"
 	"math"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -700,4 +701,21 @@ func CheckPath(path string) (string, error) {
 		return "", errors.New("can't support symlinks")
 	}
 	return resoledPath, nil
+}
+
+// ClientIP try to get the clientIP
+func ClientIP(r *http.Request) string {
+	xForwardedFor := r.Header.Get("X-Forwarded-For")
+	ip := strings.TrimSpace(strings.Split(xForwardedFor, ",")[0])
+	if ip != "" {
+		return ip
+	}
+	ip = strings.TrimSpace(r.Header.Get("X-Real-Ip"))
+	if ip != "" {
+		return ip
+	}
+	if ip, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr)); err == nil {
+		return ip
+	}
+	return ""
 }

@@ -53,8 +53,3 @@ set(KMC_C_SOURCE_DIR
 set(KMCEXT_C_SOURCE_DIR
     ${CMAKE_CURRENT_LIST_DIR}/../../src/kmc-ext)
 
-############################# tests [测试用例目录，仅用于开发内部调试，产品不可见]#####################
-# release版本不包含
-# kmc ut tests source dir
-set(KMC_TESTS_SOURCE_DIR
-    ${CMAKE_CURRENT_LIST_DIR}/../../tests/)
