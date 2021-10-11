@@ -78,6 +78,7 @@ const (
 	containerModeContainerd = "containerd"
 	maxConcurrency          = 50
 	unixPre                 = "unix://"
+	timeout                 = 10
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
@@ -106,8 +107,10 @@ func main() {
 	http.Handle("/", http.HandlerFunc(indexHandler))
 	http.Handle("/v1/certstatus", http.HandlerFunc(getCertStatus))
 	s := &http.Server{
-		Addr:    ip + ":" + strconv.Itoa(port),
-		Handler: limiter.NewLimitHandler(concurrency, maxConcurrency, http.DefaultServeMux, true),
+		Addr:         ip + ":" + strconv.Itoa(port),
+		Handler:      limiter.NewLimitHandler(concurrency, maxConcurrency, http.DefaultServeMux, true),
+		ReadTimeout:  timeout * time.Second,
+		WriteTimeout: timeout * time.Second,
 	}
 
 	if certificate != nil {

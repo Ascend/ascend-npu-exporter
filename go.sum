@@ -1,6 +1,6 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-codehub-dg-y.huawei.com/OpenSourceCenter/kubernetes.git/staging/src/k8s.io/cri-api v1.19.4-h2 h1:u6qdA3n9fSMU1ERW3vOjUDnYz67DOH4pJtUZqWBuWiQ=
-codehub-dg-y.huawei.com/OpenSourceCenter/kubernetes.git/staging/src/k8s.io/cri-api v1.19.4-h2/go.mod h1:5fTlfaqG0oYYb80kk4fHpqinBBSFEZb3EqHwdvNdiGQ=
+codehub-dg-y.huawei.com/OpenSourceCenter/kubernetes.git/staging/src/k8s.io/cri-api v1.19.4-h4 h1:15/hHCmHQlBUTxC4mVQLCPy7agrNp35QSf+rbPK19N0=
+codehub-dg-y.huawei.com/OpenSourceCenter/kubernetes.git/staging/src/k8s.io/cri-api v1.19.4-h4/go.mod h1:5fTlfaqG0oYYb80kk4fHpqinBBSFEZb3EqHwdvNdiGQ=
 codehub-dg-y.huawei.com/it-edge-native/edge-native-core/coastguard.git v1.0.6 h1:QO4JTYr7hsyjd8VeE9ARivO3iIes/1GS6DkLiS5w3Xo=
 codehub-dg-y.huawei.com/it-edge-native/edge-native-core/coastguard.git v1.0.6/go.mod h1:mbUvvh/0ox+lNtLoraCsf+NMpTCL2h4L/NtfboraaH4=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
