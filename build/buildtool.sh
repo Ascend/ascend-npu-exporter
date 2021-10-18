@@ -56,5 +56,8 @@ function main() {
   build
   mv_file
 }
-
+if [ "$1" = clean ]; then
+  clear_env
+  exit 0
+fi
 main
