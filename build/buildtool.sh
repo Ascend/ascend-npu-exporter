@@ -16,11 +16,6 @@ fi
 
 arch=$(arch 2>&1)
 echo "Build Architecture is" "${arch}"
-if [ "${arch:0:5}" = 'aarch' ]; then
-  arch=arm64
-else
-  arch=amd64
-fi
 
 OUTPUT_NAME="cert-importer"
 function clear_env() {
