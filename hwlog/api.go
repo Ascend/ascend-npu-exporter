@@ -4,6 +4,7 @@
 package hwlog
 
 import (
+	"context"
 	"fmt"
 	"go.uber.org/zap"
 )
@@ -20,7 +21,7 @@ func NewLogger() *Logger {
 }
 
 // InitLogger initialize run logger
-func (lg *Logger)InitLogger(config *LogConfig, stopCh <-chan struct{}) error {
+func (lg *Logger) InitLogger(config *LogConfig, stopCh <-chan struct{}) error {
 	if lg != nil && lg.ZapLogger != nil {
 		lg.Warn("logger is been initialized.")
 		return nil
@@ -40,126 +41,176 @@ func (lg *Logger) IsInit() bool {
 
 // Debug record debug not format
 func (lg *Logger) Debug(args ...interface{}) {
-	if lg.ZapLogger == nil {
-		fmt.Println("Debug function's logger is nil")
-		return
-	}
-	printHelper(lg.ZapLogger.Debug, fmt.Sprint(args...))
+	lg.DebugWithCtx(nil, args...)
 }
 
 // Debugf record debug
 func (lg *Logger) Debugf(format string, args ...interface{}) {
-	if lg.ZapLogger == nil {
-		fmt.Println("Debugf function's logger is nil")
-		return
+	lg.DebugfWithCtx(nil, format, args...)
+}
+
+// DebugWithCtx record Debug not format
+func (lg *Logger) DebugWithCtx(ctx context.Context, args ...interface{}) {
+	if lg.validate() {
+		printHelper(lg.ZapLogger.Debug, fmt.Sprint(args...), ctx)
 	}
-	printHelper(lg.ZapLogger.Debug, fmt.Sprintf(format, args...))
+}
+
+// DebugfWithCtx record Debug  format
+func (lg *Logger) DebugfWithCtx(ctx context.Context, format string, args ...interface{}) {
+	if lg.validate() {
+		printHelper(lg.ZapLogger.Debug, fmt.Sprintf(format, args...), ctx)
+	}
 }
 
 // Info record info not format
 func (lg *Logger) Info(args ...interface{}) {
-	if lg.ZapLogger == nil {
-		fmt.Println("Info function's logger is nil")
-		return
-	}
-	printHelper(lg.ZapLogger.Info, fmt.Sprint(args...))
+	lg.InfoWithCtx(nil, args...)
 }
 
 // Infof record info
 func (lg *Logger) Infof(format string, args ...interface{}) {
-	if lg.ZapLogger == nil {
-		fmt.Println("Infof function's logger is nil")
-		return
+	lg.InfofWithCtx(nil, format, args...)
+}
+
+// InfoWithCtx record Info not format with context, if you have no ctx, please use the method with not ctx
+func (lg *Logger) InfoWithCtx(ctx context.Context, args ...interface{}) {
+	if lg.validate() {
+		printHelper(lg.ZapLogger.Info, fmt.Sprint(args...), ctx)
 	}
-	printHelper(lg.ZapLogger.Info, fmt.Sprintf(format, args...))
+}
+
+// InfofWithCtx record Info  format with context, if you have no ctx, please use the method with not ctx
+func (lg *Logger) InfofWithCtx(ctx context.Context, format string, args ...interface{}) {
+	if lg.validate() {
+		printHelper(lg.ZapLogger.Info, fmt.Sprintf(format, args...), ctx)
+	}
 }
 
 // Warn record warn not format
 func (lg *Logger) Warn(args ...interface{}) {
-	if lg.ZapLogger == nil {
-		fmt.Println("Warn function's logger is nil")
-		return
-	}
-	printHelper(lg.ZapLogger.Warn, fmt.Sprint(args...))
+	lg.WarnWithCtx(nil, args...)
 }
 
 // Warnf record warn
 func (lg *Logger) Warnf(format string, args ...interface{}) {
-	if lg.ZapLogger == nil {
-		fmt.Println("Warnf function's logger is nil")
-		return
+	lg.WarnfWithCtx(nil, format, args...)
+}
+
+// WarnWithCtx record Warn not format with context, if you have no ctx, please use the method with not ctx
+func (lg *Logger) WarnWithCtx(ctx context.Context, args ...interface{}) {
+	if lg.validate() {
+		printHelper(lg.ZapLogger.Warn, fmt.Sprint(args...), ctx)
 	}
-	printHelper(lg.ZapLogger.Warn, fmt.Sprintf(format, args...))
+}
+
+// WarnfWithCtx record Warn  format with context, if you have no ctx, please use the method with not ctx
+func (lg *Logger) WarnfWithCtx(ctx context.Context, format string, args ...interface{}) {
+	if lg.validate() {
+		printHelper(lg.ZapLogger.Warn, fmt.Sprintf(format, args...), ctx)
+	}
 }
 
 // Error record error not format
 func (lg *Logger) Error(args ...interface{}) {
-	if lg.ZapLogger == nil {
-		fmt.Println("Error function's logger is nil")
-		return
-	}
-	printHelper(lg.ZapLogger.Error, fmt.Sprint(args...))
+	lg.ErrorWithCtx(nil, args...)
 }
 
 // Errorf record error
 func (lg *Logger) Errorf(format string, args ...interface{}) {
-	if lg.ZapLogger == nil {
-		fmt.Println("Errorf function's logger is nil")
-		return
-	}
-	printHelper(lg.ZapLogger.Error, fmt.Sprintf(format, args...))
+	lg.ErrorfWithCtx(nil, format, args...)
 }
 
-// Dpanic record panic not format
+// ErrorWithCtx record Error not format with context, if you have no ctx, please use the method with not ctx
+func (lg *Logger) ErrorWithCtx(ctx context.Context, args ...interface{}) {
+	if lg.validate() {
+		printHelper(lg.ZapLogger.Error, fmt.Sprint(args...), ctx)
+	}
+}
+
+// ErrorfWithCtx record Error  format with context, if you have no ctx, please use the method with not ctx
+func (lg *Logger) ErrorfWithCtx(ctx context.Context, format string, args ...interface{}) {
+	if lg.validate() {
+		printHelper(lg.ZapLogger.Error, fmt.Sprintf(format, args...), ctx)
+	}
+}
+
+// Dpanic record DPanic not format
 func (lg *Logger) Dpanic(args ...interface{}) {
-	if lg.ZapLogger == nil {
-		fmt.Println("Dpanic function's logger is nil")
-		return
-	}
-	printHelper(lg.ZapLogger.DPanic, fmt.Sprint(args...))
+	lg.DPanicWithCtx(nil, args...)
 }
 
-// Dpanicf record panic
+// Dpanicf record DPanic
 func (lg *Logger) Dpanicf(format string, args ...interface{}) {
-	if lg.ZapLogger == nil {
-		fmt.Println("Dpanicf function's logger is nil")
-		return
-	}
-	printHelper(lg.ZapLogger.DPanic, fmt.Sprintf(format, args...))
+	lg.DPanicfWithCtx(nil, format, args...)
 }
 
-// Panic record panic not format
-func (lg *Logger) Panic(args ...interface{}) {
-	if lg.ZapLogger == nil {
-		fmt.Println("Panic function's logger is nil")
-		return
+// DPanicWithCtx record DPanic not format with context, if you have no ctx, please use the method with not ctx
+func (lg *Logger) DPanicWithCtx(ctx context.Context, args ...interface{}) {
+	if lg.validate() {
+		printHelper(lg.ZapLogger.DPanic, fmt.Sprint(args...), ctx)
 	}
-	printHelper(lg.ZapLogger.Panic, fmt.Sprint(args...))
+}
+
+// DPanicfWithCtx record DPanic  format with context, if you have no ctx, please use the method with not ctx
+func (lg *Logger) DPanicfWithCtx(ctx context.Context, format string, args ...interface{}) {
+	if lg.validate() {
+		printHelper(lg.ZapLogger.DPanic, fmt.Sprintf(format, args...), ctx)
+	}
+}
+
+// Panic record panic not format with context, if you have no ctx, please use the method with not ctx
+func (lg *Logger) Panic(args ...interface{}) {
+	lg.PanicWithCtx(nil, args...)
 }
 
 // Panicf record panic
 func (lg *Logger) Panicf(format string, args ...interface{}) {
-	if lg.ZapLogger == nil {
-		fmt.Println("Panicf function's logger is nil")
-		return
+	lg.PanicfWithCtx(nil, format, args...)
+}
+
+// PanicWithCtx record panic not format with context, if you have no ctx, please use the method with not ctx
+func (lg *Logger) PanicWithCtx(ctx context.Context, args ...interface{}) {
+	if lg.validate() {
+		printHelper(lg.ZapLogger.Panic, fmt.Sprint(args...), ctx)
 	}
-	printHelper(lg.ZapLogger.Panic, fmt.Sprintf(format, args...))
+}
+
+// PanicfWithCtx record panic  format with context, if you have no ctx, please use the method with not ctx
+func (lg *Logger) PanicfWithCtx(ctx context.Context, format string, args ...interface{}) {
+	if lg.validate() {
+		printHelper(lg.ZapLogger.Panic, fmt.Sprintf(format, args...), ctx)
+	}
 }
 
 // Fatal record fatal not format
 func (lg *Logger) Fatal(args ...interface{}) {
-	if lg.ZapLogger == nil {
-		fmt.Println("Fatal function's logger is nil")
-		return
-	}
-	printHelper(lg.ZapLogger.Fatal, fmt.Sprint(args...))
+	lg.FatalWithCtx(nil, args...)
 }
 
 // Fatalf record fatal
 func (lg *Logger) Fatalf(format string, args ...interface{}) {
-	if lg.ZapLogger == nil {
-		fmt.Println("Fatalf function's logger is nil")
-		return
+	lg.FatalfWithCtx(nil, format, args...)
+}
+
+// FatalWithCtx record fatal not format with context, if you have no ctx, please use the method with not ctx
+func (lg *Logger) FatalWithCtx(ctx context.Context, args ...interface{}) {
+	if lg.validate() {
+		printHelper(lg.ZapLogger.Fatal, fmt.Sprint(args...), ctx)
 	}
-	printHelper(lg.ZapLogger.Fatal, fmt.Sprintf(format, args...))
+}
+
+// FatalfWithCtx record fatal  format with context, if you have no ctx, please use the method with not ctx
+func (lg *Logger) FatalfWithCtx(ctx context.Context, format string, args ...interface{}) {
+	if lg.validate() {
+		printHelper(lg.ZapLogger.Fatal, fmt.Sprintf(format, args...), ctx)
+	}
+}
+
+func (lg *Logger) validate() bool {
+	if lg.ZapLogger == nil {
+		fmt.Println("Fatal function's logger is nil")
+		return false
+	}
+	return true
 }
