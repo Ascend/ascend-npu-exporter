@@ -108,7 +108,7 @@ Prometheus（普罗米修斯）是一个开源的系统监控和警报工具包�
            ....
     ```
 
--   Prometheus的config.yaml中增加如下scrape\_configs配置抓取NPU-Exporter。式启动，则需要将**http**修改为**https**，并配置可用证书。
+-   Prometheus的config.yaml中增加如下scrape\_configs配置抓取NPU-Exporter。
 
     ```
       - job_name: 'kubernetes-npu-exporter'
@@ -285,13 +285,22 @@ npu-exporter
 </th>
 </tr>
 </thead>
-<tbody><tr id="row539119585390"><td class="cellrowborder" valign="top" width="33.33333333333333%" headers="mcps1.1.4.1.1 "><p id="p13391105873914"><a name="p13391105873914"></a><a name="p13391105873914"></a>v2.0.2</p>
+<tbody><tr id="row539119585391"><td class="cellrowborder" valign="top" width="33.33333333333333%" headers="mcps1.1.4.1.1 "><p id="p13391105873914"><a name="p13391105873914"></a><a name="p13391105873914"></a>v2.0.3</p>
+</td>
+<td class="cellrowborder" valign="top" width="33.33333333333333%" headers="mcps1.1.4.1.2 "><p id="p18391658133920"><a name="p18391658133920"></a><a name="p18391658133920"></a>2021-10-15</p>
+</td>
+<td class="cellrowborder" valign="top" width="33.33333333333333%" headers="mcps1.1.4.1.3 "><p id="p1839175810397"><a name="p1839175810397"></a><a name="p1839175810397"></a>修复了一些已知bug</p>
+</td>
+</tr>
+
+<tr id="row539119585390"><td class="cellrowborder" valign="top" width="33.33333333333333%" headers="mcps1.1.4.1.1 "><p id="p13391105873914"><a name="p13391105873914"></a><a name="p13391105873914"></a>v2.0.2</p>
 </td>
 <td class="cellrowborder" valign="top" width="33.33333333333333%" headers="mcps1.1.4.1.2 "><p id="p18391658133920"><a name="p18391658133920"></a><a name="p18391658133920"></a>2021-07-15</p>
 </td>
 <td class="cellrowborder" valign="top" width="33.33333333333333%" headers="mcps1.1.4.1.3 "><p id="p1839175810397"><a name="p1839175810397"></a><a name="p1839175810397"></a>支持默认以HTTPS启动。增加证书、私钥等文件导入功能。</p>
 </td>
 </tr>
+
 <tr id="row4908113219334"><td class="cellrowborder" valign="top" width="33.33333333333333%" headers="mcps1.1.4.1.1 "><p id="p10908832143316"><a name="p10908832143316"></a><a name="p10908832143316"></a>v2.0.1</p>
 </td>
 <td class="cellrowborder" valign="top" width="33.33333333333333%" headers="mcps1.1.4.1.2 "><p id="p590810328337"><a name="p590810328337"></a><a name="p590810328337"></a>2021-03-30</p>

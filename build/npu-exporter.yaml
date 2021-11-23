@@ -79,6 +79,8 @@ spec:
           - name: ascend-dcmi
             mountPath: /usr/local/dcmi
             readOnly: true
+          - name: tmp
+            mountPath: /tmp
       volumes:
         - name: log-npu-exporter
           hostPath:
@@ -93,6 +95,9 @@ spec:
         - name: ascend-dcmi
           hostPath:
             path: /usr/local/dcmi
+        - name: tmp
+          hostPath:
+            path: /tmp
 
 
 

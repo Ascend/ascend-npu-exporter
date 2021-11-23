@@ -50,6 +50,7 @@ const (
 	oneMinute          = 60
 	defaultConcurrency = 5
 	defaultLogFile     = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
+	timeout            = 10
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
@@ -107,8 +108,10 @@ func main() {
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 	http.Handle("/", http.HandlerFunc(indexHandler))
 	s := &http.Server{
-		Addr:    listenAddress,
-		Handler: newLimitHandler(concurrency, http.DefaultServeMux),
+		Addr:         listenAddress,
+		Handler:      newLimitHandler(concurrency, http.DefaultServeMux),
+		ReadTimeout:  timeout * time.Second,
+		WriteTimeout: timeout * time.Second,
 	}
 	hwlog.Warn("enable unsafe http server")
 	if err := s.ListenAndServe(); err != nil {
