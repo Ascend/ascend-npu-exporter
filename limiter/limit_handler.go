@@ -29,9 +29,9 @@ func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if reqID != "" {
 		ctx = context.WithValue(context.Background(), hwlog.ReqID, reqID)
 	}
-	ID := req.Header.Get(hwlog.UserID.String())
-	if ID != "" {
-		ctx = context.WithValue(ctx, hwlog.UserID, ID)
+	id := req.Header.Get(hwlog.UserID.String())
+	if id != "" {
+		ctx = context.WithValue(ctx, hwlog.UserID, id)
 	}
 	path := req.URL.Path
 	clientIP := utils.ClientIP(req)
