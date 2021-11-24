@@ -167,6 +167,9 @@ func checkAndCreateLogFile(filePath string) error {
 }
 
 func isDir(path string) bool {
+	if !isExist(path) {
+		return path[len(path)-1:] == "/"
+	}
 	s, err := os.Stat(path)
 	if err != nil {
 		return false

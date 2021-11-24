@@ -4,6 +4,7 @@
 package limiter
 
 import (
+	"context"
 	"huawei.com/npu-exporter/hwlog"
 	"huawei.com/npu-exporter/utils"
 	"math"
@@ -23,6 +24,15 @@ type limitHandler struct {
 
 // ServeHTTP implement http.Handler
 func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	ctx := context.TODO()
+	reqID := req.Header.Get(hwlog.ReqID.String())
+	if reqID != "" {
+		ctx = context.WithValue(context.Background(), hwlog.ReqID, reqID)
+	}
+	id := req.Header.Get(hwlog.UserID.String())
+	if id != "" {
+		ctx = context.WithValue(ctx, hwlog.UserID, id)
+	}
 	path := req.URL.Path
 	clientIP := utils.ClientIP(req)
 	clientUserAgent := req.UserAgent()
@@ -36,12 +46,12 @@ func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		stop := time.Since(start)
 		latency := int(math.Ceil(float64(stop.Nanoseconds()) / kilo / kilo))
 		if h.log {
-			hwlog.RunLog.Infof("%s %s: %s <%3d> (%dms) |%15s |%s ", req.Proto, req.Method, path,
+			hwlog.RunLog.InfofWithCtx(ctx, "%s %s: %s <%3d> (%dms) |%15s |%s ", req.Proto, req.Method, path,
 				http.StatusOK, latency, clientIP, clientUserAgent)
 		}
 		h.concurrency <- struct{}{}
 	default:
-		hwlog.RunLog.Warnf("Reject Request:%s: %s <%3d> |%15s |%s ", req.Method, path,
+		hwlog.RunLog.WarnfWithCtx(ctx, "Reject Request:%s: %s <%3d> |%15s |%s ", req.Method, path,
 			http.StatusServiceUnavailable, clientIP, clientUserAgent)
 		http.Error(w, "503 too busy", http.StatusServiceUnavailable)
 	}

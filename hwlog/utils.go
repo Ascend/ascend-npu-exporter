@@ -5,6 +5,7 @@ package hwlog
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"go.uber.org/zap"
 	"runtime"
@@ -12,15 +13,26 @@ import (
 )
 
 // printHelper helper function for log printing
-func printHelper(f func(string, ...zap.Field), msg string) {
-	str := getCallerInfo()
+func printHelper(f func(string, ...zap.Field), msg string, ctx ...context.Context) {
+	str := getCallerInfo(ctx...)
 	f(str + msg)
 }
 
 // getCallerInfo gets the caller's information
-func getCallerInfo() string {
+func getCallerInfo(ctx ...context.Context) string {
+	var deep = stackDeep
+	var userID interface{}
+	var traceID interface{}
+	for _, c := range ctx {
+		if c == nil {
+			deep++
+			continue
+		}
+		userID = c.Value(UserID)
+		traceID = c.Value(ReqID)
+	}
 	var funcName string
-	pc, codePath, codeLine, ok := runtime.Caller(stackDeep)
+	pc, codePath, codeLine, ok := runtime.Caller(deep)
 	if ok {
 		funcName = runtime.FuncForPC(pc).Name()
 	}
@@ -34,6 +46,9 @@ func getCallerInfo() string {
 	callerPath := fmt.Sprintf("%s:%d", funcName, codeLine)
 	goroutineID := getGoroutineID()
 	str := fmt.Sprintf("%-8s%s    ", goroutineID, callerPath)
+	if userID != nil || traceID != nil {
+		str = fmt.Sprintf("%s{%v}-{%v} ", str, userID, traceID)
+	}
 	return str
 }
 
