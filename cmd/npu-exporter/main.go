@@ -321,6 +321,7 @@ func loadCRL() {
 	if err != nil {
 		hwlog.RunLog.Fatal("parse crlFile failed")
 	}
+	// skip check CRL update time when load it,only check when import CRL file
 	if crlList != nil {
 		crlcerList = crlList
 		hwlog.RunLog.Infof("load CRL success")
