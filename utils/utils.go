@@ -156,9 +156,12 @@ func CheckCRL(crlFile string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.New("read crlFile failed")
 	}
-	_, err = x509.ParseCRL(crlBytes)
+	crlList, err := x509.ParseCRL(crlBytes)
 	if err != nil {
 		return nil, errors.New("parse crlFile failed")
+	}
+	if time.Now().Before(crlList.TBSCertList.ThisUpdate) || time.Now().After(crlList.TBSCertList.NextUpdate) {
+		return nil, errors.New("crlFile update time not match")
 	}
 	return crlBytes, nil
 }

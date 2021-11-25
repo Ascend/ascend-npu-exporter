@@ -46,9 +46,9 @@ func init() {
 // TestCheckCRL test CheckCRL
 func TestCheckCRL(t *testing.T) {
 	Convey("CheckCRL test", t, func() {
-		Convey("normal situation,no err returned", func() {
+		Convey("crl update time not match,return error", func() {
 			_, err := CheckCRL("./testdata/cert/client.crl")
-			So(err, ShouldEqual, nil)
+			So(err, ShouldNotBeEmpty)
 		})
 		Convey("directory no exist,no err returned", func() {
 			_, err := CheckCRL("./testdata/cert/xxx.crl")
