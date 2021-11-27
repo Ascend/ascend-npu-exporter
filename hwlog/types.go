@@ -21,7 +21,7 @@ func (c ContextKey) String() string {
 
 const (
 	// UserID used for context value key of "ID"
-	UserID ContextKey = "ID"
+	UserID ContextKey = "UserID"
 	// ReqID used for context value key of "requestID"
-	ReqID ContextKey = "requestID"
+	ReqID ContextKey = "RequestID"
 )
