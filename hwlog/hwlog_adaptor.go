@@ -7,13 +7,15 @@ import "fmt"
 
 // RunLog run logger
 var RunLog *Logger
+
 // OpLog operate logger
 var OpLog *Logger
+
 // SecLog security logger
 var SecLog *Logger
 
 // InitRunLogger initialize run logger
-func InitRunLogger (config *LogConfig, stopCh <-chan struct{}) error {
+func InitRunLogger(config *LogConfig, stopCh <-chan struct{}) error {
 	if RunLog != nil && RunLog.ZapLogger != nil {
 		RunLog.Warn("run logger is been initialized.")
 		return nil
@@ -30,7 +32,7 @@ func InitRunLogger (config *LogConfig, stopCh <-chan struct{}) error {
 }
 
 // InitOperateLogger initialize operate logger
-func InitOperateLogger (config *LogConfig, stopCh <-chan struct{}) error {
+func InitOperateLogger(config *LogConfig, stopCh <-chan struct{}) error {
 	if OpLog != nil && OpLog.ZapLogger != nil {
 		OpLog.Warn("operate logger is been initialized.")
 		return nil
@@ -47,7 +49,7 @@ func InitOperateLogger (config *LogConfig, stopCh <-chan struct{}) error {
 }
 
 // InitSecurityLogger initialize security logger
-func InitSecurityLogger (config *LogConfig, stopCh <-chan struct{}) error {
+func InitSecurityLogger(config *LogConfig, stopCh <-chan struct{}) error {
 	if SecLog != nil && SecLog.ZapLogger != nil {
 		SecLog.Warn("security logger is been initialized.")
 		return nil
