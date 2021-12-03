@@ -44,13 +44,40 @@ const (
 	dirMode   = 0700
 	// FileMode file privilege
 	FileMode = 0400
+	// RWMode for read and write
+	RWMode = 0600
 	// Aes128gcm AES128-GCM
 	Aes128gcm = 8
 	// Aes256gcm AES256-GCM
-	Aes256gcm   = 9
-	overdueTime = 100
+	Aes256gcm = 9
+	// OverdueTime OverdueTime
+	OverdueTime = 100
 	dayHours    = 24
 	x509v3      = 3
+	// InvalidNum invalid num
+	InvalidNum = -9999999
+
+	// KeyStore KeyStore path
+	KeyStore = ".config/config1"
+	// CertStore CertStore path
+	CertStore = ".config/config2"
+	// CaStore CaStore path
+	CaStore = ".config/config3"
+	// CrlStore CrlStore path
+	CrlStore = ".config/config4"
+	// PassFile PassFile path
+	PassFile = ".config/config5"
+	// PassFileBackUp PassFileBackUp path
+	PassFileBackUp = ".conf"
+
+	// KeyStorePath KeyStorePath
+	KeyStorePath = "KeyStorePath"
+	// CertStorePath CertStorePath
+	CertStorePath = "CertStorePath"
+	// PassFilePath PassFilePath
+	PassFilePath = "PassFilePath"
+	// PassFileBackUpPath PassFileBackUpPath
+	PassFileBackUpPath = "PassFileBackUpPath"
 )
 
 var (
@@ -142,20 +169,23 @@ func ParsePrivateKeyWithPassword(keyBytes []byte, pd []byte) (*pem.Block, error)
 
 // CheckCRL validate crl file
 func CheckCRL(crlFile string) ([]byte, error) {
-	if crlFile == "" {
+	crlBytes, err := LoadFile(crlFile)
+	if err != nil {
+		return nil, err
+	}
+	if crlBytes == nil {
 		return nil, nil
 	}
-	crl, err := filepath.Abs(crlFile)
+	_, err = ValidateCRL(crlBytes)
 	if err != nil {
-		return nil, errors.New("the crlFile is invalid")
+		return nil, err
 	}
-	if !IsExists(crl) {
-		return nil, nil
-	}
-	crlBytes, err := ioutil.ReadFile(crl)
-	if err != nil {
-		return nil, errors.New("read crlFile failed")
-	}
+
+	return crlBytes, nil
+}
+
+// ValidateCRL ValidateCRL
+func ValidateCRL(crlBytes []byte) (*pkix.CertificateList, error) {
 	crlList, err := x509.ParseCRL(crlBytes)
 	if err != nil {
 		return nil, errors.New("parse crlFile failed")
@@ -163,7 +193,8 @@ func CheckCRL(crlFile string) ([]byte, error) {
 	if time.Now().Before(crlList.TBSCertList.ThisUpdate) || time.Now().After(crlList.TBSCertList.NextUpdate) {
 		return nil, errors.New("crlFile update time not match")
 	}
-	return crlBytes, nil
+
+	return crlList, nil
 }
 
 var osMkdirAll = os.MkdirAll
@@ -182,19 +213,43 @@ func MakeSureDir(path string) error {
 
 // CheckValidityPeriod check certification validity period
 func CheckValidityPeriod(cert *x509.Certificate) error {
+	overdueDays, err := GetValidityPeriod(cert)
+	if err != nil {
+		return err
+	}
+	if overdueDays < OverdueTime && overdueDays > 0 {
+		hwlog.RunLog.Warnf("the certificate will overdue after %d days later", int64(overdueDays))
+	}
+
+	return nil
+}
+
+// CheckValidityPeriodWithError if the time expires, an error is reported
+func CheckValidityPeriodWithError(cert *x509.Certificate, overdueTime int) error {
+	overdueDays, err := GetValidityPeriod(cert)
+	if err != nil {
+		return err
+	}
+	if overdueDays <= float64(overdueTime) {
+		return fmt.Errorf("overdueDayes is (%v) need to update certification", overdueDays)
+	}
+
+	return nil
+}
+
+// GetValidityPeriod get certification validity period
+func GetValidityPeriod(cert *x509.Certificate) (float64, error) {
 	now := time.Now()
 	if now.After(cert.NotAfter) || now.Before(cert.NotBefore) {
-		return errors.New("the certificate overdue ")
+		return 0, errors.New("the certificate overdue ")
 	}
 	gapHours := cert.NotAfter.Sub(now).Hours()
 	overdueDays := gapHours / dayHours
 	if overdueDays > math.MaxInt64 {
 		overdueDays = math.MaxInt64
 	}
-	if overdueDays < overdueTime && overdueDays > 0 {
-		hwlog.RunLog.Warnf("the certificate will overdue after %d days later", int64(overdueDays))
-	}
-	return nil
+
+	return overdueDays, nil
 }
 
 // CheckSignatureAlgorithm check signature algorithm of the certification
@@ -258,8 +313,7 @@ func CheckRevokedCert(r *http.Request, crlcerList *pkix.CertificateList) bool {
 	hwlog.RunLog.Infof("VerifiedChains length: %d,CertificatesChains length %d",
 		len(certificateChain), len(certificateChain[0]))
 	// CheckCRLSignature check CRL's issuer is certificate's issuer
-	error := certificateChain[0][1].CheckCRLSignature(crlcerList)
-	if error != nil {
+	if err := certificateChain[0][1].CheckCRLSignature(crlcerList); err != nil {
 		hwlog.RunLog.Warnf("CRL's issuer is not certificate's issuer")
 		return false
 	}
@@ -297,6 +351,11 @@ func LoadCertsFromPEM(pemCerts []byte) (*x509.Certificate, error) {
 
 // ValidateX509Pair validate the x509pair
 func ValidateX509Pair(certBytes []byte, keyBytes []byte) (*tls.Certificate, error) {
+	return ValidateX509PairV2(certBytes, keyBytes, InvalidNum)
+}
+
+// ValidateX509PairV2 validate the x509pair version 2
+func ValidateX509PairV2(certBytes []byte, keyBytes []byte, overdueTime int) (*tls.Certificate, error) {
 	c, err := tls.X509KeyPair(certBytes, keyBytes)
 	if err != nil {
 		return nil, errors.New("failed to load X509KeyPair")
@@ -305,13 +364,19 @@ func ValidateX509Pair(certBytes []byte, keyBytes []byte) (*tls.Certificate, erro
 	if err != nil {
 		return nil, errors.New("parse certificate failed")
 	}
-	if err := checkExtension(cc); err != nil {
+	if err = checkExtension(cc); err != nil {
 		return nil, err
 	}
 	if err = CheckSignatureAlgorithm(cc); err != nil {
 		return nil, err
 	}
-	if err = CheckValidityPeriod(cc); err != nil {
+	switch overdueTime {
+	case InvalidNum:
+		err = CheckValidityPeriod(cc)
+	default:
+		err = CheckValidityPeriodWithError(cc, overdueTime)
+	}
+	if err != nil {
 		return nil, err
 	}
 	keyLen, keyType, err := GetPrivateKeyLength(cc, &c)
@@ -414,6 +479,12 @@ var Decrypt = func(domainID int, data []byte) ([]byte, error) {
 
 // EncryptPrivateKeyAgain encrypt PrivateKey with local password again, and encrypted save password into files
 func EncryptPrivateKeyAgain(key *pem.Block, psFile, psBkFile string, encrypt int) (*pem.Block, error) {
+	return EncryptPrivateKeyAgainWithMode(key, psFile, psBkFile, encrypt, FileMode)
+}
+
+// EncryptPrivateKeyAgainWithMode encrypt privatekey again with mode
+func EncryptPrivateKeyAgainWithMode(key *pem.Block, psFile, psBkFile string, encrypt int, mode os.FileMode) (*pem.Block,
+	error) {
 	// generate new passwd for private key
 	pd := GetRandomPass()
 	KmcInit(encrypt, "", "")
@@ -422,11 +493,11 @@ func EncryptPrivateKeyAgain(key *pem.Block, psFile, psBkFile string, encrypt int
 		hwlog.RunLog.Fatal("encrypt passwd failed")
 	}
 	hwlog.RunLog.Info("encrypt new passwd successfully")
-	if err := OverridePassWdFile(psFile, encryptedPd, FileMode); err != nil {
+	if err := OverridePassWdFile(psFile, encryptedPd, mode); err != nil {
 		hwlog.RunLog.Fatal("write encrypted passwd to file failed")
 	}
 	hwlog.RunLog.Info("create or update  passwd file successfully")
-	if err = OverridePassWdFile(psBkFile, encryptedPd, FileMode); err != nil {
+	if err = OverridePassWdFile(psBkFile, encryptedPd, mode); err != nil {
 		hwlog.RunLog.Fatal("write encrypted passwd to back file failed")
 	}
 	hwlog.RunLog.Info("create or update  passwd backup file successfully")
@@ -462,17 +533,12 @@ func PeriodCheck(cert *x509.Certificate) {
 			if !ok {
 				return
 			}
-			now := time.Now()
-			if now.After(cert.NotAfter) || now.Before(cert.NotBefore) {
+			overdueDays, err := GetValidityPeriod(cert)
+			if err != nil {
 				hwlog.RunLog.Warn("the certificate is already overdue")
 				continue
 			}
-			gapHours := cert.NotAfter.Sub(now).Hours()
-			overdueDays := gapHours / dayHours
-			if overdueDays > math.MaxInt64 {
-				overdueDays = math.MaxInt64
-			}
-			if overdueDays < overdueTime && overdueDays > 0 {
+			if overdueDays < OverdueTime && overdueDays > 0 {
 				hwlog.RunLog.Warnf("the certificate will overdue after %d days later", int64(overdueDays))
 			}
 		}
@@ -493,8 +559,7 @@ func OverridePassWdFile(path string, data []byte, mode os.FileMode) error {
 		return err
 	}
 	if _, err := rand.Read(overrideByte); err != nil {
-		err := errors.New("get random words failed")
-		return err
+		return errors.New("get random words failed")
 	}
 	if err := write(path, overrideByte, mode); err != nil {
 		return err
@@ -507,19 +572,17 @@ func OverridePassWdFile(path string, data []byte, mode os.FileMode) error {
 
 // CheckCaCert check the import ca cert
 func CheckCaCert(caFile string) ([]byte, error) {
-	if caFile == "" {
-		return nil, nil
-	}
-	ca, err := filepath.Abs(caFile)
+	return CheckCaCertV2(caFile, InvalidNum)
+}
+
+// CheckCaCertV2 check the import ca cert version 2
+func CheckCaCertV2(caFile string, overdueTime int) ([]byte, error) {
+	caBytes, err := LoadFile(caFile)
 	if err != nil {
-		return nil, errors.New("the caFile is invalid")
+		return nil, err
 	}
-	if !IsExists(caFile) {
+	if caBytes == nil {
 		return nil, nil
-	}
-	caBytes, err := ioutil.ReadFile(ca)
-	if err != nil {
-		return nil, errors.New("failed to load caFile")
 	}
 	caCrt, err := LoadCertsFromPEM(caBytes)
 	if err != nil {
@@ -528,10 +591,15 @@ func CheckCaCert(caFile string) ([]byte, error) {
 	if !caCrt.IsCA {
 		return nil, errors.New("this is not ca certificate")
 	}
-	if err := checkExtension(caCrt); err != nil {
+	if err = checkExtension(caCrt); err != nil {
 		return nil, err
 	}
-	err = CheckValidityPeriod(caCrt)
+	switch overdueTime {
+	case InvalidNum:
+		err = CheckValidityPeriod(caCrt)
+	default:
+		err = CheckValidityPeriodWithError(caCrt, overdueTime)
+	}
 	if err != nil {
 		return nil, errors.New("ca certificate is overdue")
 	}
@@ -541,34 +609,105 @@ func CheckCaCert(caFile string) ([]byte, error) {
 	if err = AddToCertStatusTrace(caCrt); err != nil {
 		hwlog.RunLog.Fatal(err)
 	}
-	hwlog.RunLog.Infof("certificate signature check pass")
+	hwlog.RunLog.Infof("ca certificate signature check pass")
 	return caBytes, nil
 }
 
 // LoadCertPair load and valid encrypted certificate and private key
 func LoadCertPair(cert, key, psFile, psFileBk string, encryptAlgorithm int) (*tls.Certificate, error) {
+	pathMap := map[string]string{
+		CertStorePath:      cert,
+		KeyStorePath:       key,
+		PassFilePath:       psFile,
+		PassFileBackUpPath: psFileBk,
+	}
+	certBytes, keyPem, err := LoadCertPairByte(pathMap, encryptAlgorithm, FileMode)
+	if err != nil {
+		return nil, err
+	}
+
+	return ValidateCertPair(certBytes, keyPem, true, InvalidNum)
+}
+
+// CheckCertFiles CheckCertFiles
+func CheckCertFiles(pathMap map[string]string) error {
+	cert, ok := pathMap[CertStorePath]
+	if !ok {
+		return fmt.Errorf("%s is empty", CertStorePath)
+	}
+	key, ok := pathMap[KeyStorePath]
+	if !ok {
+		return fmt.Errorf("%s is empty", KeyStorePath)
+	}
+	psFile, ok := pathMap[PassFilePath]
+	if !ok {
+		return fmt.Errorf("%s is empty", PassFilePath)
+	}
+	psFileBk, ok := pathMap[PassFileBackUpPath]
+	if !ok {
+		return fmt.Errorf("%s is empty", PassFileBackUpPath)
+	}
+
+	// if password file not exists, remove privateKey and regenerate
+	if !IsExists(psFile) && !IsExists(psFileBk) {
+		hwlog.RunLog.Error("psFile or psFileBk is empty")
+		return os.ErrNotExist
+	}
+	if !IsExists(key) {
+		hwlog.RunLog.Error("keyFile is empty")
+		return os.ErrNotExist
+	}
+	if !IsExists(cert) {
+		hwlog.RunLog.Error("certFile is empty")
+		return os.ErrNotExist
+	}
+
+	return nil
+}
+
+// LoadCertPairByte load and valid encrypted certificate and private key
+func LoadCertPairByte(pathMap map[string]string, encryptAlgorithm int, mode os.FileMode) ([]byte, []byte, error) {
+	if err := CheckCertFiles(pathMap); err != nil {
+		return nil, nil, err
+	}
+	cert := pathMap[CertStorePath]
+	key := pathMap[KeyStorePath]
+	psFile := pathMap[PassFilePath]
+	psFileBk := pathMap[PassFileBackUpPath]
 	certBytes, err := ioutil.ReadFile(cert)
 	if err != nil {
-		return nil, errors.New("there is no certFile provided")
+		return nil, nil, errors.New("there is no certFile provided")
 	}
-	encodedPd := ReadOrUpdatePd(psFile, psFileBk, FileMode)
+	encodedPd := ReadOrUpdatePd(psFile, psFileBk, mode)
 	KmcInit(encryptAlgorithm, "", "")
 	pd, err := Decrypt(0, encodedPd)
 	if err != nil {
-		return nil, errors.New("decrypt passwd failed")
+		return nil, nil, errors.New("decrypt passwd failed")
 	}
 	hwlog.RunLog.Info("decrypt passwd successfully")
 	keyBlock, err := DecryptPrivateKeyWithPd(key, pd)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	hwlog.RunLog.Info("decrypt success")
 	if Bootstrap != nil {
 		Bootstrap.Shutdown()
 	}
 	PaddingAndCleanSlice(pd)
+	return certBytes, pem.EncodeToMemory(keyBlock), nil
+}
+
+// ValidateCertPair ValidateCertPair
+func ValidateCertPair(certBytes, keyPem []byte, periodCheck bool, overdueTime int) (*tls.Certificate, error) {
+	var err error
+	var tlsCert *tls.Certificate
 	// preload cert and key files
-	tlsCert, err := ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock))
+	switch overdueTime {
+	case InvalidNum:
+		tlsCert, err = ValidateX509Pair(certBytes, keyPem)
+	default:
+		tlsCert, err = ValidateX509PairV2(certBytes, keyPem, overdueTime)
+	}
 	if err != nil || tlsCert == nil {
 		return nil, err
 	}
@@ -579,17 +718,18 @@ func LoadCertPair(cert, key, psFile, psFileBk string, encryptAlgorithm int) (*tl
 	if err = AddToCertStatusTrace(x509Cert); err != nil {
 		return nil, err
 	}
-	go PeriodCheck(x509Cert)
+	if periodCheck {
+		go PeriodCheck(x509Cert)
+	}
 	return tlsCert, nil
 }
 
 // NewTLSConfig  create the tls config struct
-func NewTLSConfig(caBytes []byte, certificate tls.Certificate, cipherSuites uint16) (*tls.Config, error) {
+func NewTLSConfig(caBytes []byte, certificate tls.Certificate, cipherSuites []uint16) (*tls.Config, error) {
 	tlsConfig := &tls.Config{
-		ClientAuth:   tls.RequireAndVerifyClientCert,
 		Certificates: []tls.Certificate{certificate},
 		MinVersion:   tls.VersionTLS12,
-		CipherSuites: []uint16{cipherSuites},
+		CipherSuites: cipherSuites,
 	}
 	if len(caBytes) > 0 {
 		// Two-way SSL
@@ -608,8 +748,8 @@ func NewTLSConfig(caBytes []byte, certificate tls.Certificate, cipherSuites uint
 	return tlsConfig, nil
 }
 
-func write(path string, overideByte []byte, mode os.FileMode) error {
-	if err := ioutil.WriteFile(path, overideByte, mode); err != nil {
+func write(path string, overrideByte []byte, mode os.FileMode) error {
+	if err := ioutil.WriteFile(path, overrideByte, mode); err != nil {
 		return errors.New("write encrypted key to config failed")
 	}
 	return nil
@@ -636,15 +776,15 @@ func checkExtension(cert *x509.Certificate) error {
 var dirPrefix = "/etc/mindx-dl/npu-exporter/"
 
 // GetTLSConfigForClient get the tls config for client
-func GetTLSConfigForClient(compomentType string, encryptAlgorithm int) (*tls.Config, error) {
-	if compomentType != "npu-exporter" {
-		dirPrefix = strings.Replace(dirPrefix, "npu-exporter", compomentType, -1)
+func GetTLSConfigForClient(componentType string, encryptAlgorithm int) (*tls.Config, error) {
+	if componentType != "npu-exporter" {
+		dirPrefix = strings.Replace(dirPrefix, "npu-exporter", componentType, -1)
 	}
-	keyStore := dirPrefix + ".config/config1"
-	certStore := dirPrefix + ".config/config2"
-	caStore := dirPrefix + ".config/config3"
-	passFile := dirPrefix + ".config/config5"
-	passFileBackUp := dirPrefix + ".conf"
+	keyStore := dirPrefix + KeyStore
+	certStore := dirPrefix + CertStore
+	caStore := dirPrefix + CaStore
+	passFile := dirPrefix + PassFileBackUp
+	passFileBackUp := dirPrefix + PassFileBackUp
 	tlsCert, err := LoadCertPair(certStore, keyStore, passFile, passFileBackUp, encryptAlgorithm)
 	if err != nil {
 		return nil, err
@@ -721,4 +861,35 @@ func ClientIP(r *http.Request) string {
 		return ip
 	}
 	return ""
+}
+
+// LoadFile load file content
+func LoadFile(filePath string) ([]byte, error) {
+	if filePath == "" {
+		return nil, nil
+	}
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return nil, errors.New("the filePath is invalid")
+	}
+	if !IsExists(absPath) {
+		return nil, nil
+	}
+	contentBytes, err := ioutil.ReadFile(absPath)
+	if err != nil {
+		return nil, errors.New("read file failed")
+	}
+
+	return contentBytes, nil
+}
+
+// Interceptor Interceptor
+func Interceptor(h http.Handler, crlCertList *pkix.CertificateList) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if crlCertList != nil && CheckRevokedCert(r, crlCertList) {
+			return
+		}
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000")
+		h.ServeHTTP(w, r)
+	})
 }

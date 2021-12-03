@@ -66,12 +66,12 @@ const (
 	portLeft                = 1025
 	portRight               = 40000
 	oneMinute               = 60
-	keyStore                = dirPrefix + ".config/config1"
-	certStore               = dirPrefix + ".config/config2"
-	caStore                 = dirPrefix + ".config/config3"
-	crlStore                = dirPrefix + ".config/config4"
-	passFile                = dirPrefix + ".config/config5"
-	passFileBackUp          = dirPrefix + ".conf"
+	keyStore                = dirPrefix + utils.KeyStore
+	certStore               = dirPrefix + utils.CertStore
+	caStore                 = dirPrefix + utils.CaStore
+	crlStore                = dirPrefix + utils.CrlStore
+	passFile                = dirPrefix + utils.PassFile
+	passFileBackUp          = dirPrefix + utils.PassFileBackUp
 	defaultConcurrency      = 5
 	defaultLogFile          = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
 	containerModeDocker     = "docker"
@@ -114,12 +114,13 @@ func main() {
 	}
 
 	if certificate != nil {
-		tlsConf, err := utils.NewTLSConfig(caBytes, *certificate, cipherSuites)
+		tlsConf, err := utils.NewTLSConfig(caBytes, *certificate, []uint16{cipherSuites})
 		if err != nil {
 			hwlog.RunLog.Fatal(err)
 		}
 		s.TLSConfig = tlsConf
-		s.Handler = limiter.NewLimitHandler(concurrency, maxConcurrency, interceptor(http.DefaultServeMux), true)
+		s.Handler = limiter.NewLimitHandler(concurrency, maxConcurrency, utils.Interceptor(http.DefaultServeMux,
+			crlcerList), true)
 		hwlog.RunLog.Info("start https server now...")
 		if err := s.ListenAndServeTLS("", ""); err != nil {
 			hwlog.RunLog.Fatal("Https server error and stopped")
@@ -267,16 +268,6 @@ func init() {
 		"Log file path. If the file size exceeds 20MB, will be rotated")
 	flag.IntVar(&hwLogConfig.MaxBackups, "maxBackups", hwlog.DefaultMaxBackups,
 		"Maximum number of backup log files, range is (0, 30]")
-}
-
-func interceptor(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if crlcerList != nil && utils.CheckRevokedCert(r, crlcerList) {
-			return
-		}
-		w.Header().Set("Strict-Transport-Security", "max-age=31536000")
-		h.ServeHTTP(w, r)
-	})
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
