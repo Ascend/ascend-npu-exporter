@@ -30,6 +30,8 @@ const (
 	Overdue = "overdue"
 	// ReApply ReApply
 	ReApply = "reapply"
+	// RSAPrivateKey RSAPrivateKey
+	RSAPrivateKey = "RSA PRIVATE KEY"
 )
 
 // CertificateUtils CertificateUtils
@@ -101,7 +103,11 @@ func (cu *CertificateUtils) LoadCertAndKeyOnStart(algorithm int) (*tls.Certifica
 		}
 		return nil, err
 	}
-	privateKey, err := x509.ParsePKCS1PrivateKey(keyByte)
+	keyBlock, _ := pem.Decode(keyByte)
+	if keyBlock == nil {
+		return nil, err
+	}
+	privateKey, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -156,15 +162,15 @@ func (cu *CertificateUtils) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tl
 	}
 }
 
-// GeneratePrivateKey generate private key
-func (cu *CertificateUtils) GeneratePrivateKey(privateKeyLength int, algorithm int) (*rsa.PrivateKey, error) {
+// GenerateRSAPrivateKey generate rsa private key
+func (cu *CertificateUtils) GenerateRSAPrivateKey(privateKeyLength int, algorithm int) (*rsa.PrivateKey, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, privateKeyLength)
 	if err != nil {
 		return nil, err
 	}
 	derStream := x509.MarshalPKCS1PrivateKey(privateKey)
 	keyBlock := &pem.Block{
-		Type:  "RSA PRIVATE KEY",
+		Type:  RSAPrivateKey,
 		Bytes: derStream,
 	}
 	encryptedBlock, err := utils.EncryptPrivateKeyAgainWithMode(keyBlock, cu.PassFile, cu.PassFileBackUp, algorithm,
