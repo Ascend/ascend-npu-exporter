@@ -725,7 +725,11 @@ func ValidateCertPair(certBytes, keyPem []byte, periodCheck bool, overdueTime in
 }
 
 // NewTLSConfig  create the tls config struct
-func NewTLSConfig(caBytes []byte, certificate tls.Certificate, cipherSuites []uint16) (*tls.Config, error) {
+func NewTLSConfig(caBytes []byte, certificate tls.Certificate, cipherSuites uint16) (*tls.Config, error) {
+	return NewTLSConfigV2(caBytes, certificate, []uint16{cipherSuites})
+}
+// NewTLSConfigV2  create the tls config struct version 2
+func NewTLSConfigV2(caBytes []byte, certificate tls.Certificate, cipherSuites []uint16) (*tls.Config, error) {
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{certificate},
 		MinVersion:   tls.VersionTLS12,

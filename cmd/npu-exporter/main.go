@@ -114,7 +114,7 @@ func main() {
 	}
 
 	if certificate != nil {
-		tlsConf, err := utils.NewTLSConfig(caBytes, *certificate, []uint16{cipherSuites})
+		tlsConf, err := utils.NewTLSConfig(caBytes, *certificate, cipherSuites)
 		if err != nil {
 			hwlog.RunLog.Fatal(err)
 		}

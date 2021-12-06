@@ -361,18 +361,18 @@ func TestNewTLSConfig(t *testing.T) {
 	Convey("test for NewTLSConfig", t, func() {
 		c := tls.Certificate{}
 		Convey("One-way HTTPS", func() {
-			conf, err := NewTLSConfig([]byte{}, c, []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256})
+			conf, err := NewTLSConfig([]byte{}, c, tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)
 			So(err, ShouldEqual, nil)
 			So(conf, ShouldNotBeEmpty)
 		})
 		Convey("Two-way HTTPS,but ca check failed", func() {
-			conf, err := NewTLSConfig([]byte("sdsddd"), c, []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256})
+			conf, err := NewTLSConfig([]byte("sdsddd"), c, tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)
 			So(conf, ShouldEqual, nil)
 			So(err, ShouldNotBeEmpty)
 		})
 		Convey("Two-way HTTPS", func() {
 			ca, err := CheckCaCert("./testdata/cert/ca.crt")
-			conf, err := NewTLSConfig(ca, c, []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256})
+			conf, err := NewTLSConfig(ca, c, tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)
 			So(err, ShouldEqual, nil)
 			So(conf, ShouldNotBeEmpty)
 		})

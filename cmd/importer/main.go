@@ -153,12 +153,12 @@ func valid(certFile string, keyFile string, caFile string, crlFile string) {
 		hwlog.RunLog.Fatal("the component is invalid")
 	}
 	component = cp
-	keyStore = dirPrefix + component + utils.KeyStore
-	certStore = dirPrefix + component + utils.CertStore
-	caStore = dirPrefix + component + utils.CaStore
-	crlStore = dirPrefix + component + utils.CrlStore
-	passFile = dirPrefix + component + utils.PassFile
-	passFileBackUp = dirPrefix + component + utils.PassFileBackUp
+	keyStore = dirPrefix + component + "/" + utils.KeyStore
+	certStore = dirPrefix + component + "/" + utils.CertStore
+	caStore = dirPrefix + component + "/" + utils.CaStore
+	crlStore = dirPrefix + component + "/" + utils.CrlStore
+	passFile = dirPrefix + component + "/" + utils.PassFile
+	passFileBackUp = dirPrefix + component + "/" + utils.PassFileBackUp
 }
 
 func initHwLogger(stopCh <-chan struct{}) {
