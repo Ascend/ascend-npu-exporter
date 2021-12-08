@@ -222,8 +222,8 @@ func baseParamValid() {
 		encryptAlgorithm = utils.Aes256gcm
 	}
 	if tlsSuites != 0 && tlsSuites != 1 {
-		hwlog.RunLog.Warn("reset invalid tlsSuites ")
-		tlsSuites = 0
+		hwlog.RunLog.Warn("reset invalid tlsSuites = 1 ")
+		tlsSuites = 1
 	}
 	if tlsSuites == 0 {
 		cipherSuites = tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
