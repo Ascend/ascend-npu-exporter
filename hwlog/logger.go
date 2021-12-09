@@ -85,7 +85,7 @@ func Init(config *LogConfig, stopCh <-chan struct{}) (*zap.Logger, error) {
 }
 
 func create(config LogConfig) *zap.Logger {
-	logEncoder := getEncoder()
+	logEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
 	var writeSyncer zapcore.WriteSyncer
 	if config.OnlyToStdout {
 		writeSyncer = zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout))
@@ -95,24 +95,6 @@ func create(config LogConfig) *zap.Logger {
 	}
 	core := zapcore.NewCore(logEncoder, writeSyncer, zapcore.Level(config.LogLevel))
 	return zap.New(core, zap.AddCaller())
-}
-
-// getEncoder get zap encoder
-func getEncoder() zapcore.Encoder {
-	encoderConfig := zapcore.EncoderConfig{
-		// Keys can be anything except the empty string.
-		TimeKey:        "T",
-		LevelKey:       "L",
-		NameKey:        "N",
-		CallerKey:      "C",
-		MessageKey:     "M",
-		StacktraceKey:  "S",
-		LineEnding:     zapcore.DefaultLineEnding,
-		EncodeLevel:    zapcore.CapitalLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
-		EncodeDuration: zapcore.StringDurationEncoder,
-	}
-	return zapcore.NewConsoleEncoder(encoderConfig)
 }
 
 // getLogWriter get zap log writer
