@@ -86,24 +86,26 @@ func TestOverridePassWdFile(t *testing.T) {
 func TestReadOrUpdatePd(t *testing.T) {
 	var mainks = "./testdata/mainks"
 	var backupks = "./testdata/backupks"
-	Convey("Password back function test", t, func() {
-		Convey("read from main file", func() {
-			data := ReadOrUpdatePd(mainks, backupks, testMode)
-			So(string(data), ShouldEqual, "111111")
-			back, err := ReadBytes(backupks)
-			So(err, ShouldEqual, nil)
-			So(reflect.DeepEqual(back, data), ShouldBeTrue)
-		})
-		Convey("read from back file", func() {
-			os.Remove(mainks)
-			data := ReadOrUpdatePd(mainks, backupks, testMode)
-			So(string(data), ShouldEqual, "111111")
-			back, err := ReadBytes(mainks)
-			So(err, ShouldEqual, nil)
-			So(reflect.DeepEqual(back, data), ShouldBeTrue)
-			// recover status before testing
-			os.Remove(backupks)
-		})
+
+	Convey("read from main file", t, func() {
+		data := ReadOrUpdatePd(mainks, backupks, testMode)
+		So(string(data), ShouldEqual, "111111")
+		back, err := ReadBytes(backupks)
+		So(err, ShouldEqual, nil)
+		So(reflect.DeepEqual(back, data), ShouldBeTrue)
+	})
+	Convey("read from back file", t, func() {
+		os.Remove(mainks)
+		data := ReadOrUpdatePd(mainks, backupks, testMode)
+		So(string(data), ShouldEqual, "111111")
+		back, err := ReadBytes(mainks)
+		So(err, ShouldEqual, nil)
+		So(reflect.DeepEqual(back, data), ShouldBeTrue)
+		// recover status before testing
+		err = os.Remove(backupks)
+		if err != nil {
+			fmt.Println("clean source failed")
+		}
 	})
 }
 
