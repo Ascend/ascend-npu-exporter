@@ -76,6 +76,15 @@ func init() {
 
 func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 	valid(certFile, keyFile, caFile, crlFile)
+	importCert(certFile, keyFile)
+	importCA(caFile)
+	importCRL(crlFile)
+	hwlog.RunLog.Info("import certificate successfully")
+	hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
+	os.Exit(0)
+}
+
+func importCert(certFile, keyFile string) {
 	keyBlock, err := utils.DecryptPrivateKeyWithPd(keyFile, nil)
 	if err != nil {
 		hwlog.RunLog.Fatal(err)
@@ -94,12 +103,15 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 	}
 	// encrypt private key again with passwd
 	encryptedBlock, err := utils.EncryptPrivateKeyAgain(keyBlock, passFile, passFileBackUp, encryptAlgorithm)
-	if err := utils.OverridePassWdFile(keyStore, pem.EncodeToMemory(encryptedBlock), utils.FileMode); err != nil {
+	if err = utils.OverridePassWdFile(keyStore, pem.EncodeToMemory(encryptedBlock), utils.FileMode); err != nil {
 		hwlog.RunLog.Fatal(err)
 	}
 	if err = ioutil.WriteFile(certStore, certBytes, utils.FileMode); err != nil {
 		hwlog.RunLog.Fatal("write certBytes to config failed ")
 	}
+}
+
+func importCA(caFile string) {
 	// start to import the ca certificate file
 	caBytes, err := utils.CheckCaCert(caFile)
 	if err != nil {
@@ -110,6 +122,9 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 			hwlog.RunLog.Fatal("write caBytes to config failed ")
 		}
 	}
+}
+
+func importCRL(crlFile string) {
 	// start to import the crl file
 	crlBytes, err := utils.CheckCRL(crlFile)
 	if err != nil {
@@ -120,9 +135,6 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 			hwlog.RunLog.Fatal("write crlBytes to config failed ")
 		}
 	}
-	hwlog.RunLog.Info("import certificate successfully")
-	hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
-	os.Exit(0)
 }
 
 func valid(certFile string, keyFile string, caFile string, crlFile string) {
@@ -141,12 +153,12 @@ func valid(certFile string, keyFile string, caFile string, crlFile string) {
 		hwlog.RunLog.Fatal("the component is invalid")
 	}
 	component = cp
-	keyStore = dirPrefix + component + "/.config/config1"
-	certStore = dirPrefix + component + "/.config/config2"
-	caStore = dirPrefix + component + "/.config/config3"
-	crlStore = dirPrefix + component + "/.config/config4"
-	passFile = dirPrefix + component + "/.config/config5"
-	passFileBackUp = dirPrefix + component + "/.conf"
+	keyStore = dirPrefix + component + "/" + utils.KeyStore
+	certStore = dirPrefix + component + "/" + utils.CertStore
+	caStore = dirPrefix + component + "/" + utils.CaStore
+	crlStore = dirPrefix + component + "/" + utils.CrlStore
+	passFile = dirPrefix + component + "/" + utils.PassFile
+	passFileBackUp = dirPrefix + component + "/" + utils.PassFileBackUp
 }
 
 func initHwLogger(stopCh <-chan struct{}) {
