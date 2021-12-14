@@ -51,6 +51,7 @@ const (
 	overdueTime = 100
 	dayHours    = 24
 	x509v3      = 3
+	yearHours   = 8760
 )
 
 var (
@@ -185,6 +186,9 @@ func CheckValidityPeriod(cert *x509.Certificate) error {
 	now := time.Now()
 	if now.After(cert.NotAfter) || now.Before(cert.NotBefore) {
 		return errors.New("the certificate overdue ")
+	}
+	if cert.NotAfter.Sub(cert.NotBefore).Hours() > yearHours {
+		return errors.New("the certificate validate period is too long")
 	}
 	gapHours := cert.NotAfter.Sub(now).Hours()
 	overdueDays := gapHours / dayHours
@@ -533,7 +537,7 @@ func CheckCaCert(caFile string) ([]byte, error) {
 	}
 	err = CheckValidityPeriod(caCrt)
 	if err != nil {
-		return nil, errors.New("ca certificate is overdue")
+		return nil, err
 	}
 	if err = caCrt.CheckSignature(caCrt.SignatureAlgorithm, caCrt.RawTBSCertificate, caCrt.Signature); err != nil {
 		return nil, errors.New("check ca certificate signature failed")
