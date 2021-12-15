@@ -78,6 +78,7 @@ const (
 	PassFilePath = "PassFilePath"
 	// PassFileBackUpPath PassFileBackUpPath
 	PassFileBackUpPath = "PassFileBackUpPath"
+	yearHours          = 8760
 )
 
 var (
@@ -242,6 +243,9 @@ func GetValidityPeriod(cert *x509.Certificate) (float64, error) {
 	now := time.Now()
 	if now.After(cert.NotAfter) || now.Before(cert.NotBefore) {
 		return 0, errors.New("the certificate overdue ")
+	}
+	if cert.NotAfter.Sub(cert.NotBefore).Hours() > yearHours {
+		return 0, errors.New("the certificate validate period is too long")
 	}
 	gapHours := cert.NotAfter.Sub(now).Hours()
 	overdueDays := gapHours / dayHours
@@ -601,7 +605,7 @@ func CheckCaCertV2(caFile string, overdueTime int) ([]byte, error) {
 		err = CheckValidityPeriodWithError(caCrt, overdueTime)
 	}
 	if err != nil {
-		return nil, errors.New("ca certificate is overdue")
+		return nil, err
 	}
 	if err = caCrt.CheckSignature(caCrt.SignatureAlgorithm, caCrt.RawTBSCertificate, caCrt.Signature); err != nil {
 		return nil, errors.New("check ca certificate signature failed")
@@ -728,6 +732,7 @@ func ValidateCertPair(certBytes, keyPem []byte, periodCheck bool, overdueTime in
 func NewTLSConfig(caBytes []byte, certificate tls.Certificate, cipherSuites uint16) (*tls.Config, error) {
 	return NewTLSConfigV2(caBytes, certificate, []uint16{cipherSuites})
 }
+
 // NewTLSConfigV2  create the tls config struct version 2
 func NewTLSConfigV2(caBytes []byte, certificate tls.Certificate, cipherSuites []uint16) (*tls.Config, error) {
 	tlsConfig := &tls.Config{
