@@ -78,7 +78,7 @@ const (
 	PassFilePath = "PassFilePath"
 	// PassFileBackUpPath PassFileBackUpPath
 	PassFileBackUpPath = "PassFileBackUpPath"
-	yearHours          = 8760
+	yearHours          = 87600
 )
 
 var (
@@ -245,7 +245,7 @@ func GetValidityPeriod(cert *x509.Certificate) (float64, error) {
 		return 0, errors.New("the certificate overdue ")
 	}
 	if cert.NotAfter.Sub(cert.NotBefore).Hours() > yearHours {
-		return 0, errors.New("the certificate validate period is too long")
+		hwlog.RunLog.Warn("the certificate valid period is more than 10 years")
 	}
 	gapHours := cert.NotAfter.Sub(now).Hours()
 	overdueDays := gapHours / dayHours
