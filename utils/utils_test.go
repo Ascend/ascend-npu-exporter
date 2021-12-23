@@ -275,9 +275,9 @@ func TestCheckRevokedCert(t *testing.T) {
 // TestCheckCaCert test for CheckCaCert
 func TestCheckCaCert(t *testing.T) {
 	Convey("test for CheckCaCert", t, func() {
-		Convey("cert validate period too long", func() {
+		Convey("normal situation,no err returned", func() {
 			_, err := CheckCaCert("./testdata/cert/ca.crt")
-			So(err, ShouldNotBeEmpty)
+			So(err, ShouldEqual, nil)
 		})
 		Convey("cert is nil", func() {
 			_, err := CheckCaCert("")
