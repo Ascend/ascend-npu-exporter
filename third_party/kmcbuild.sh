@@ -10,7 +10,7 @@ TOP_DIR=$(realpath "${CUR_DIR}"/..)
 
 cd "${TOP_DIR}"/third_party/build/build
 
-cmake -F CMakeLists.txt -DUSE_LOCAL_OPENSSL=ON  -DOPENSSL_TARBALL_PATH="${TOP_DIR}"/third_party/external/opensource/openssl \
+cmake CMakeLists.txt -DUSE_LOCAL_OPENSSL=ON  -DOPENSSL_TARBALL_PATH="${TOP_DIR}"/third_party/external/opensource/openssl \
     -DHW_SECUREC_DIR="${TOP_DIR}"/third_party/external/huawei/securec ..
 
 make clean
