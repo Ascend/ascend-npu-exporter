@@ -95,7 +95,10 @@ func TestReadOrUpdatePd(t *testing.T) {
 		So(reflect.DeepEqual(back, data), ShouldBeTrue)
 	})
 	Convey("read from back file", t, func() {
-		os.Remove(mainks)
+		err := os.Remove(mainks)
+		if err != nil {
+			fmt.Println("clean source failed")
+		}
 		data := ReadOrUpdatePd(mainks, backupks, testMode)
 		So(string(data), ShouldEqual, "111111")
 		back, err := ReadBytes(mainks)
