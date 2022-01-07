@@ -72,7 +72,13 @@ var getNPUInfo = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 		}
 		var deviceList []*HuaWeiAIChip
 		for i := int32(0); i < deviceNum; i++ {
-			chipInfo := assembleNPUInfoV2(cardID, logicID, dmgr)
+			var chipInfo *HuaWeiAIChip
+			logID, err := dmgr.GetDeviceLogicID(cardID, i)
+			if err == nil {
+				chipInfo = assembleNPUInfoV2(cardID, logID, dmgr)
+			} else {
+				chipInfo = assembleNPUInfoV2(cardID, logicID, dmgr)
+			}
 			if chipInfo != nil {
 				deviceList = append(deviceList, chipInfo)
 			}
