@@ -18,4 +18,5 @@ int dcmi_init(void);
 int dcmi_get_card_num_list(int *card_num, int *card_list, int list_length);
 int dcmi_get_device_num_in_card(int card_id, int *device_num);
 int dcmi_mcu_get_power_info(int card_id,int *power);
+int dcmi_get_device_logic_id(int *device_logic_id, int card_id, int device_id);
 #endif /* _DCMI_INFERENCE_INTERFACE_H_ */

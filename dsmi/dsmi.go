@@ -116,6 +116,10 @@ int (*dcmi_mcu_get_power_info_func)(int card_id,int *power);
 int dcmi_mcu_get_power_info(int card_id,int *power){
 	CALL_FUNC(dcmi_mcu_get_power_info,card_id,power)
 }
+int (*dcmi_get_device_logic_id_func)(int *device_logic_id, int card_id, int device_id);
+int dcmi_get_device_logic_id(int *device_logic_id, int card_id, int device_id){
+    CALL_FUNC(dcmi_get_device_logic_id,device_logic_id,card_id,device_id)
+}
 
 // load .so files and functions
 int dsmiInit_dl(void){
@@ -166,6 +170,8 @@ int dsmiInit_dl(void){
 	dcmi_get_device_num_in_card_func = dlsym(dcmiHandle,"dcmi_get_device_num_in_card");
 
 	dcmi_mcu_get_power_info_func = dlsym(dcmiHandle,"dcmi_mcu_get_power_info");
+
+	dcmi_get_device_logic_id_func = dlsym(dcmiHandle,"dcmi_get_device_logic_id");
 
 	return SUCCESS;
 }
@@ -291,6 +297,8 @@ type getDeviceInfoInterface interface {
 	GetDeviceNumOnCard(cardID int32) (int32, error)
 	// GetCardPower get card power
 	GetCardPower(cardID int32) (float32, error)
+	// GetDeviceLogicID get device logic ID
+	GetDeviceLogicID(cardID, deviceID int32) (int32, error)
 }
 
 // handleDeviceInfoInterface is used to process the device information before return
@@ -338,17 +346,32 @@ func GetDeviceManager() DeviceMgrInterface {
 			hwlog.RunLog.Error("This is no device on this machine")
 			return
 		}
-		chip, err := instance.GetChipInfo(0)
+		var chipinfo *ChipInfo
+		for i := int32(0); i < num; i++ {
+			chipinfo, err = instance.GetChipInfo(i)
+			if err == nil {
+				break
+			}
+			if i == num-1 {
+				hwlog.RunLog.Error("get chipInfo failed")
+				return
+			}
+		}
+
 		if err != nil {
 			hwlog.RunLog.Error(err)
 			return
 		}
-		if IsAscend710(chip.ChipName) {
+		if chipinfo == nil {
+			hwlog.RunLog.Error("chip info is nil")
+			return
+		}
+		if IsAscend710(chipinfo.ChipName) {
 			hwlog.RunLog.Info("change the instance to deviceManager710")
 			instance = &deviceManager710{}
 			chipType = Ascend710
 		}
-		if IsAscend910(chip.ChipName) {
+		if IsAscend910(chipinfo.ChipName) {
 			hwlog.RunLog.Info("change the instance to deviceManager910")
 			instance = &deviceManager910{}
 			chipType = Ascend910
@@ -781,6 +804,24 @@ func (d *baseDeviceManager) GetCardPower(cardID int32) (float32, error) {
 		return retError, errInfo
 	}
 	return parsedPower * 0.1, nil
+}
+
+// GetDeviceLogicID get device logicID
+func (d *baseDeviceManager) GetDeviceLogicID(cardID, deviceID int32) (int32, error) {
+	var logicID C.int
+	if err := C.dcmi_get_device_logic_id(&logicID, C.int(cardID), C.int(deviceID)); err != 0 {
+		errInfo := fmt.Errorf("get logicID failed, error code: %d", int32(err))
+		hwlog.RunLog.Error(errInfo)
+		return retError, errInfo
+	}
+
+	// check whether phyID is too big
+	if uint32(logicID) > uint32(math.MaxInt8) {
+		errInfo := fmt.Errorf("the logicID value is invalid,logicID is: %d", logicID)
+		hwlog.RunLog.Error(errInfo)
+		return retError, errInfo
+	}
+	return int32(logicID), nil
 }
 
 func init() {

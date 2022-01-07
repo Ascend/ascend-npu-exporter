@@ -118,3 +118,8 @@ func (d *DeviceManagerMockErr) GetDeviceNumOnCard(cardID int32) (int32, error) {
 func (d *DeviceManagerMockErr) GetCardPower(cardID int32) (float32, error) {
 	return 1, fmt.Errorf(errorMsg)
 }
+
+// GetDeviceLogicID get device logic ID
+func (d *DeviceManagerMockErr) GetDeviceLogicID(cardID, deviceID int32) (int32, error) {
+	return 1, fmt.Errorf(errorMsg)
+}
