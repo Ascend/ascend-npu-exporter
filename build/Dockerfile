@@ -5,6 +5,8 @@ RUN useradd -d /home/HwHiAiUser -u 1000 -m -s /usr/sbin/nologin HwHiAiUser
 COPY ./npu-exporter  /usr/local/bin/
 COPY ./lib  /usr/local/lib
 RUN chown root:root /usr/local/bin/npu-exporter  &&\
+    chmod 550 /usr/local/bin/ &&\
+    chmod 500 /usr/local/lib/* &&\
     chmod 500 /usr/local/bin/npu-exporter &&\
     echo 'umask 027' >> /etc/profile && \
     echo 'source /etc/profile' >> ~/.bashrc
