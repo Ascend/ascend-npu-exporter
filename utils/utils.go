@@ -79,6 +79,7 @@ const (
 	// PassFileBackUpPath PassFileBackUpPath
 	PassFileBackUpPath = "PassFileBackUpPath"
 	yearHours          = 87600
+	maskLen            = 2
 )
 
 var (
@@ -908,10 +909,10 @@ func ReplacePrefix(source, prefix string) string {
 	if prefix == "" {
 		prefix = "****"
 	}
-	if len(source) <= 2 {
+	if len(source) <= maskLen {
 		return prefix
 	}
-	end := string([]rune(source)[2:len(source)])
+	end := string([]rune(source)[maskLen:len(source)])
 	return prefix + end
 }
 

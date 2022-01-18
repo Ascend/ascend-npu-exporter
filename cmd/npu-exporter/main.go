@@ -107,8 +107,8 @@ func main() {
 			hwlog.RunLog.Fatal(err)
 		}
 		s.TLSConfig = tlsConf
-		s.Handler = limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency, utils.Interceptor(http.DefaultServeMux,
-			crlcerList), true, http.MethodGet)
+		s.Handler = limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency,
+			utils.Interceptor(http.DefaultServeMux, crlcerList), true, http.MethodGet)
 		hwlog.RunLog.Info("start https server now...")
 		if err := s.ListenAndServeTLS("", ""); err != nil {
 			hwlog.RunLog.Fatal("Https server error and stopped")

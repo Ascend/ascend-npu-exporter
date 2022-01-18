@@ -127,7 +127,7 @@ func (operator *ContainerdRuntimeOperator) CgroupsPath(ctx context.Context, id s
 	}
 	s := v1.Spec{}
 	if err := json.Unmarshal(resp.Container.Spec.Value, &s); err != nil {
-		hwlog.RunLog.Error(err)
+		hwlog.RunLog.Error("unmarshal OCI response failed")
 		return "", err
 	}
 	return s.Linux.CgroupsPath, nil
