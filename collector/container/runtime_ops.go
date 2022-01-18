@@ -122,7 +122,7 @@ func (operator *ContainerdRuntimeOperator) CgroupsPath(ctx context.Context, id s
 		Id: id,
 	})
 	if err != nil {
-		hwlog.RunLog.Error(err)
+		hwlog.RunLog.Error("get call OCI get method failed")
 		return "", err
 	}
 	s := v1.Spec{}

@@ -902,3 +902,20 @@ func Interceptor(h http.Handler, crlCertList *pkix.CertificateList) http.Handler
 		h.ServeHTTP(w, r)
 	})
 }
+
+// ReplacePrefix replate string with prefix
+func ReplacePrefix(source, prefix string) string {
+	if prefix == "" {
+		prefix = "****"
+	}
+	if len(source) <= 2 {
+		return prefix
+	}
+	end := string([]rune(source)[2:len(source)])
+	return prefix + end
+}
+
+// MaskPrefix mask string prefix with ***
+func MaskPrefix(source string) string {
+	return ReplacePrefix(source, "")
+}

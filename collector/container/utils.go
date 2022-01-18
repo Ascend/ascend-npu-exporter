@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"google.golang.org/grpc"
 	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/npu-exporter/utils"
 	"net"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -24,7 +26,8 @@ func GetConnection(endPoint string) (*grpc.ClientConn, error) {
 		return nil, fmt.Errorf("endpoint is not set")
 	}
 	var conn *grpc.ClientConn
-	hwlog.RunLog.Debugf("connect using endpoint '%s' with '%s' timeout", endPoint, defaultTimeout)
+	hwlog.RunLog.Debugf("connect using endpoint '%s' with '%s' timeout", utils.MaskPrefix(strings.TrimPrefix(endPoint,
+		unixProtocol+"://")), defaultTimeout)
 	addr, dialer, err := getAddressAndDialer(endPoint)
 	if err != nil {
 		hwlog.RunLog.Error(err)
@@ -36,7 +39,8 @@ func GetConnection(endPoint string) (*grpc.ClientConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	hwlog.RunLog.Debugf("connected successfully using endpoint: %s", endPoint)
+	hwlog.RunLog.Debugf("connected successfully using endpoint: %s", utils.MaskPrefix(strings.TrimPrefix(endPoint,
+		unixProtocol+"://")))
 	return conn, nil
 }
 
