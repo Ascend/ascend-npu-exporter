@@ -20,6 +20,7 @@ type limitHandler struct {
 	concurrency chan struct{}
 	httpHandler http.Handler
 	log         bool
+	method      string
 }
 
 // ServeHTTP implement http.Handler
@@ -42,6 +43,10 @@ func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		start := time.Now()
+		if h.method != "" && req.Method != h.method {
+			http.NotFound(w, req)
+			return
+		}
 		h.httpHandler.ServeHTTP(w, req)
 		stop := time.Since(start)
 		latency := int(math.Ceil(float64(stop.Nanoseconds()) / kilo / kilo))
@@ -59,6 +64,12 @@ func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // NewLimitHandler new a bucket-token limiter
 func NewLimitHandler(maxConcur, maxConcurrency int, handler http.Handler, printLog bool) http.Handler {
+	return NewLimitHandlerWithMethod(maxConcur, maxConcurrency, handler, printLog, "")
+}
+
+// NewLimitHandlerWithMethod  new a bucket-token limiter with specific http method
+func NewLimitHandlerWithMethod(maxConcur, maxConcurrency int, handler http.Handler, printLog bool,
+	httpMethod string) http.Handler {
 	if maxConcur < 1 || maxConcur > maxConcurrency {
 		hwlog.RunLog.Fatal("maxConcurrency parameter error")
 	}
@@ -66,6 +77,7 @@ func NewLimitHandler(maxConcur, maxConcurrency int, handler http.Handler, printL
 		concurrency: make(chan struct{}, maxConcur),
 		httpHandler: handler,
 		log:         printLog,
+		method:      httpMethod,
 	}
 	for i := 0; i < maxConcur; i++ {
 		h.concurrency <- struct{}{}

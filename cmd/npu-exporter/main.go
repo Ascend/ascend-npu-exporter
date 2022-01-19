@@ -77,7 +77,6 @@ func main() {
 		fmt.Printf("NPU-exporter version: %s \n", hwlog.BuildVersion)
 		os.Exit(0)
 	}
-
 	stopCH := make(chan struct{})
 	defer close(stopCH)
 	// init hwlog
@@ -95,8 +94,9 @@ func main() {
 	http.Handle("/", http.HandlerFunc(indexHandler))
 	http.Handle("/v1/certstatus", http.HandlerFunc(getCertStatus))
 	s := &http.Server{
-		Addr:         ip + ":" + strconv.Itoa(port),
-		Handler:      limiter.NewLimitHandler(concurrency, maxConcurrency, http.DefaultServeMux, true),
+		Addr: ip + ":" + strconv.Itoa(port),
+		Handler: limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency, http.DefaultServeMux, true,
+			http.MethodGet),
 		ReadTimeout:  timeout * time.Second,
 		WriteTimeout: timeout * time.Second,
 	}
@@ -107,8 +107,8 @@ func main() {
 			hwlog.RunLog.Fatal(err)
 		}
 		s.TLSConfig = tlsConf
-		s.Handler = limiter.NewLimitHandler(concurrency, maxConcurrency, utils.Interceptor(http.DefaultServeMux,
-			crlcerList), true)
+		s.Handler = limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency,
+			utils.Interceptor(http.DefaultServeMux, crlcerList), true, http.MethodGet)
 		hwlog.RunLog.Info("start https server now...")
 		if err := s.ListenAndServeTLS("", ""); err != nil {
 			hwlog.RunLog.Fatal("Https server error and stopped")

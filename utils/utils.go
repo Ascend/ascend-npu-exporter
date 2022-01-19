@@ -79,6 +79,7 @@ const (
 	// PassFileBackUpPath PassFileBackUpPath
 	PassFileBackUpPath = "PassFileBackUpPath"
 	yearHours          = 87600
+	maskLen            = 2
 )
 
 var (
@@ -901,4 +902,21 @@ func Interceptor(h http.Handler, crlCertList *pkix.CertificateList) http.Handler
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000")
 		h.ServeHTTP(w, r)
 	})
+}
+
+// ReplacePrefix replate string with prefix
+func ReplacePrefix(source, prefix string) string {
+	if prefix == "" {
+		prefix = "****"
+	}
+	if len(source) <= maskLen {
+		return prefix
+	}
+	end := string([]rune(source)[maskLen:len(source)])
+	return prefix + end
+}
+
+// MaskPrefix mask string prefix with ***
+func MaskPrefix(source string) string {
+	return ReplacePrefix(source, "")
 }

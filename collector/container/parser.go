@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"huawei.com/npu-exporter/dsmi"
 	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/npu-exporter/utils"
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 	"os"
 	"path/filepath"
@@ -393,7 +394,8 @@ var ScanForAscendDevices = func(devicesListFile string) ([]int, bool, error) {
 		if os.IsNotExist(err) {
 			return nil, false, ErrNoCgroupHierarchy
 		}
-		return nil, false, errors.Wrapf(err, "error while opening devices cgroup file %q", devicesListFile)
+		return nil, false, errors.Wrapf(err, "error while opening devices cgroup file %q",
+			utils.MaskPrefix(strings.TrimPrefix(devicesListFile, unixProtocol+"://")))
 	}
 	defer f.Close()
 

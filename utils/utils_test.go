@@ -393,3 +393,24 @@ func TestCheckPath(t *testing.T) {
 		})
 	})
 }
+
+// TestReplacePrefix test for ReplacePrefix
+func TestReplacePrefix(t *testing.T) {
+	Convey("relative path", t, func() {
+		path := ReplacePrefix("./testdata/cert/ca.crt", "****")
+		So(path, ShouldEqual, "****testdata/cert/ca.crt")
+	})
+	Convey("absolute path", t, func() {
+		path := ReplacePrefix("/testdata/cert/ca.crt", "****")
+		So(path, ShouldEqual, "****estdata/cert/ca.crt")
+	})
+	Convey("path length less than 2", t, func() {
+		path := ReplacePrefix("/", "****")
+		So(path, ShouldEqual, "****")
+	})
+	Convey("empty string", t, func() {
+		path := ReplacePrefix("", "****")
+		So(path, ShouldEqual, "****")
+	})
+
+}
