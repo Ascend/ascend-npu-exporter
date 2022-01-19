@@ -50,10 +50,9 @@ const (
 	Aes128gcm = 8
 	// Aes256gcm AES256-GCM
 	Aes256gcm = 9
-	// OverdueTime OverdueTime
-	OverdueTime = 100
-	dayHours    = 24
-	x509v3      = 3
+
+	dayHours = 24
+	x509v3   = 3
 	// InvalidNum invalid num
 	InvalidNum = -9999999
 
@@ -80,6 +79,12 @@ const (
 	PassFileBackUpPath = "PassFileBackUpPath"
 	yearHours          = 87600
 	maskLen            = 2
+	// WeekDays one week days
+	WeekDays = 7
+	// YearDays one year days
+	YearDays = 365
+	// TenDays ten days
+	TenDays = 10
 )
 
 var (
@@ -88,6 +93,10 @@ var (
 	Bootstrap *kmc.ManualBootstrap
 	// CertificateMap  using certificate information
 	CertificateMap = make(map[string]*CertStatus, 4)
+	// WarningDays cert warning day ,unit days
+	WarningDays = 100
+	// CheckInterval  cert period check interval,unit days
+	CheckInterval = 1
 )
 
 // CertStatus  the certificate valid period
@@ -219,7 +228,7 @@ func CheckValidityPeriod(cert *x509.Certificate) error {
 	if err != nil {
 		return err
 	}
-	if overdueDays < OverdueTime && overdueDays > 0 {
+	if overdueDays < float64(WarningDays) && overdueDays > 0 {
 		hwlog.RunLog.Warnf("the certificate will overdue after %d days later", int64(overdueDays))
 	}
 
@@ -530,7 +539,7 @@ func PaddingAndCleanSlice(pd []byte) {
 
 // PeriodCheck  period check certificate
 func PeriodCheck(cert *x509.Certificate) {
-	ticker := time.NewTicker(time.Hour)
+	ticker := time.NewTicker(time.Duration(CheckInterval) * dayHours * time.Hour)
 	defer ticker.Stop()
 	for {
 		select {
@@ -543,7 +552,7 @@ func PeriodCheck(cert *x509.Certificate) {
 				hwlog.RunLog.Warn("the certificate is already overdue")
 				continue
 			}
-			if overdueDays < OverdueTime && overdueDays > 0 {
+			if overdueDays < float64(WarningDays) && overdueDays > 0 {
 				hwlog.RunLog.Warnf("the certificate will overdue after %d days later", int64(overdueDays))
 			}
 		}

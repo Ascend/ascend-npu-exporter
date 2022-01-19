@@ -162,6 +162,12 @@ func validate() {
 	if enableHTTP {
 		return
 	}
+	if utils.CheckInterval < 1 || utils.CheckInterval > utils.WeekDays {
+		hwlog.RunLog.Fatal("certificate check interval time invalidate")
+	}
+	if utils.WarningDays < utils.TenDays || utils.WarningDays > utils.YearDays {
+		hwlog.RunLog.Fatal("certificate warning time invalidate")
+	}
 	// key file exist and need init kmc
 	hwlog.RunLog.Info("start load imported certificate files")
 	tlsCert, err := utils.LoadCertPair(certStore, keyStore, passFile, passFileBackUp, encryptAlgorithm)
@@ -256,6 +262,10 @@ func init() {
 		"Log file path. If the file size exceeds 20MB, will be rotated")
 	flag.IntVar(&hwLogConfig.MaxBackups, "maxBackups", hwlog.DefaultMaxBackups,
 		"Maximum number of backup log files, range is (0, 30]")
+	flag.IntVar(&utils.CheckInterval, "checkInterval", utils.CheckInterval,
+		"the Interval time for certificate validate period check, range is [1, 7]")
+	flag.IntVar(&utils.WarningDays, "warningDays", utils.WarningDays,
+		"the Ahead days of warning for certificate overdue, range is [10, 365]")
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
