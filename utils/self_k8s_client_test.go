@@ -1,4 +1,4 @@
-//  Copyright(C) 2021. Huawei Technologies Co.,Ltd.  All rights reserved.
+//  Copyright(C) 2022. Huawei Technologies Co.,Ltd.  All rights reserved.
 
 // Package utils offer the some utils for certificate handling
 package utils

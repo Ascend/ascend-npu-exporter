@@ -1,4 +1,4 @@
-// Copyright (c) 2021. Huawei Technologies Co., Ltd. All rights reserved.
+// Copyright (c) 2022. Huawei Technologies Co., Ltd. All rights reserved.
 
 // Package utils offer the some utils for certificate handling  and k8s config
 package utils
