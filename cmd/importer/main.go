@@ -75,7 +75,7 @@ func init() {
 	flag.BoolVar(&version, "version", false,
 		"If true,query the version of the program (default false)")
 	flag.StringVar(&hwLogConfig.LogFileName, "logFile", defaultLogFile, "Log file path")
-	flag.StringVar(&kubeConfig, "kubeConfig", "", "The root k8s config file path")
+	flag.StringVar(&kubeConfig, "kubeConfig", "", "The k8s config file path")
 }
 
 func importCertFiles(certFile, keyFile, caFile, crlFile string) {
