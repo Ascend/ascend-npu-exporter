@@ -35,6 +35,8 @@ var (
 	crlStore         string
 	passFile         string
 	passFileBackUp   string
+	kubeConfig       string
+	kubeConfStore    string
 	defaultLogFile   = "/var/log/mindx-dl/cert-importer/cert-importer.log"
 	cptMap           = map[string]string{
 		"ne": "npu-exporter", "am": "access-manager", "tm": "task-manager", "lm": "license-manager", "la": "license-agent",
@@ -55,6 +57,7 @@ func main() {
 	stopCH := make(chan struct{})
 	defer close(stopCH)
 	initHwLogger(stopCH)
+	importKubeConfig(kubeConfig)
 	hwlog.RunLog.Infof("start to import certificate and the program version is %s", hwlog.BuildVersion)
 	importCertFiles(certFile, keyFile, caFile, crlFile)
 }
@@ -72,6 +75,7 @@ func init() {
 	flag.BoolVar(&version, "version", false,
 		"If true,query the version of the program (default false)")
 	flag.StringVar(&hwLogConfig.LogFileName, "logFile", defaultLogFile, "Log file path")
+	flag.StringVar(&kubeConfig, "kubeConfig", "", "The root k8s config file path")
 }
 
 func importCertFiles(certFile, keyFile, caFile, crlFile string) {
@@ -144,6 +148,10 @@ func valid(certFile string, keyFile string, caFile string, crlFile string) {
 	if certFile == "" || keyFile == "" {
 		hwlog.RunLog.Fatal("need input certFile and keyFile together")
 	}
+	commonValid()
+}
+
+func commonValid() {
 	if encryptAlgorithm != utils.Aes128gcm && encryptAlgorithm != utils.Aes256gcm {
 		hwlog.RunLog.Warn("reset invalid encryptAlgorithm ")
 		encryptAlgorithm = utils.Aes256gcm
@@ -152,13 +160,13 @@ func valid(certFile string, keyFile string, caFile string, crlFile string) {
 	if !ok {
 		hwlog.RunLog.Fatal("the component is invalid")
 	}
-	component = cp
-	keyStore = dirPrefix + component + "/" + utils.KeyStore
-	certStore = dirPrefix + component + "/" + utils.CertStore
-	caStore = dirPrefix + component + "/" + utils.CaStore
-	crlStore = dirPrefix + component + "/" + utils.CrlStore
-	passFile = dirPrefix + component + "/" + utils.PassFile
-	passFileBackUp = dirPrefix + component + "/" + utils.PassFileBackUp
+	keyStore = dirPrefix + cp + "/" + utils.KeyStore
+	certStore = dirPrefix + cp + "/" + utils.CertStore
+	caStore = dirPrefix + cp + "/" + utils.CaStore
+	crlStore = dirPrefix + cp + "/" + utils.CrlStore
+	passFile = dirPrefix + cp + "/" + utils.PassFile
+	passFileBackUp = dirPrefix + cp + "/" + utils.PassFileBackUp
+	kubeConfStore = dirPrefix + cp + "/" + utils.KubeCfgFile
 }
 
 func initHwLogger(stopCh <-chan struct{}) {
@@ -193,4 +201,38 @@ func backupName(name string) string {
 	t := time.Now()
 	formattedTime := t.Format(timeFormat)
 	return filepath.Join(dir, fmt.Sprintf("%s-%s%s", prefix, formattedTime, suffix))
+}
+
+func importKubeConfig(kubeConf string) {
+	if kubeConf == "" {
+		return
+	}
+	conf, err := utils.CheckPath(kubeConfig)
+	if err != nil {
+		hwlog.RunLog.Fatal(err)
+	}
+	btes, err := utils.ReadBytes(conf)
+	if err != nil {
+		hwlog.RunLog.Fatal(err)
+	}
+	commonValid()
+	utils.KmcInit(encryptAlgorithm, "", "")
+	encryptedConf, err := utils.Encrypt(0, btes)
+	if err != nil {
+		hwlog.RunLog.Fatal("encrypt kubeConfig failed")
+	}
+	if err = utils.MakeSureDir(keyStore); err != nil {
+		hwlog.RunLog.Fatal(err)
+	}
+	hwlog.RunLog.Info("encrypt kubeConfig successfully")
+	if err := utils.OverridePassWdFile(kubeConfStore, encryptedConf, utils.FileMode); err != nil {
+		hwlog.RunLog.Fatal("write encrypted kubeConfig to file failed")
+	}
+	hwlog.RunLog.Info("import kubeConfig successfully")
+	if certFile == "" || keyFile == "" {
+		utils.Bootstrap.Shutdown()
+		hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
+		os.Exit(0)
+	}
+
 }
