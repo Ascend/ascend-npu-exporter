@@ -68,7 +68,8 @@ const (
 	PassFile = ".config/config5"
 	// PassFileBackUp PassFileBackUp path
 	PassFileBackUp = ".conf"
-
+	// KubeCfgFile kubeconfig file store path
+	KubeCfgFile = ".config/config6"
 	// KeyStorePath KeyStorePath
 	KeyStorePath = "KeyStorePath"
 	// CertStorePath CertStorePath
