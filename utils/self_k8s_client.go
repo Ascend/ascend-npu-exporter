@@ -29,26 +29,41 @@ func K8sClient(kubeconfig string) (*kubernetes.Clientset, error) {
 		if kubeconfig == "" {
 			configPath := os.Getenv("KUBECONFIG")
 			if len(configPath) > maxLen {
-				hwlog.RunLog.Fatal("the path is too long")
+				hwlog.RunLog.Error("the path is too long")
 			}
 			kubeconfig = configPath
 		}
 		path, err := CheckPath(kubeconfig)
 		if err != nil {
-			hwlog.RunLog.Fatal(err)
+			hwlog.RunLog.Error(err)
 		}
 		config, err := BuildConfigFromFlags("", path)
 		if err != nil {
-			hwlog.RunLog.Fatal(err)
+			hwlog.RunLog.Error(err)
 		}
 		// Create a new k8sClientSet based on the specified config using the current context
 		kubeClientSet, err = kubernetes.NewForConfig(config)
 		if err != nil {
-			hwlog.RunLog.Fatal(err)
+			hwlog.RunLog.Error(err)
 		}
 	})
+	if kubeClientSet == nil {
+		return nil, errors.New("get k8s client failed")
+	}
 
 	return kubeClientSet, nil
+}
+
+// K8sClientFor  add a default path for each component of MindXDL
+// component name is noded,task-manager,hccl-controller  etc.
+func K8sClientFor(kubeConfig, component string) (*kubernetes.Clientset, error) {
+	// if kubeConfig not set, check and use default path
+	kubeConf := dirPrefix + component + "/" + KubeCfgFile
+	if kubeConfig == "" && component != "" && IsExists(kubeConf) {
+		return K8sClient(kubeConf)
+	}
+	// use custom path
+	return K8sClient(kubeConfig)
 }
 
 // SelfClientConfigLoadingRules  extend   clientcmd.ClientConfigLoadingRules
