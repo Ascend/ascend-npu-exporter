@@ -40,6 +40,7 @@ var (
 	defaultLogFile   = "/var/log/mindx-dl/cert-importer/cert-importer.log"
 	cptMap           = map[string]string{
 		"ne": "npu-exporter", "am": "access-manager", "tm": "task-manager", "lm": "license-manager", "la": "license-agent",
+		"hc": "hccl-controller", "dp": "device-plugin", "nd": "noded",
 	}
 )
 
