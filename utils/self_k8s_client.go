@@ -18,6 +18,8 @@ import (
 	"sync"
 )
 
+const prefix = "/etc/mindx-dl/"
+
 var (
 	k8sClientOnce sync.Once
 	kubeClientSet *kubernetes.Clientset
@@ -58,7 +60,7 @@ func K8sClient(kubeconfig string) (*kubernetes.Clientset, error) {
 // component name is noded,task-manager,hccl-controller  etc.
 func K8sClientFor(kubeConfig, component string) (*kubernetes.Clientset, error) {
 	// if kubeConfig not set, check and use default path
-	kubeConf := dirPrefix + component + "/" + KubeCfgFile
+	kubeConf := prefix + component + "/" + KubeCfgFile
 	if kubeConfig == "" && component != "" && IsExists(kubeConf) {
 		return K8sClient(kubeConf)
 	}
