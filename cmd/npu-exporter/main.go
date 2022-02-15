@@ -67,6 +67,7 @@ const (
 	maxConcurrency          = 50
 	unixPre                 = "unix://"
 	timeout                 = 10
+	maxConnection           = 20
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
@@ -93,14 +94,7 @@ func main() {
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 	http.Handle("/", http.HandlerFunc(indexHandler))
 	http.Handle("/v1/certstatus", http.HandlerFunc(getCertStatus))
-	s := &http.Server{
-		Addr: ip + ":" + strconv.Itoa(port),
-		Handler: limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency, http.DefaultServeMux, true,
-			http.MethodGet),
-		ReadTimeout:  timeout * time.Second,
-		WriteTimeout: timeout * time.Second,
-	}
-
+	s, limitLs := newServerAndListener()
 	if certificate != nil {
 		tlsConf, err := utils.NewTLSConfig(caBytes, *certificate, cipherSuites)
 		if err != nil {
@@ -110,15 +104,33 @@ func main() {
 		s.Handler = limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency,
 			utils.Interceptor(http.DefaultServeMux, crlcerList), true, http.MethodGet)
 		hwlog.RunLog.Info("start https server now...")
-		if err := s.ListenAndServeTLS("", ""); err != nil {
+		if err := s.ServeTLS(limitLs, "", ""); err != nil {
 			hwlog.RunLog.Fatal("Https server error and stopped")
 		}
 	}
-
 	hwlog.RunLog.Warn("enable unsafe http server")
-	if err := s.ListenAndServe(); err != nil {
+	if err := s.Serve(limitLs); err != nil {
 		hwlog.RunLog.Fatal("Http server error and stopped")
 	}
+}
+
+func newServerAndListener() (*http.Server, net.Listener) {
+	s := &http.Server{
+		Addr: ip + ":" + strconv.Itoa(port),
+		Handler: limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency, http.DefaultServeMux, true,
+			http.MethodGet),
+		ReadTimeout:  timeout * time.Second,
+		WriteTimeout: timeout * time.Second,
+	}
+	ln, err := net.Listen("tcp", s.Addr)
+	if err != nil {
+		hwlog.RunLog.Fatal(err)
+	}
+	limitLs, err := limiter.LimitListener(ln, maxConnection)
+	if err != nil {
+		hwlog.RunLog.Fatal(err)
+	}
+	return s, limitLs
 }
 
 func readCntMonitoringFlags() container.CntNpuMonitorOpts {
@@ -278,7 +290,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			<head><title>NPU-Exporter</title></head>
 			<body>
 			<h1 align="center">NPU-Exporter</h1>
-			<p align="center">Welcome to use NPU-Exporter,the Prometheus metrics url is ` + proposal + `://ip ` +
+			<p align="center">Welcome to use NPU-Exporter,the Prometheus metrics url is ` + proposal + `://ip:` +
 			strconv.Itoa(port) + `/metrics: <a href="./metrics">Metrics</a></p>
 			</body>
 			</html>`))
