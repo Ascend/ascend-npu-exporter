@@ -19,6 +19,7 @@ const (
 	dirPrefix  = "/etc/mindx-dl/"
 	timeFormat = "2006-01-02T15-04-05.000"
 	onekilo    = 1000
+	hwMindX    = 9000
 )
 
 var (
@@ -85,6 +86,7 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 	importCert(certFile, keyFile)
 	importCA(caFile)
 	importCRL(crlFile)
+	adjustOwner()
 	hwlog.RunLog.Info("import certificate successfully")
 	hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
 	os.Exit(0)
@@ -209,7 +211,7 @@ func importKubeConfig(kubeConf string) {
 	if kubeConf == "" {
 		return
 	}
-	conf, err := utils.CheckPath(kubeConfig)
+	conf, err := utils.CheckPath(kubeConf)
 	if err != nil {
 		hwlog.RunLog.Fatal(err)
 	}
@@ -232,9 +234,29 @@ func importKubeConfig(kubeConf string) {
 	}
 	hwlog.RunLog.Info("import kubeConfig successfully")
 	if certFile == "" || keyFile == "" {
+		adjustOwner()
 		utils.Bootstrap.Shutdown()
 		hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
 		os.Exit(0)
 	}
 
+}
+
+func adjustOwner() {
+	path, err := utils.CheckPath(dirPrefix)
+	if err != nil {
+		hwlog.RunLog.Warn("config file directory is not safe")
+	}
+	if err := chownR(path, hwMindX, hwMindX); err != nil {
+		hwlog.RunLog.Warn("change file owner failed, please chown to hwMindX manually")
+	}
+	hwlog.RunLog.Info("change owner successfully")
+}
+func chownR(path string, uid, gid int) error {
+	return filepath.Walk(path, func(name string, info os.FileInfo, err error) error {
+		if err == nil {
+			err = os.Chown(name, uid, gid)
+		}
+		return err
+	})
 }

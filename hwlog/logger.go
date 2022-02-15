@@ -4,6 +4,7 @@
 package hwlog
 
 import (
+	"errors"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"go.uber.org/zap"
@@ -11,7 +12,9 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 const (
@@ -306,10 +309,36 @@ func changeFileMode(l *zap.Logger, event fsnotify.Event, logFileFullPath string)
 	if !isExist(changedLogFilePath) {
 		return
 	}
-	if errChmod := os.Chmod(changedLogFilePath, logMode); errChmod != nil {
+	path, err := CheckPath(changedLogFilePath)
+	if err != nil {
+		return
+	}
+	if errChmod := os.Chmod(path, logMode); errChmod != nil {
 		l.Error("set file mode failed", zap.String("filename", changedFileName))
 	}
 }
 func isTargetLog(fileName string) bool {
 	return reg.MatchString(fileName)
+}
+
+// CheckPath  validate path
+func CheckPath(path string) (string, error) {
+	if path == "" {
+		return path, nil
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", errors.New("get the absolute path failed")
+	}
+	resoledPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		if strings.Contains(err.Error(), "no such file or directory") {
+			return "", os.ErrNotExist
+		}
+		return "", errors.New("get the symlinks path failed")
+	}
+	if absPath != resoledPath {
+		return "", errors.New("can't support symlinks")
+	}
+	return resoledPath, nil
 }
