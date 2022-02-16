@@ -112,9 +112,9 @@ type CertStatus struct {
 
 // ReadBytes read contents from file path
 func ReadBytes(path string) ([]byte, error) {
-	key, err := filepath.Abs(path)
+	key, err := CheckPath(path)
 	if err != nil {
-		return nil, errors.New("the file path is invalid")
+		return nil, err
 	}
 	bytesData, err := ioutil.ReadFile(key)
 	if err != nil {
@@ -677,6 +677,11 @@ func CheckCertFiles(pathMap map[string]string) error {
 		hwlog.RunLog.Error("certFile is empty")
 		return os.ErrNotExist
 	}
+	for _, v := range pathMap {
+		if _, err := CheckPath(v); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -850,21 +855,7 @@ func AddToCertStatusTrace(cert *x509.Certificate) error {
 
 // CheckPath  validate path
 func CheckPath(path string) (string, error) {
-	if path == "" {
-		return path, nil
-	}
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return "", errors.New("get the absolute path failed")
-	}
-	resoledPath, err := filepath.EvalSymlinks(absPath)
-	if err != nil {
-		return "", errors.New("get the symlinks path failed")
-	}
-	if absPath != resoledPath {
-		return "", errors.New("can't support symlinks")
-	}
-	return resoledPath, nil
+	return hwlog.CheckPath(path)
 }
 
 // ClientIP try to get the clientIP
@@ -895,6 +886,10 @@ func LoadFile(filePath string) ([]byte, error) {
 	}
 	if !IsExists(absPath) {
 		return nil, nil
+	}
+	absPath, err = CheckPath(absPath)
+	if err != nil {
+		return nil, err
 	}
 	contentBytes, err := ioutil.ReadFile(absPath)
 	if err != nil {

@@ -159,10 +159,19 @@ func (dp *DevicesParser) parseDevices(ctx context.Context, c *runtimeapi.Contain
 	} else if err != nil {
 		return errors.Wrapf(err, "parsing Ascend devices of container %s fail", c.Id)
 	}
-
+	ns := c.Labels[labelK8sPodNamespace]
+	err = validDNSRe(ns)
+	if err != nil {
+		return err
+	}
+	podName := c.Labels[labelK8sPodName]
+	err = validDNSRe(podName)
+	if err != nil {
+		return err
+	}
 	if hasAscend {
 		deviceInfo.ID = c.Id
-		deviceInfo.Name = c.Labels[labelK8sPodNamespace] + "_" + c.Labels[labelK8sPodName] + "_" + c.Metadata.Name
+		deviceInfo.Name = ns + "_" + podName + "_" + c.Metadata.Name
 		deviceInfo.Devices = devicesIDs
 	}
 	return nil
@@ -266,7 +275,11 @@ var GetCgroupPath = func(controller, specCgroupsPath string) (string, error) {
 }
 
 func getCgroupControllerPath(controller string) (string, error) {
-	f, err := os.Open(procMountInfo)
+	path, err := utils.CheckPath(procMountInfo)
+	if err != nil {
+		return "", err
+	}
+	f, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}

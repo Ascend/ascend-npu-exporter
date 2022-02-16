@@ -305,7 +305,7 @@ func TestCheckCaCert(t *testing.T) {
 func TestLoadEncryptedCertPair(t *testing.T) {
 	Convey("test for LoadCertPair", t, func() {
 		var mainks = "./testdata/mainks"
-		var backupks = "./testdata/backupks"
+		var backupks = "./testdata/mainks"
 		// mock kmcInit
 		initStub := gostub.Stub(&KmcInit, func(sdpAlgID int, primaryKey, standbyKey string) {})
 		defer initStub.Reset()

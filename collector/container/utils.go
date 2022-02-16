@@ -5,12 +5,14 @@ package container
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"google.golang.org/grpc"
 	"huawei.com/npu-exporter/hwlog"
 	"huawei.com/npu-exporter/utils"
 	"net"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -18,6 +20,12 @@ import (
 const (
 	defaultTimeout = 5 * time.Second
 	unixProtocol   = "unix"
+	// MaxLenDNS configName max len
+	MaxLenDNS = 63
+	// MinLenDNS configName min len
+	MinLenDNS = 2
+	// DNSRe DNS regex string
+	DNSRe = `^[a-z0-9]+[a-z0-9-]*[a-z0-9]+$`
 )
 
 // GetConnection return the grpc connection
@@ -73,4 +81,15 @@ func getAddressAndDialer(endpoint string) (string, func(ctx context.Context, add
 }
 func dial(ctx context.Context, addr string) (net.Conn, error) {
 	return (&net.Dialer{}).DialContext(ctx, unixProtocol, addr)
+}
+
+func validDNSRe(dnsContent string) error {
+	if len(dnsContent) < MinLenDNS || len(dnsContent) > MaxLenDNS {
+		return errors.New("param len invalid")
+	}
+
+	if match, err := regexp.MatchString(DNSRe, dnsContent); !match || err != nil {
+		return errors.New("param invalid, not meet requirement")
+	}
+	return nil
 }
