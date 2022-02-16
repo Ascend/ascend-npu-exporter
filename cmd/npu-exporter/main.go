@@ -30,7 +30,6 @@ import (
 var (
 	port             int
 	updateTime       int
-	needGoInfo       bool
 	certificate      *tls.Certificate
 	ip               string
 	enableHTTP       bool
@@ -163,9 +162,6 @@ func regPrometheus(stop chan os.Signal, opts container.CntNpuMonitorOpts) *prome
 	reg.MustRegister(
 		collector.NewNpuCollector(cacheTime, time.Duration(updateTime)*time.Second, stop, deviceParser),
 	)
-	if needGoInfo {
-		reg.MustRegister(prometheus.NewGoCollector())
-	}
 	return reg
 }
 
@@ -246,8 +242,6 @@ func init() {
 		"The listen ip of the service,0.0.0.0 is not recommended when install on Multi-NIC host")
 	flag.IntVar(&updateTime, "updateTime", updateTimeConst,
 		"Interval (seconds) to update the npu metrics cache,range[1-60]")
-	flag.BoolVar(&needGoInfo, "needGoInfo", false,
-		"If true,show golang metrics (default false)")
 	flag.BoolVar(&enableHTTP, "enableHTTP", false,
 		"If true, the program will not check certificate files and enable http server (default false)")
 	flag.IntVar(&encryptAlgorithm, "encryptAlgorithm", utils.Aes256gcm,
