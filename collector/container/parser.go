@@ -36,6 +36,7 @@ const (
 	maxNpuCardsNum              = 64
 	namespaceMoby               = "moby"   // Docker
 	namespaceK8s                = "k8s.io" // CRI + Containerd
+	sliceLen8                   = 8
 )
 
 const (
@@ -396,7 +397,7 @@ func getUnit(prefix, name string) string {
 }
 
 var ScanForAscendDevices = func(devicesListFile string) ([]int, bool, error) {
-	minorNumbers := make([]int, 0, 8)
+	minorNumbers := make([]int, 0, sliceLen8)
 	majorID := npuMajor()
 	if majorID == "" {
 		return nil, false, fmt.Errorf("majorID is null")

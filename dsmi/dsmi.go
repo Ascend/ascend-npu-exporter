@@ -209,6 +209,7 @@ const (
 	MaxErrorCodeCount = 128
 	// when get temperature failed, use this value
 	DefaultTemperatureWhenQueryFailed = -275
+	maxChipNum                        = 64
 )
 
 // HbmInfo HBM info
@@ -389,7 +390,7 @@ func (d *baseDeviceManager) GetDeviceCount() (int32, error) {
 		return retError, errInfo
 	}
 	// Invalid number of devices.
-	if count < 0 {
+	if count < 0 || count > maxChipNum {
 		errInfo := fmt.Errorf("get device quantity failed, the number of devices is: %d", int32(count))
 		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
@@ -415,7 +416,7 @@ func (d *baseDeviceManager) GetDeviceList() (int32, []int32, error) {
 	var i int32
 	for i = 0; i < devNum && i < int32(len(ids)-1); i++ {
 		deviceId := int32(ids[i])
-		if deviceId < 0 {
+		if deviceId < 0 || deviceId > maxChipNum {
 			errInfo := fmt.Errorf("the device ids array has invalid id(%d)", deviceId)
 			hwlog.RunLog.Error(errInfo)
 			continue
@@ -867,7 +868,7 @@ func isValidChipInfo(chip *ChipInfo) bool {
 
 // valid utilization rate is 0-100
 func isValidUtilizationRate(num uint32) bool {
-	if num > uint32(Percent) {
+	if num > uint32(Percent) || num < 0 {
 		return false
 	}
 
