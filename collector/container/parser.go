@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	procMountInfo               = "/proc/self/mountinfo"
 	procMountInfoColSep         = " "
 	cgroupControllerDevices     = "devices"
 	expectSystemdCgroupPathCols = 3
@@ -59,6 +58,8 @@ var (
 	npuMajorID               string
 	npuMajorFetchCtrl        sync.Once
 	parsingNpuDefaultTimeout = 3 * time.Second
+	procMountInfoGet         sync.Once
+	procMountInfo            string
 )
 
 // CntNpuMonitorOpts contains setting options for monitoring containers
@@ -276,6 +277,10 @@ var GetCgroupPath = func(controller, specCgroupsPath string) (string, error) {
 }
 
 func getCgroupControllerPath(controller string) (string, error) {
+	procMountInfoGet.Do(func() {
+		pid := os.Getpid()
+		procMountInfo = "/proc/" + strconv.Itoa(pid) + "/mountinfo"
+	})
 	path, err := utils.CheckPath(procMountInfo)
 	if err != nil {
 		return "", err
