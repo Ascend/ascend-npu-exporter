@@ -40,11 +40,14 @@ func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	select {
 	case _, ok := <-h.concurrency:
 		if !ok {
+			//  channel closed and no need return token
 			return
 		}
 		start := time.Now()
 		if h.method != "" && req.Method != h.method {
 			http.NotFound(w, req)
+			//  return to token bucket
+			h.concurrency <- struct{}{}
 			return
 		}
 		h.httpHandler.ServeHTTP(w, req)
