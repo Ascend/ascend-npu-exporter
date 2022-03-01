@@ -625,6 +625,7 @@ func CheckCaCertV2(caFile string, overdueTime int) ([]byte, error) {
 	if err = AddToCertStatusTrace(caCrt); err != nil {
 		hwlog.RunLog.Fatal(err)
 	}
+	go PeriodCheck(caCrt)
 	hwlog.RunLog.Infof("ca certificate signature check pass")
 	return caBytes, nil
 }
