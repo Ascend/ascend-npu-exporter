@@ -13,7 +13,9 @@ import (
 )
 
 const (
-	kilo = 1000.0
+	kilo                  = 1000.0
+	defaultDataLimit      = 1024 * 1024 * 10
+	defaultMaxConcurrency = 1024
 )
 
 type limitHandler struct {
@@ -21,10 +23,12 @@ type limitHandler struct {
 	httpHandler http.Handler
 	log         bool
 	method      string
+	limitBytes  int64
 }
 
 // ServeHTTP implement http.Handler
 func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	req.Body = http.MaxBytesReader(w, req.Body, h.limitBytes)
 	ctx := context.TODO()
 	reqID := req.Header.Get(hwlog.ReqID.String())
 	if reqID != "" {
@@ -76,13 +80,30 @@ func NewLimitHandlerWithMethod(maxConcur, maxConcurrency int, handler http.Handl
 	if maxConcur < 1 || maxConcur > maxConcurrency {
 		hwlog.RunLog.Fatal("maxConcurrency parameter error")
 	}
+	concur := make(chan struct{}, maxConcur)
+	return createHandler(concur, handler, printLog, httpMethod, defaultDataLimit)
+}
+
+// NewLimitHandlerWithBodyLimit  new a bucket-token limiter with bodysize limit
+func NewLimitHandlerWithBodyLimit(maxConcur int, handler http.Handler, printLog bool,
+	httpMethod string, bodySizeLimit int64) http.Handler {
+	if maxConcur < 1 || maxConcur > defaultMaxConcurrency {
+		hwlog.RunLog.Fatal("maxConcurrency parameter error")
+	}
+	concur := make(chan struct{}, maxConcur)
+	return createHandler(concur, handler, printLog, httpMethod, bodySizeLimit)
+}
+
+func createHandler(concur chan struct{}, handler http.Handler, printLog bool,
+	httpMethod string, bodySizeLimit int64) *limitHandler {
 	h := &limitHandler{
-		concurrency: make(chan struct{}, maxConcur),
+		concurrency: concur,
 		httpHandler: handler,
 		log:         printLog,
 		method:      httpMethod,
+		limitBytes:  bodySizeLimit,
 	}
-	for i := 0; i < maxConcur; i++ {
+	for i := 0; i < cap(concur); i++ {
 		h.concurrency <- struct{}{}
 	}
 	return h

@@ -164,13 +164,34 @@ func commonValid() {
 	if !ok {
 		hwlog.RunLog.Fatal("the component is invalid")
 	}
+	var paths []string
 	keyStore = dirPrefix + cp + "/" + utils.KeyStore
+	paths = append(paths, keyStore)
 	certStore = dirPrefix + cp + "/" + utils.CertStore
+	paths = append(paths, certStore)
 	caStore = dirPrefix + cp + "/" + utils.CaStore
+	paths = append(paths, caStore)
 	crlStore = dirPrefix + cp + "/" + utils.CrlStore
+	paths = append(paths, crlStore)
 	passFile = dirPrefix + cp + "/" + utils.PassFile
+	paths = append(paths, passFile)
 	passFileBackUp = dirPrefix + cp + "/" + utils.PassFileBackUp
+	paths = append(paths, passFileBackUp)
 	kubeConfStore = dirPrefix + cp + "/" + utils.KubeCfgFile
+	paths = append(paths, kubeConfStore)
+	checkPathIsExist(paths)
+}
+
+func checkPathIsExist(paths []string) {
+	for _, v := range paths {
+		if !utils.IsExists(v) {
+			continue
+		}
+		_, err := utils.CheckPath(v)
+		if err != nil {
+			hwlog.RunLog.Fatal(err)
+		}
+	}
 }
 
 func initHwLogger(stopCh <-chan struct{}) {
