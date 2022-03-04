@@ -42,6 +42,7 @@ func K8sClient(kubeconfig string) (*kubernetes.Clientset, error) {
 		config, err := BuildConfigFromFlags("", path)
 		if err != nil {
 			hwlog.RunLog.Error(err)
+			return
 		}
 		// Create a new k8sClientSet based on the specified config using the current context
 		kubeClientSet, err = kubernetes.NewForConfig(config)

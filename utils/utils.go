@@ -467,6 +467,8 @@ var KmcInit = func(sdpAlgID int, primaryKey, standbyKey string) {
 		if standbyKey == "" {
 			standbyKey = "/etc/mindx-dl/.config/backup.ks"
 		}
+		checkRootMaterial(primaryKey)
+		checkRootMaterial(standbyKey)
 		defaultInitConfig.PrimaryKeyStoreFile = primaryKey
 		defaultInitConfig.StandbyKeyStoreFile = standbyKey
 		if sdpAlgID == 0 {
@@ -480,6 +482,15 @@ var KmcInit = func(sdpAlgID int, primaryKey, standbyKey string) {
 	cryptoAPI.UpdateLifetimeDays(TenDays * TenDays)
 	if err != nil {
 		hwlog.RunLog.Fatal("initial kmc failed,please make sure the LD_LIBRARY_PATH include the kmc-ext.so ")
+	}
+}
+
+func checkRootMaterial(primaryKey string) {
+	if IsExists(primaryKey) {
+		_, err := CheckPath(primaryKey)
+		if err != nil {
+			hwlog.RunLog.Fatal("kmc root material file is symlinks")
+		}
 	}
 }
 
@@ -540,7 +551,7 @@ func PaddingAndCleanSlice(pd []byte) {
 }
 
 // PeriodCheck  period check certificate
-func PeriodCheck(cert *x509.Certificate) {
+func PeriodCheck() {
 	ticker := time.NewTicker(time.Duration(CheckInterval) * dayHours * time.Hour)
 	defer ticker.Stop()
 	for {
@@ -549,15 +560,26 @@ func PeriodCheck(cert *x509.Certificate) {
 			if !ok {
 				return
 			}
-			overdueDays, err := GetValidityPeriod(cert)
-			if err != nil {
-				hwlog.RunLog.Warn("the certificate is already overdue")
-				continue
-			}
-			if overdueDays < float64(WarningDays) && overdueDays > 0 {
-				hwlog.RunLog.Warnf("the certificate will overdue after %d days later", int64(overdueDays))
+			now := time.Now()
+			for _, v := range CertificateMap {
+				checkCertStatus(now, v)
 			}
 		}
+	}
+}
+
+func checkCertStatus(now time.Time, v *CertStatus) {
+	if now.After(v.NotAfter) || now.Before(v.NotBefore) {
+		hwlog.RunLog.Warnf("the certificate: %s is already overdue", v.FingerprintSHA256)
+	}
+	gapHours := v.NotAfter.Sub(now).Hours()
+	overdueDays := gapHours / dayHours
+	if overdueDays > math.MaxInt64 {
+		overdueDays = math.MaxInt64
+	}
+	if overdueDays < float64(WarningDays) && overdueDays >= 0 {
+		hwlog.RunLog.Warnf("the certificate: %s will overdue after %d days later",
+			v.FingerprintSHA256, int64(overdueDays))
 	}
 }
 
@@ -625,7 +647,6 @@ func CheckCaCertV2(caFile string, overdueTime int) ([]byte, error) {
 	if err = AddToCertStatusTrace(caCrt); err != nil {
 		hwlog.RunLog.Fatal(err)
 	}
-	go PeriodCheck(caCrt)
 	hwlog.RunLog.Infof("ca certificate signature check pass")
 	return caBytes, nil
 }
@@ -741,7 +762,7 @@ func ValidateCertPair(certBytes, keyPem []byte, periodCheck bool, overdueTime in
 		return nil, err
 	}
 	if periodCheck {
-		go PeriodCheck(x509Cert)
+		go PeriodCheck()
 	}
 	return tlsCert, nil
 }
