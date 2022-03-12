@@ -86,6 +86,9 @@ const (
 	YearDays = 365
 	// TenDays ten days
 	TenDays = 10
+	// Size10M  bytes of 10M
+	Size10M = 10 * 1024 * 1024
+	maxSize = 1024 * 1024 * 1024
 )
 
 var (
@@ -111,6 +114,7 @@ type CertStatus struct {
 }
 
 // ReadBytes read contents from file path
+// Deprecated: replace with ReadLimitBytes
 func ReadBytes(path string) ([]byte, error) {
 	key, err := CheckPath(path)
 	if err != nil {
@@ -121,6 +125,28 @@ func ReadBytes(path string) ([]byte, error) {
 		return nil, errors.New("read file failed")
 	}
 	return bytesData, nil
+}
+
+// ReadLimitBytes read limit length of contents from file path
+func ReadLimitBytes(path string, limitLength int) ([]byte, error) {
+	key, err := CheckPath(path)
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.OpenFile(key, os.O_RDONLY, FileMode)
+	defer file.Close()
+	if err != nil {
+		return nil, err
+	}
+	if limitLength < 0 || limitLength > maxSize {
+		return nil, errors.New("the limit length is not valid")
+	}
+	buf := make([]byte, limitLength, limitLength)
+	l, err := file.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf[0:l], nil
 }
 
 // IsExists judge the file or directory exist or not
@@ -407,7 +433,7 @@ func ValidateX509PairV2(certBytes []byte, keyBytes []byte, overdueTime int) (*tl
 
 // DecryptPrivateKeyWithPd  decrypt Private key By password
 func DecryptPrivateKeyWithPd(keyFile string, passwd []byte) (*pem.Block, error) {
-	keyBytes, err := ReadBytes(keyFile)
+	keyBytes, err := ReadLimitBytes(keyFile, Size10M)
 	if err != nil {
 		return nil, err
 	}
@@ -435,10 +461,10 @@ func GetRandomPass() []byte {
 
 // ReadOrUpdatePd  read or update the password file
 func ReadOrUpdatePd(mainPath, backPath string, mode os.FileMode) []byte {
-	mainPd, err := ReadBytes(mainPath)
+	mainPd, err := ReadLimitBytes(mainPath, Size10M)
 	if err != nil {
 		hwlog.RunLog.Warn("there is no main passwd,start to find backup files")
-		backPd, err := ReadBytes(backPath)
+		backPd, err := ReadLimitBytes(backPath, Size10M)
 		if err != nil {
 			hwlog.RunLog.Warn("there is no backup file found")
 			return []byte{}
@@ -909,11 +935,7 @@ func LoadFile(filePath string) ([]byte, error) {
 	if !IsExists(absPath) {
 		return nil, nil
 	}
-	absPath, err = CheckPath(absPath)
-	if err != nil {
-		return nil, err
-	}
-	contentBytes, err := ioutil.ReadFile(absPath)
+	contentBytes, err := ReadLimitBytes(absPath, Size10M)
 	if err != nil {
 		return nil, errors.New("read file failed")
 	}

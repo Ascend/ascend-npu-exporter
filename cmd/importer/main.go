@@ -98,7 +98,7 @@ func importCert(certFile, keyFile string) {
 		hwlog.RunLog.Fatal(err)
 	}
 	// start to import the  certificate file
-	certBytes, err := utils.ReadBytes(certFile)
+	certBytes, err := utils.ReadLimitBytes(certFile, utils.Size10M)
 	if err != nil {
 		hwlog.RunLog.Fatal("read certFile failed")
 	}
@@ -236,7 +236,7 @@ func importKubeConfig(kubeConf string) {
 	if err != nil {
 		hwlog.RunLog.Fatal(err)
 	}
-	btes, err := utils.ReadBytes(conf)
+	btes, err := utils.ReadLimitBytes(conf, utils.Size10M)
 	if err != nil {
 		hwlog.RunLog.Fatal(err)
 	}
