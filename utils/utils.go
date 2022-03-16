@@ -743,7 +743,7 @@ func LoadCertPairByte(pathMap map[string]string, encryptAlgorithm int, mode os.F
 	key := pathMap[KeyStorePath]
 	psFile := pathMap[PassFilePath]
 	psFileBk := pathMap[PassFileBackUpPath]
-	certBytes, err := ioutil.ReadFile(cert)
+	certBytes, err := ReadLimitBytes(cert, Size10M)
 	if err != nil {
 		return nil, nil, errors.New("there is no certFile provided")
 	}

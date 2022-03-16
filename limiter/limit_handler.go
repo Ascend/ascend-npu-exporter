@@ -16,6 +16,8 @@ const (
 	kilo                  = 1000.0
 	defaultDataLimit      = 1024 * 1024 * 10
 	defaultMaxConcurrency = 1024
+	second5               = 5
+	second4               = 4
 )
 
 type limitHandler struct {
@@ -47,26 +49,68 @@ func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			//  channel closed and no need return token
 			return
 		}
-		start := time.Now()
+
 		if h.method != "" && req.Method != h.method {
 			http.NotFound(w, req)
 			//  return to token bucket
 			h.concurrency <- struct{}{}
 			return
 		}
+		hwlog.RunLog.Debugf("token count:%d", len(h.concurrency))
+		ctx := context.Background()
+		cancelCtx, cancelFunc := context.WithCancel(ctx)
+		start := time.Now()
+		go returnToken(cancelCtx, h.concurrency)
 		h.httpHandler.ServeHTTP(w, req)
 		stop := time.Since(start)
+		if stop < second4*time.Second {
+			cancelFunc()
+			h.concurrency <- struct{}{}
+		}
 		latency := int(math.Ceil(float64(stop.Nanoseconds()) / kilo / kilo))
 		if h.log {
 			hwlog.RunLog.InfofWithCtx(ctx, "%s %s: %s <%3d> (%dms) |%15s |%s ", req.Proto, req.Method, path,
 				http.StatusOK, latency, clientIP, clientUserAgent)
 		}
-		h.concurrency <- struct{}{}
 	default:
 		hwlog.RunLog.WarnfWithCtx(ctx, "Reject Request:%s: %s <%3d> |%15s |%s ", req.Method, path,
 			http.StatusServiceUnavailable, clientIP, clientUserAgent)
 		http.Error(w, "503 too busy", http.StatusServiceUnavailable)
 	}
+}
+
+func returnToken(ctx context.Context, concurrency chan struct{}) {
+	defer func() {
+		if err := recover(); err != nil {
+			hwlog.RunLog.Errorf("go routine failed with %v", err)
+		}
+	}()
+	timeAfterTrigger := time.After(time.Second * second5)
+	if concurrency == nil || timeAfterTrigger == nil {
+		hwlog.RunLog.Error("return token error")
+		return
+	}
+
+	for {
+		select {
+		case _, ok := <-timeAfterTrigger:
+			if !ok {
+				return
+			}
+			concurrency <- struct{}{}
+			// reach the return deadline
+			hwlog.RunLog.Debugf("recover token num：%d", len(concurrency))
+			return
+		case _, ok := <-ctx.Done():
+			hwlog.RunLog.Debugf("goroutine canceled")
+			if !ok {
+				return
+			}
+			return
+		}
+
+	}
+
 }
 
 // NewLimitHandler new a bucket-token limiter
