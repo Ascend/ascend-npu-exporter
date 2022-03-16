@@ -67,6 +67,7 @@ const (
 	unixPre                 = "unix://"
 	timeout                 = 10
 	maxConnection           = 20
+	maxHeaderBytes          = 1024 * 100
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
@@ -118,8 +119,9 @@ func newServerAndListener() (*http.Server, net.Listener) {
 		Addr: ip + ":" + strconv.Itoa(port),
 		Handler: limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency, http.DefaultServeMux, true,
 			http.MethodGet),
-		ReadTimeout:  timeout * time.Second,
-		WriteTimeout: timeout * time.Second,
+		ReadTimeout:    timeout * time.Second,
+		WriteTimeout:   timeout * time.Second,
+		MaxHeaderBytes: maxHeaderBytes,
 	}
 	ln, err := net.Listen("tcp", s.Addr)
 	if err != nil {
