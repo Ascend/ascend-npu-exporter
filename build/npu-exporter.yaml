@@ -39,6 +39,8 @@ spec:
       app: npu-exporter
   template:
     metadata:
+      annotations:
+        seccomp.security.alpha.kubernetes.io/pod: runtime/default
       labels:
         app: npu-exporter
     spec:
