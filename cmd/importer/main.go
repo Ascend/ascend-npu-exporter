@@ -43,6 +43,7 @@ var (
 		"ne": "npu-exporter", "am": "access-manager", "tm": "task-manager", "lm": "license-manager", "la": "license-agent",
 		"hc": "hccl-controller", "dp": "device-plugin", "nd": "noded",
 	}
+	notDel bool
 )
 
 var hwLogConfig = &hwlog.LogConfig{FileMaxSize: hwlog.DefaultFileMaxSize,
@@ -60,7 +61,6 @@ func main() {
 	defer close(stopCH)
 	initHwLogger(stopCH)
 	importKubeConfig(kubeConfig)
-	hwlog.RunLog.Infof("start to import certificate and the program version is %s", hwlog.BuildVersion)
 	importCertFiles(certFile, keyFile, caFile, crlFile)
 }
 
@@ -79,17 +79,29 @@ func init() {
 		"If true,query the version of the program (default false)")
 	flag.StringVar(&hwLogConfig.LogFileName, "logFile", defaultLogFile, "Log file path")
 	flag.StringVar(&kubeConfig, "kubeConfig", "", "The k8s config file path")
+	flag.BoolVar(&notDel, "n", false,
+		"If true,stop delete the sensitive original file automatically")
 }
 
 func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 	valid(certFile, keyFile, caFile, crlFile)
+	hwlog.RunLog.Infof("start to import certificate and the program version is %s", hwlog.BuildVersion)
 	importCert(certFile, keyFile)
 	importCA(caFile)
 	importCRL(crlFile)
 	adjustOwner()
 	hwlog.RunLog.Info("import certificate successfully")
-	hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
-	os.Exit(0)
+	if notDel {
+		hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
+		return
+	}
+	err := os.Remove(keyFile)
+	if err != nil {
+		hwlog.RunLog.Warn("delete private key file automatically failed,please delete it by yourself")
+		return
+	}
+	hwlog.RunLog.Warn("delete private key file automatically")
+	return
 }
 
 func importCert(certFile, keyFile string) {
@@ -257,8 +269,17 @@ func importKubeConfig(kubeConf string) {
 	if certFile == "" || keyFile == "" {
 		adjustOwner()
 		utils.Bootstrap.Shutdown()
-		hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
-		os.Exit(0)
+		if notDel {
+			hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
+			return
+		}
+		err = os.Remove(conf)
+		if err != nil {
+			hwlog.RunLog.Warn("delete config file automatically failed,please delete it by yourself")
+			return
+		}
+		hwlog.RunLog.Info("delete config file automatically")
+		return
 	}
 
 }

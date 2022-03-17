@@ -67,7 +67,7 @@ const (
 	unixPre                 = "unix://"
 	timeout                 = 10
 	maxConnection           = 20
-	maxHeaderBytes          = 1024 * 100
+	maxHeaderBytes          = 1024
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}

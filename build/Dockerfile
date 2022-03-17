@@ -1,6 +1,6 @@
 FROM ubuntu:18.04
-RUN useradd -d /home/hwMindX -u 9000 -m -s /usr/sbin/nologin hwMindX
-RUN sed '1c root:x:0:0:root:/root:/usr/sbin/nologin'  /etc/passwd
+RUN useradd -d /home/hwMindX -u 9000 -m -s /usr/sbin/nologin hwMindX &&\
+    usermod root -s /usr/sbin/nologin
 COPY ./npu-exporter  /usr/local/bin/
 COPY ./lib  /usr/local/lib
 RUN chown root:root /usr/local/bin/npu-exporter  &&\
