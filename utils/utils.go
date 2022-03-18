@@ -89,8 +89,9 @@ const (
 	// TenDays ten days
 	TenDays = 10
 	// Size10M  bytes of 10M
-	Size10M = 10 * 1024 * 1024
-	maxSize = 1024 * 1024 * 1024
+	Size10M   = 10 * 1024 * 1024
+	maxSize   = 1024 * 1024 * 1024
+	byteToBit = 8
 )
 
 var (
@@ -103,6 +104,8 @@ var (
 	WarningDays = 100
 	// CheckInterval  cert period check interval,unit days
 	CheckInterval = 1
+
+	kmcNewManualBootstrap = kmc.NewManualBootstrap
 )
 
 // CertStatus  the certificate valid period
@@ -323,7 +326,7 @@ func GetPrivateKeyLength(cert *x509.Certificate, certificate *tls.Certificate) (
 		if !ok {
 			return 0, "ECC", errors.New("get ecdsa key length failed")
 		}
-		return priv.X.BitLen(), "ECC", nil
+		return len(priv.X.Bytes()) * byteToBit, "ECC", nil
 	case ed25519.PublicKey:
 		priv, ok := certificate.PrivateKey.(ed25519.PrivateKey)
 		if !ok {
@@ -503,7 +506,7 @@ var KmcInit = func(sdpAlgID int, primaryKey, standbyKey string) {
 			sdpAlgID = Aes256gcm
 		}
 		defaultInitConfig.SdpAlgId = sdpAlgID
-		Bootstrap = kmc.NewManualBootstrap(0, defaultLogLevel, &defaultLogger, defaultInitConfig)
+		Bootstrap = kmcNewManualBootstrap(0, defaultLogLevel, &defaultLogger, defaultInitConfig)
 	}
 	var err error
 	cryptoAPI, err = Bootstrap.Start()
