@@ -858,10 +858,10 @@ func ShutDown() {
 
 func isValidChipInfo(chip *ChipInfo) bool {
 	chipName := chip.ChipName
-	chipType := chip.ChipType
+	chipT := chip.ChipType
 	chipVer := chip.ChipVer
 
-	if chipName == "" && chipType == "" && chipVer == "" {
+	if chipName == "" && chipT == "" && chipVer == "" {
 		return false
 	}
 

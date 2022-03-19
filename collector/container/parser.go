@@ -74,7 +74,7 @@ type CntNpuMonitorOpts struct {
 
 // MakeDevicesParser evaluates option settings and make an instance according to it
 func MakeDevicesParser(opts CntNpuMonitorOpts) *DevicesParser {
-	runtimeOperator := &ContainerdRuntimeOperator{UseBackup: opts.UserBackUp}
+	runtimeOperator := &RuntimeOperatorTool{UseBackup: opts.UserBackUp}
 	parser := &DevicesParser{}
 
 	switch opts.EndpointType {

@@ -418,7 +418,7 @@ var packChipInfo = func(logicID int32, dmgr dsmi.DeviceMgrInterface) *HuaWeiAICh
 	if err != nil {
 		util = dsmi.DefaultErrorValue // valid data range 0-100
 	}
-	// return the first errorCode and data value type is int64
+
 	_, errCode, err := dmgr.GetDeviceErrCode(logicID)
 	if err != nil {
 		errCode = dsmi.DefaultErrorValue // valid data range 0-128
