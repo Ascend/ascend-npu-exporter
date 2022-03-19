@@ -21,22 +21,36 @@ import (
 )
 
 var (
-	versionInfoDesc               = prometheus.NewDesc("npu_exporter_version_info", "exporter version with value '1'", []string{"exporterVersion"}, nil)
-	machineInfoNPUDesc            = prometheus.NewDesc("machine_npu_nums", "Amount of npu installed on the machine.", nil, nil)
-	npuChipInfoDescNpuName        = prometheus.NewDesc("npu_chip_info_name", "the Ascend npu name with value '1'", []string{"id", "name"}, nil)
-	npuChipInfoDescUtil           = prometheus.NewDesc("npu_chip_info_utilization", "the ai core utilization", []string{"id"}, nil)
-	npuChipInfoDescTemp           = prometheus.NewDesc("npu_chip_info_temperature", "the npu temperature", []string{"id"}, nil)
-	npuChipInfoDescPower          = prometheus.NewDesc("npu_chip_info_power", "the npu power", []string{"id"}, nil)
-	npuChipInfoDescVoltage        = prometheus.NewDesc("npu_chip_info_voltage", "the npu voltage", []string{"id"}, nil)
-	npuChipInfoDescUsedMemory     = prometheus.NewDesc("npu_chip_info_used_memory", "the npu used memory", []string{"id"}, nil)
-	npuChipInfoDescTotalMemory    = prometheus.NewDesc("npu_chip_info_total_memory", "the npu total memory", []string{"id"}, nil)
-	npuChipInfoDescHealthStatus   = prometheus.NewDesc("npu_chip_info_health_status", "the npu health status", []string{"id"}, nil)
-	npuChipInfoDescHbmUsedMemory  = prometheus.NewDesc("npu_chip_info_hbm_used_memory", "the npu hbm used memory", []string{"id"}, nil)
-	npuChipInfoDescHbmTotalMemory = prometheus.NewDesc("npu_chip_info_hbm_total_memory", "the npu hbm total memory", []string{"id"}, nil)
-	npuChipInfoDescErrorCode      = prometheus.NewDesc("npu_chip_info_error_code", "the npu error code", []string{"id"}, nil)
-	npuContainerInfo              = prometheus.NewDesc("npu_container_info", "the container name and deviceID relationship", []string{"containerID", "containerName", "npuID"}, nil)
-	npuContainerInfoInit          sync.Once
-	npuChipInfoInit               sync.Once
+	versionInfoDesc = prometheus.NewDesc("npu_exporter_version_info",
+		"exporter version with value '1'", []string{"exporterVersion"}, nil)
+	machineInfoNPUDesc = prometheus.NewDesc("machine_npu_nums",
+		"Amount of npu installed on the machine.", nil, nil)
+	npuChipInfoDescNpuName = prometheus.NewDesc("npu_chip_info_name",
+		"the Ascend npu name with value '1'", []string{"id", "name"}, nil)
+	npuChipInfoDescUtil = prometheus.NewDesc("npu_chip_info_utilization",
+		"the ai core utilization", []string{"id"}, nil)
+	npuChipInfoDescTemp = prometheus.NewDesc("npu_chip_info_temperature",
+		"the npu temperature", []string{"id"}, nil)
+	npuChipInfoDescPower = prometheus.NewDesc("npu_chip_info_power",
+		"the npu power", []string{"id"}, nil)
+	npuChipInfoDescVoltage = prometheus.NewDesc("npu_chip_info_voltage",
+		"the npu voltage", []string{"id"}, nil)
+	npuChipInfoDescUsedMemory = prometheus.NewDesc("npu_chip_info_used_memory",
+		"the npu used memory", []string{"id"}, nil)
+	npuChipInfoDescTotalMemory = prometheus.NewDesc("npu_chip_info_total_memory",
+		"the npu total memory", []string{"id"}, nil)
+	npuChipInfoDescHealthStatus = prometheus.NewDesc("npu_chip_info_health_status",
+		"the npu health status", []string{"id"}, nil)
+	npuChipInfoDescHbmUsedMemory = prometheus.NewDesc("npu_chip_info_hbm_used_memory",
+		"the npu hbm used memory", []string{"id"}, nil)
+	npuChipInfoDescHbmTotalMemory = prometheus.NewDesc("npu_chip_info_hbm_total_memory",
+		"the npu hbm total memory", []string{"id"}, nil)
+	npuChipInfoDescErrorCode = prometheus.NewDesc("npu_chip_info_error_code",
+		"the npu error code", []string{"id"}, nil)
+	npuContainerInfo = prometheus.NewDesc("npu_container_info",
+		"the container name and deviceID relationship", []string{"containerID", "containerName", "npuID"}, nil)
+	npuContainerInfoInit sync.Once
+	npuChipInfoInit      sync.Once
 )
 
 type npuCollector struct {
