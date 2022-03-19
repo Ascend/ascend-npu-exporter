@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
+
 	"huawei.com/kmc/pkg/adaptor/inbound/api"
 	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc"
 	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc/vo"
@@ -451,11 +452,11 @@ func GetRandomPass() []byte {
 	if _, err := rand.Read(k); err != nil {
 		hwlog.RunLog.Error("get random words failed")
 	}
-	len := base64.RawStdEncoding.EncodedLen(byteSize)
-	if len > capacity || len < byteSize {
-		hwlog.RunLog.Warn("the len of slice is abnormal")
+	length := base64.RawStdEncoding.EncodedLen(byteSize)
+	if length > capacity || length < byteSize {
+		hwlog.RunLog.Warn("the length of slice is abnormal")
 	}
-	dst := make([]byte, len, len)
+	dst := make([]byte, length, length)
 	base64.RawStdEncoding.Encode(dst, k)
 	return dst
 }
@@ -486,7 +487,7 @@ func ReadOrUpdatePd(mainPath, backPath string, mode os.FileMode) []byte {
 var KmcInit = func(sdpAlgID int, primaryKey, standbyKey string) {
 	if Bootstrap == nil {
 		defaultLogLevel := loglevel.Info
-		var defaultLogger gateway.CryptoLogger = &kmclog.KmcLoggerAdaptor{}
+		var defaultLogger gateway.CryptoLogger = &kmclog.LoggerAdaptor{}
 		defaultInitConfig := vo.NewKmcInitConfigVO()
 		if primaryKey == "" {
 			primaryKey = "/etc/mindx-dl/kmc_primary_store/master.ks"
@@ -679,10 +680,10 @@ func CheckCaCertV2(caFile string, overdueTime int) ([]byte, error) {
 }
 
 // LoadCertPair load and valid encrypted certificate and private key
-func LoadCertPair(cert, key, psFile, psFileBk string, encryptAlgorithm int) (*tls.Certificate, error) {
+func LoadCertPair(cert, keyFile, psFile, psFileBk string, encryptAlgorithm int) (*tls.Certificate, error) {
 	pathMap := map[string]string{
 		CertStorePath:      cert,
-		KeyStorePath:       key,
+		KeyStorePath:       keyFile,
 		PassFilePath:       psFile,
 		PassFileBackUpPath: psFileBk,
 	}

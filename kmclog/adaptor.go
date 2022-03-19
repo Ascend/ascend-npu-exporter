@@ -7,38 +7,38 @@ import (
 	"huawei.com/npu-exporter/hwlog"
 )
 
-// KmcLoggerAdaptor is used to adapt to the log module of the KMC.
+// LoggerAdaptor is used to adapt to the log module of the KMC.
 // it implements the CryptoLogger interface of KMC.
 // it will invoke the method of hwlog .
-type KmcLoggerAdaptor struct {
+type LoggerAdaptor struct {
 }
 
 // Error print error log
-func (kla *KmcLoggerAdaptor) Error(msg string) {
+func (kla *LoggerAdaptor) Error(msg string) {
 	hwlog.RunLog.Error(msg)
 }
 
 // Warn print warning log
-func (kla *KmcLoggerAdaptor) Warn(msg string) {
+func (kla *LoggerAdaptor) Warn(msg string) {
 	hwlog.RunLog.Warn(msg)
 }
 
 // Info print info log
-func (kla *KmcLoggerAdaptor) Info(msg string) {
+func (kla *LoggerAdaptor) Info(msg string) {
 	hwlog.RunLog.Info(msg)
 }
 
 // Debug print debug log
-func (kla *KmcLoggerAdaptor) Debug(msg string) {
+func (kla *LoggerAdaptor) Debug(msg string) {
 	hwlog.RunLog.Debug(msg)
 }
 
 // Trace print trace log
-func (kla *KmcLoggerAdaptor) Trace(msg string) {
+func (kla *LoggerAdaptor) Trace(msg string) {
 	hwlog.RunLog.Debug(msg)
 }
 
 // Log print log
-func (kla *KmcLoggerAdaptor) Log(msg string) {
+func (kla *LoggerAdaptor) Log(msg string) {
 	hwlog.RunLog.Info(msg)
 }

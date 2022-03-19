@@ -21,6 +21,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"huawei.com/npu-exporter/collector"
 	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/hwlog"
@@ -77,12 +78,15 @@ func main() {
 	flag.Parse()
 	if version {
 		fmt.Printf("NPU-exporter version: %s \n", hwlog.BuildVersion)
-		os.Exit(0)
+		return
 	}
 	stopCH := make(chan struct{})
 	defer close(stopCH)
 	// init hwlog
-	initHwLogger(stopCH)
+	err := initHwLogger(stopCH)
+	if err != nil {
+		return
+	}
 	validate()
 	hwlog.RunLog.Infof("npu exporter starting and the version is %s", hwlog.BuildVersion)
 
@@ -326,9 +330,10 @@ func loadCRL() {
 	}
 }
 
-func initHwLogger(stopCh <-chan struct{}) {
+func initHwLogger(stopCh <-chan struct{}) error {
 	if err := hwlog.InitRunLogger(hwLogConfig, stopCh); err != nil {
 		fmt.Printf("hwlog init failed, error is %v", err)
-		os.Exit(-1)
+		return err
 	}
+	return nil
 }

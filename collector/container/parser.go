@@ -15,10 +15,11 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
+
 	"huawei.com/npu-exporter/dsmi"
 	"huawei.com/npu-exporter/hwlog"
 	"huawei.com/npu-exporter/utils"
-	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
 
 const (
@@ -73,7 +74,7 @@ type CntNpuMonitorOpts struct {
 
 // MakeDevicesParser evaluates option settings and make an instance according to it
 func MakeDevicesParser(opts CntNpuMonitorOpts) *DevicesParser {
-	runtimeOperator := &ContainerdRuntimeOperator{UseBackup: opts.UserBackUp}
+	runtimeOperator := &RuntimeOperatorTool{UseBackup: opts.UserBackUp}
 	parser := &DevicesParser{}
 
 	switch opts.EndpointType {
@@ -95,14 +96,17 @@ func MakeDevicesParser(opts CntNpuMonitorOpts) *DevicesParser {
 	return parser
 }
 
+// DevicesInfo the container device information struct
 type DevicesInfo struct {
 	ID      string
 	Name    string
 	Devices []int
 }
 
+// DevicesInfos the device information storage map
 type DevicesInfos = map[string]DevicesInfo
 
+// DevicesParser the parser which parse device info
 type DevicesParser struct {
 	// instances
 	result chan DevicesInfos
@@ -137,7 +141,7 @@ func (dp *DevicesParser) Close() {
 	_ = dp.RuntimeOperator.Close()
 }
 
-func (dp *DevicesParser) parseDevices(ctx context.Context, c *runtimeapi.Container, rs chan<- DevicesInfo) error {
+func (dp *DevicesParser) parseDevices(ctx context.Context, c *v1alpha2.Container, rs chan<- DevicesInfo) error {
 	if rs == nil {
 		hwlog.RunLog.Fatal("empty result channel")
 	}
@@ -237,7 +241,7 @@ func (dp *DevicesParser) doParse(resultOut chan<- DevicesInfos) {
 	ctx, cancelFn := context.WithTimeout(ctx, withDefault(dp.Timeout, parsingNpuDefaultTimeout))
 	defer cancelFn()
 	for _, container := range containers {
-		go func(container *runtimeapi.Container) {
+		go func(container *v1alpha2.Container) {
 			if err := dp.parseDevices(ctx, container, r); err != nil {
 				dp.err <- err
 			}
@@ -263,6 +267,7 @@ func withDefault(v time.Duration, d time.Duration) time.Duration {
 	return v
 }
 
+// GetCgroupPath the method of caculate cgroup path of device.list
 var GetCgroupPath = func(controller, specCgroupsPath string) (string, error) {
 	devicesController, err := getCgroupControllerPath(controller)
 	if err != nil {
@@ -402,6 +407,7 @@ func getUnit(prefix, name string) string {
 	return prefix + "-" + name + suffixScope
 }
 
+// ScanForAscendDevices scan ascend devices from device.list file
 var ScanForAscendDevices = func(devicesListFile string) ([]int, bool, error) {
 	minorNumbers := make([]int, 0, sliceLen8)
 	majorID := npuMajor()

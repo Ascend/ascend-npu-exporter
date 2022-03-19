@@ -14,10 +14,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
+
 	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/dsmi"
 	"huawei.com/npu-exporter/hwlog"
-	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
 
 const (
@@ -39,8 +40,8 @@ func (operator *mockContainerRuntimeOperator) Close() error {
 }
 
 // ContainerIDs implements ContainerRuntimeOperator
-func (operator *mockContainerRuntimeOperator) GetContainers(ctx context.Context) ([]*runtimeapi.Container, error) {
-	return []*runtimeapi.Container{}, nil
+func (operator *mockContainerRuntimeOperator) GetContainers(ctx context.Context) ([]*v1alpha2.Container, error) {
+	return []*v1alpha2.Container{}, nil
 }
 
 // CgroupsPath implements ContainerRuntimeOperator

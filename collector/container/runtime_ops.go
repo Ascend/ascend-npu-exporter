@@ -10,9 +10,10 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	v1 "huawei.com/npu-exporter/collector/container/v1"
+	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
+
+	"huawei.com/npu-exporter/collector/container/v1"
 	"huawei.com/npu-exporter/hwlog"
-	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
 
 const (
@@ -36,15 +37,15 @@ var (
 type RuntimeOperator interface {
 	Init() error
 	Close() error
-	GetContainers(ctx context.Context) ([]*runtimeapi.Container, error)
+	GetContainers(ctx context.Context) ([]*v1alpha2.Container, error)
 	CgroupsPath(ctx context.Context, id string) (string, error)
 }
 
-// ContainerdRuntimeOperator implements RuntimeOperator interface
-type ContainerdRuntimeOperator struct {
+// RuntimeOperatorTool implements RuntimeOperator interface
+type RuntimeOperatorTool struct {
 	criConn   *grpc.ClientConn
 	conn      *grpc.ClientConn
-	criClient runtimeapi.RuntimeServiceClient
+	criClient v1alpha2.RuntimeServiceClient
 	client    v1.ContainersClient
 	// CriEndpoint CRI server endpoint
 	CriEndpoint string
@@ -57,12 +58,12 @@ type ContainerdRuntimeOperator struct {
 }
 
 // Init initializes container runtime operator
-func (operator *ContainerdRuntimeOperator) Init() error {
+func (operator *RuntimeOperatorTool) Init() error {
 	criConn, err := GetConnection(operator.CriEndpoint)
 	if err != nil || criConn == nil {
 		return errors.New("connecting to CRI server failed")
 	}
-	operator.criClient = runtimeapi.NewRuntimeServiceClient(criConn)
+	operator.criClient = v1alpha2.NewRuntimeServiceClient(criConn)
 	operator.criConn = criConn
 
 	conn, err := GetConnection(operator.OciEndpoint)
@@ -82,7 +83,7 @@ func (operator *ContainerdRuntimeOperator) Init() error {
 }
 
 // Close closes container runtime operator
-func (operator *ContainerdRuntimeOperator) Close() error {
+func (operator *RuntimeOperatorTool) Close() error {
 	err := operator.conn.Close()
 	if err != nil {
 		return err
@@ -95,12 +96,12 @@ func (operator *ContainerdRuntimeOperator) Close() error {
 }
 
 // GetContainers returns all containers' IDs
-func (operator *ContainerdRuntimeOperator) GetContainers(ctx context.Context) ([]*runtimeapi.Container, error) {
-	filter := &runtimeapi.ContainerFilter{}
-	st := &runtimeapi.ContainerStateValue{}
-	st.State = runtimeapi.ContainerState_CONTAINER_RUNNING
+func (operator *RuntimeOperatorTool) GetContainers(ctx context.Context) ([]*v1alpha2.Container, error) {
+	filter := &v1alpha2.ContainerFilter{}
+	st := &v1alpha2.ContainerStateValue{}
+	st.State = v1alpha2.ContainerState_CONTAINER_RUNNING
 	filter.State = st
-	request := &runtimeapi.ListContainersRequest{
+	request := &v1alpha2.ListContainersRequest{
 		Filter: filter,
 	}
 	if operator.criClient == nil {
@@ -115,9 +116,9 @@ func (operator *ContainerdRuntimeOperator) GetContainers(ctx context.Context) ([
 }
 
 // CgroupsPath returns the cgroup path from spec of specified container
-func (operator *ContainerdRuntimeOperator) CgroupsPath(ctx context.Context, id string) (string, error) {
+func (operator *RuntimeOperatorTool) CgroupsPath(ctx context.Context, id string) (string, error) {
 	if operator.client == nil {
-		return "", errors.New("OciClient is empty")
+		return "", errors.New("oci client is empty")
 	}
 	resp, err := operator.client.Get(setGrpcNamespaceHeader(ctx, operator.Namespace), &v1.GetContainerRequest{
 		Id: id,

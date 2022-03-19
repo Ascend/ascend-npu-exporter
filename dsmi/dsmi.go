@@ -206,9 +206,9 @@ const (
 	Percent = 100
 	// OneKilo for unit change kb to mb
 	OneKilo = 1024
-	// Maximum number of error codes
+	// MaxErrorCodeCount number of error codes
 	MaxErrorCodeCount = 128
-	// when get temperature failed, use this value
+	// DefaultTemperatureWhenQueryFailed when get temperature failed, use this value
 	DefaultTemperatureWhenQueryFailed = -275
 	maxChipNum                        = 64
 )
@@ -332,6 +332,7 @@ var instance DeviceMgrInterface
 var once sync.Once
 var chipType = Ascend310
 
+// CStructDsmiMemoryInfo the c struct of memoryInfo
 type CStructDsmiMemoryInfo = C.struct_dsmi_memory_info_stru
 
 // GetChipTypeNow get the chip type on this machine
@@ -857,10 +858,10 @@ func ShutDown() {
 
 func isValidChipInfo(chip *ChipInfo) bool {
 	chipName := chip.ChipName
-	chipType := chip.ChipType
+	chipT := chip.ChipType
 	chipVer := chip.ChipVer
 
-	if chipName == "" && chipType == "" && chipVer == "" {
+	if chipName == "" && chipT == "" && chipVer == "" {
 		return false
 	}
 
