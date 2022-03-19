@@ -118,7 +118,7 @@ func (operator *ContainerdRuntimeOperator) GetContainers(ctx context.Context) ([
 // CgroupsPath returns the cgroup path from spec of specified container
 func (operator *ContainerdRuntimeOperator) CgroupsPath(ctx context.Context, id string) (string, error) {
 	if operator.client == nil {
-		return "", errors.New("OciClient is empty")
+		return "", errors.New("oci client is empty")
 	}
 	resp, err := operator.client.Get(setGrpcNamespaceHeader(ctx, operator.Namespace), &v1.GetContainerRequest{
 		Id: id,
