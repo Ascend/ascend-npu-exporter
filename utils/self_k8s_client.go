@@ -7,15 +7,16 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"huawei.com/npu-exporter/hwlog"
 	"io/ioutil"
+	"os"
+	"sync"
+
+	"huawei.com/npu-exporter/hwlog"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"os"
-	"sync"
 )
 
 const prefix = "/etc/mindx-dl/"

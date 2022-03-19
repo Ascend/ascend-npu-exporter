@@ -7,17 +7,18 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
-	"huawei.com/npu-exporter/dsmi"
-	"huawei.com/npu-exporter/hwlog"
-	"huawei.com/npu-exporter/utils"
-	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
+	"huawei.com/npu-exporter/dsmi"
+	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/npu-exporter/utils"
+	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
 
 const (

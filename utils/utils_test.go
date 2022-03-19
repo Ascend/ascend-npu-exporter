@@ -10,15 +10,16 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/prashantv/gostub"
-	. "github.com/smartystreets/goconvey/convey"
-	"huawei.com/npu-exporter/hwlog"
 	"math/big"
 	"net/http"
 	"os"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/prashantv/gostub"
+	. "github.com/smartystreets/goconvey/convey"
+	"huawei.com/npu-exporter/hwlog"
 )
 
 const testMode = 0660

@@ -7,9 +7,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"runtime"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 // printHelper helper function for log printing

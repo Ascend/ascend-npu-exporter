@@ -5,6 +5,10 @@ package collector
 
 import (
 	"context"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/patrickmn/go-cache"
 	"github.com/prashantv/gostub"
 	"github.com/prometheus/client_golang/prometheus"
@@ -14,9 +18,6 @@ import (
 	"huawei.com/npu-exporter/dsmi"
 	"huawei.com/npu-exporter/hwlog"
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
-	"os"
-	"testing"
-	"time"
 )
 
 const (

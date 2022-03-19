@@ -7,12 +7,13 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
-	"huawei.com/npu-exporter/hwlog"
-	"huawei.com/npu-exporter/utils"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
+
+	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/npu-exporter/utils"
 )
 
 const (

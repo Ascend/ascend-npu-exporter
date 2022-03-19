@@ -187,13 +187,14 @@ import "C"
 import (
 	"bufio"
 	"fmt"
-	"huawei.com/npu-exporter/hwlog"
 	"io"
 	"math"
 	"os/exec"
 	"regexp"
 	"strings"
 	"sync"
+
+	"huawei.com/npu-exporter/hwlog"
 )
 
 const (

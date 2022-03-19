@@ -5,11 +5,12 @@ package limiter
 
 import (
 	"context"
-	"huawei.com/npu-exporter/hwlog"
-	"huawei.com/npu-exporter/utils"
 	"math"
 	"net/http"
 	"time"
+
+	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/npu-exporter/utils"
 )
 
 const (
