@@ -78,7 +78,7 @@ type SelfClientConfigLoadingRules struct {
 
 // Load  override the clientcmd.ClientConfigLoadingRules Load method
 func (rules *SelfClientConfigLoadingRules) Load() (*api.Config, error) {
-	errlist := []error{}
+	var errlist []error
 	if len(rules.ExplicitPath) == 0 {
 		return nil, errors.New("no ExplicitPath set")
 	}
