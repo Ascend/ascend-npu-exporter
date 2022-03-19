@@ -148,6 +148,6 @@ func BuildConfigFromFlags(masterURL, confPath string) (*rest.Config, error) {
 	}
 	cliRule := clientcmd.ClientConfigLoadingRules{ExplicitPath: confPath}
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&SelfClientConfigLoadingRules{cliRule},
+		&SelfClientConfigLoadingRules{ClientConfigLoadingRules: cliRule},
 		&clientcmd.ConfigOverrides{ClusterInfo: api.Cluster{Server: masterURL}}).ClientConfig()
 }
