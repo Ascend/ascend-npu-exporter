@@ -5,17 +5,18 @@ package collector
 
 import (
 	"fmt"
-	"github.com/patrickmn/go-cache"
-	"github.com/prometheus/client_golang/prometheus"
-	"huawei.com/npu-exporter/collector/container"
-	"huawei.com/npu-exporter/dsmi"
-	"huawei.com/npu-exporter/hwlog"
 	"math"
 	"os"
 	"reflect"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/patrickmn/go-cache"
+	"github.com/prometheus/client_golang/prometheus"
+	"huawei.com/npu-exporter/collector/container"
+	"huawei.com/npu-exporter/dsmi"
+	"huawei.com/npu-exporter/hwlog"
 )
 
 var (

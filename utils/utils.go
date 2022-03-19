@@ -17,14 +17,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"golang.org/x/crypto/ssh/terminal"
-	"huawei.com/kmc/pkg/adaptor/inbound/api"
-	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc"
-	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc/vo"
-	"huawei.com/kmc/pkg/application/gateway"
-	"huawei.com/kmc/pkg/application/gateway/loglevel"
-	"huawei.com/npu-exporter/hwlog"
-	"huawei.com/npu-exporter/kmclog"
 	"io/ioutil"
 	"math"
 	"net"
@@ -33,6 +25,15 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/ssh/terminal"
+	"huawei.com/kmc/pkg/adaptor/inbound/api"
+	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc"
+	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc/vo"
+	"huawei.com/kmc/pkg/application/gateway"
+	"huawei.com/kmc/pkg/application/gateway/loglevel"
+	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/npu-exporter/kmclog"
 )
 
 const (

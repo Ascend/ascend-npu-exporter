@@ -6,9 +6,10 @@ package limiter
 
 import (
 	"errors"
-	"huawei.com/npu-exporter/hwlog"
 	"net"
 	"sync"
+
+	"huawei.com/npu-exporter/hwlog"
 )
 
 const (

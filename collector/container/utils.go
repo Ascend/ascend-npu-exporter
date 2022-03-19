@@ -7,14 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"google.golang.org/grpc"
-	"huawei.com/npu-exporter/hwlog"
-	"huawei.com/npu-exporter/utils"
 	"net"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc"
+	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/npu-exporter/utils"
 )
 
 const (
