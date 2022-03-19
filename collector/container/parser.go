@@ -96,14 +96,17 @@ func MakeDevicesParser(opts CntNpuMonitorOpts) *DevicesParser {
 	return parser
 }
 
+// DevicesInfo the container device information struct
 type DevicesInfo struct {
 	ID      string
 	Name    string
 	Devices []int
 }
 
+// DevicesInfos the device information storage map
 type DevicesInfos = map[string]DevicesInfo
 
+// DevicesParser the parser which parse device info
 type DevicesParser struct {
 	// instances
 	result chan DevicesInfos
@@ -264,6 +267,7 @@ func withDefault(v time.Duration, d time.Duration) time.Duration {
 	return v
 }
 
+// GetCgroupPath the method of caculate cgroup path of device.list
 var GetCgroupPath = func(controller, specCgroupsPath string) (string, error) {
 	devicesController, err := getCgroupControllerPath(controller)
 	if err != nil {
@@ -403,6 +407,7 @@ func getUnit(prefix, name string) string {
 	return prefix + "-" + name + suffixScope
 }
 
+// ScanForAscendDevices scan ascend devices from device.list file
 var ScanForAscendDevices = func(devicesListFile string) ([]int, bool, error) {
 	minorNumbers := make([]int, 0, sliceLen8)
 	majorID := npuMajor()
