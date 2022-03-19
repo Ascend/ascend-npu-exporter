@@ -56,11 +56,14 @@ func main() {
 	flag.Parse()
 	if version {
 		fmt.Printf("cert-importer version: %s \n", hwlog.BuildVersion)
-		os.Exit(0)
+		return
 	}
 	stopCH := make(chan struct{})
 	defer close(stopCH)
-	initHwLogger(stopCH)
+	err := initHwLogger(stopCH)
+	if err != nil {
+		return
+	}
 	importKubeConfig(kubeConfig)
 	importCertFiles(certFile, keyFile, caFile, crlFile)
 }
@@ -207,7 +210,7 @@ func checkPathIsExist(paths []string) {
 	}
 }
 
-func initHwLogger(stopCh <-chan struct{}) {
+func initHwLogger(stopCh <-chan struct{}) error {
 	if utils.IsExists(hwLogConfig.LogFileName) {
 		fi, err := os.Stat(hwLogConfig.LogFileName)
 		if err != nil {
@@ -226,9 +229,9 @@ func initHwLogger(stopCh <-chan struct{}) {
 	}
 	if err := hwlog.InitRunLogger(hwLogConfig, stopCh); err != nil {
 		fmt.Printf("hwlog init failed, error is %v", err)
-		os.Exit(-1)
+		return err
 	}
-
+	return nil
 }
 
 func backupName(name string) string {
