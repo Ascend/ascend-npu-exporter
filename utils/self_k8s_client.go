@@ -84,7 +84,7 @@ func (rules *SelfClientConfigLoadingRules) Load() (*api.Config, error) {
 	}
 	config, err := LoadFromFile(rules.ExplicitPath)
 	if err != nil {
-		errlist = append(errlist, fmt.Errorf("error loading config file \"%s\": %v",
+		errlist = append(errlist, fmt.Errorf(`error loading config file "%s": %v`,
 			MaskPrefix(rules.ExplicitPath), err))
 	}
 	return config, utilerrors.NewAggregate(errlist)
