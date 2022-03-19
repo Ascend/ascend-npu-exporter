@@ -452,11 +452,11 @@ func GetRandomPass() []byte {
 	if _, err := rand.Read(k); err != nil {
 		hwlog.RunLog.Error("get random words failed")
 	}
-	len := base64.RawStdEncoding.EncodedLen(byteSize)
-	if len > capacity || len < byteSize {
-		hwlog.RunLog.Warn("the len of slice is abnormal")
+	length := base64.RawStdEncoding.EncodedLen(byteSize)
+	if length > capacity || length < byteSize {
+		hwlog.RunLog.Warn("the length of slice is abnormal")
 	}
-	dst := make([]byte, len, len)
+	dst := make([]byte, length, length)
 	base64.RawStdEncoding.Encode(dst, k)
 	return dst
 }
