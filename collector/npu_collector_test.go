@@ -219,7 +219,7 @@ func newTestCase(name string, wantErr bool, mockPart interface{}) testCase {
 
 func mockGetNPUInfo(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 	var npuList []HuaWeiNPUCard
-	for phyID := int32(0); phyID < 8; phyID++ {
+	for devicePhysicID := int32(0); devicePhysicID < 8; devicePhysicID++ {
 		chipInfo := &HuaWeiAIChip{
 			HealthStatus: Healthy,
 			ErrorCode:    0,
@@ -246,9 +246,9 @@ func mockGetNPUInfo(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 				MemoryBandWidthUtilRate: 0,
 			},
 		}
-		chipInfo.DeviceID = int(phyID)
+		chipInfo.DeviceID = int(devicePhysicID)
 		npuCard := HuaWeiNPUCard{
-			CardID:     int(phyID),
+			CardID:     int(devicePhysicID),
 			DeviceList: []*HuaWeiAIChip{chipInfo},
 			Timestamp:  time.Unix(timestamp, 0),
 		}

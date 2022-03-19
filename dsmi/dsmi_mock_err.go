@@ -11,6 +11,8 @@ type DeviceManagerMockErr struct {
 
 var errorMsg = "mock error"
 
+const floatRes = 0.0025
+
 // NewDeviceManagerMockErr new DeviceManagerMockErr instance
 func NewDeviceManagerMockErr() *DeviceManagerMockErr {
 	return &DeviceManagerMockErr{}
@@ -46,12 +48,12 @@ func (d *DeviceManagerMockErr) GetDeviceTemperature(logicID int32) (int32, error
 
 // GetDeviceVoltage get the device voltage
 func (d *DeviceManagerMockErr) GetDeviceVoltage(logicID int32) (float32, error) {
-	return 0.00025, fmt.Errorf(errorMsg)
+	return floatRes, fmt.Errorf(errorMsg)
 }
 
 // GetDevicePower get the power info of the device, the result like : 8.2w
 func (d *DeviceManagerMockErr) GetDevicePower(logicID int32) (float32, error) {
-	return 0.0007, fmt.Errorf(errorMsg)
+	return floatRes, fmt.Errorf(errorMsg)
 
 }
 
