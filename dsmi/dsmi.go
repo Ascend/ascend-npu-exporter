@@ -652,8 +652,7 @@ func (d *baseDeviceManager) createMemoryInfoObj(cmInfo *CStructDsmiMemoryInfo) *
 		uint32(cmInfo.utiliza))
 }
 
-// GetDeviceErrCode get the error count and errorcode of the device
-// return the first errorcode
+// GetDeviceErrCode get the error count and errorcode of the device,only return the first errorcode
 func (d *baseDeviceManager) GetDeviceErrCode(logicID int32) (int32, int64, error) {
 	var errCount C.int
 	var errCodeArray [MaxErrorCodeCount]C.uint

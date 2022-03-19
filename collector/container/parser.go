@@ -41,8 +41,10 @@ const (
 )
 
 const (
-	EndpointTypeContainerd = iota // K8S + Containerd
-	EndpointTypeDockerd           // Docker with or without K8S
+	// EndpointTypeContainerd K8S + Containerd
+	EndpointTypeContainerd = iota
+	// EndpointTypeDockerd Docker with or without K8S
+	EndpointTypeDockerd
 )
 
 var (
@@ -302,23 +304,23 @@ func getCgroupControllerPath(controller string) (string, error) {
 	// the format of the file is described in proc man page.
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		cols := strings.Split(scanner.Text(), procMountInfoColSep)
-		l := len(cols)
+		split := strings.Split(scanner.Text(), procMountInfoColSep)
+		l := len(split)
 		if l < expectProcMountInfoColNum {
 			return "", errors.Wrapf(ErrParseFail,
 				"mount info record has less than %d columns", expectProcMountInfoColNum)
 		}
 
 		// finding cgroup mount point, ignore others
-		if cols[l-3] != "cgroup" {
+		if split[l-3] != "cgroup" {
 			continue
 		}
 
 		// finding the specified cgroup controller
-		for _, opt := range strings.Split(cols[l-1], ",") {
+		for _, opt := range strings.Split(split[l-1], ",") {
 			if opt == controller {
 				// returns the path of specified cgroup controller in fs
-				return cols[4], nil
+				return split[4], nil
 			}
 		}
 	}
