@@ -14,11 +14,12 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
+
 	"github.com/pkg/errors"
 	"huawei.com/npu-exporter/dsmi"
 	"huawei.com/npu-exporter/hwlog"
 	"huawei.com/npu-exporter/utils"
-	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
 
 const (
@@ -137,7 +138,7 @@ func (dp *DevicesParser) Close() {
 	_ = dp.RuntimeOperator.Close()
 }
 
-func (dp *DevicesParser) parseDevices(ctx context.Context, c *runtimeapi.Container, rs chan<- DevicesInfo) error {
+func (dp *DevicesParser) parseDevices(ctx context.Context, c *v1alpha2.Container, rs chan<- DevicesInfo) error {
 	if rs == nil {
 		hwlog.RunLog.Fatal("empty result channel")
 	}
@@ -237,7 +238,7 @@ func (dp *DevicesParser) doParse(resultOut chan<- DevicesInfos) {
 	ctx, cancelFn := context.WithTimeout(ctx, withDefault(dp.Timeout, parsingNpuDefaultTimeout))
 	defer cancelFn()
 	for _, container := range containers {
-		go func(container *runtimeapi.Container) {
+		go func(container *v1alpha2.Container) {
 			if err := dp.parseDevices(ctx, container, r); err != nil {
 				dp.err <- err
 			}

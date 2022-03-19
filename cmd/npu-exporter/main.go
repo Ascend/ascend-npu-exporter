@@ -21,6 +21,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"huawei.com/npu-exporter/collector"
 	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/hwlog"

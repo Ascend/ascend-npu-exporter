@@ -10,9 +10,10 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	v1 "huawei.com/npu-exporter/collector/container/v1"
+	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
+
+	"huawei.com/npu-exporter/collector/container/v1"
 	"huawei.com/npu-exporter/hwlog"
-	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
 
 const (
@@ -36,7 +37,7 @@ var (
 type RuntimeOperator interface {
 	Init() error
 	Close() error
-	GetContainers(ctx context.Context) ([]*runtimeapi.Container, error)
+	GetContainers(ctx context.Context) ([]*v1alpha2.Container, error)
 	CgroupsPath(ctx context.Context, id string) (string, error)
 }
 
@@ -44,7 +45,7 @@ type RuntimeOperator interface {
 type ContainerdRuntimeOperator struct {
 	criConn   *grpc.ClientConn
 	conn      *grpc.ClientConn
-	criClient runtimeapi.RuntimeServiceClient
+	criClient v1alpha2.RuntimeServiceClient
 	client    v1.ContainersClient
 	// CriEndpoint CRI server endpoint
 	CriEndpoint string
@@ -62,7 +63,7 @@ func (operator *ContainerdRuntimeOperator) Init() error {
 	if err != nil || criConn == nil {
 		return errors.New("connecting to CRI server failed")
 	}
-	operator.criClient = runtimeapi.NewRuntimeServiceClient(criConn)
+	operator.criClient = v1alpha2.NewRuntimeServiceClient(criConn)
 	operator.criConn = criConn
 
 	conn, err := GetConnection(operator.OciEndpoint)
@@ -95,12 +96,12 @@ func (operator *ContainerdRuntimeOperator) Close() error {
 }
 
 // GetContainers returns all containers' IDs
-func (operator *ContainerdRuntimeOperator) GetContainers(ctx context.Context) ([]*runtimeapi.Container, error) {
-	filter := &runtimeapi.ContainerFilter{}
-	st := &runtimeapi.ContainerStateValue{}
-	st.State = runtimeapi.ContainerState_CONTAINER_RUNNING
+func (operator *ContainerdRuntimeOperator) GetContainers(ctx context.Context) ([]*v1alpha2.Container, error) {
+	filter := &v1alpha2.ContainerFilter{}
+	st := &v1alpha2.ContainerStateValue{}
+	st.State = v1alpha2.ContainerState_CONTAINER_RUNNING
 	filter.State = st
-	request := &runtimeapi.ListContainersRequest{
+	request := &v1alpha2.ListContainersRequest{
 		Filter: filter,
 	}
 	if operator.criClient == nil {

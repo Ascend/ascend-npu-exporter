@@ -14,6 +14,7 @@ import (
 
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
+
 	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/dsmi"
 	"huawei.com/npu-exporter/hwlog"

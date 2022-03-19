@@ -11,12 +11,13 @@ import (
 	"os"
 	"sync"
 
-	"huawei.com/npu-exporter/hwlog"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
-	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/tools/clientcmd/api"
+
+	"huawei.com/npu-exporter/hwlog"
 )
 
 const prefix = "/etc/mindx-dl/"
@@ -76,7 +77,7 @@ type SelfClientConfigLoadingRules struct {
 }
 
 // Load  override the clientcmd.ClientConfigLoadingRules Load method
-func (rules *SelfClientConfigLoadingRules) Load() (*clientcmdapi.Config, error) {
+func (rules *SelfClientConfigLoadingRules) Load() (*api.Config, error) {
 	errlist := []error{}
 	if len(rules.ExplicitPath) == 0 {
 		return nil, errors.New("no ExplicitPath set")
@@ -90,7 +91,7 @@ func (rules *SelfClientConfigLoadingRules) Load() (*clientcmdapi.Config, error) 
 }
 
 // LoadFromFile takes a filename and deserializes the contents into Config object
-func LoadFromFile(filename string) (*clientcmdapi.Config, error) {
+func LoadFromFile(filename string) (*api.Config, error) {
 	kubeconfigBytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -123,23 +124,23 @@ func LoadFromFile(filename string) (*clientcmdapi.Config, error) {
 	}
 
 	if cfg.AuthInfos == nil {
-		cfg.AuthInfos = map[string]*clientcmdapi.AuthInfo{}
+		cfg.AuthInfos = map[string]*api.AuthInfo{}
 	}
 	if cfg.Clusters == nil {
-		cfg.Clusters = map[string]*clientcmdapi.Cluster{}
+		cfg.Clusters = map[string]*api.Cluster{}
 	}
 	if cfg.Contexts == nil {
-		cfg.Contexts = map[string]*clientcmdapi.Context{}
+		cfg.Contexts = map[string]*api.Context{}
 	}
 	return cfg, nil
 }
 
 // BuildConfigFromFlags local implement of k8s client buildConfig
-func BuildConfigFromFlags(masterURL, confPath string) (*restclient.Config, error) {
+func BuildConfigFromFlags(masterURL, confPath string) (*rest.Config, error) {
 	if confPath == "" && masterURL == "" {
 		hwlog.RunLog.Warnf("Neither --kubeconfig nor --master was specified." +
 			"Using the inClusterConfig.  This might not work.")
-		kubeconf, err := restclient.InClusterConfig()
+		kubeconf, err := rest.InClusterConfig()
 		if err == nil {
 			return kubeconf, nil
 		}
@@ -148,5 +149,5 @@ func BuildConfigFromFlags(masterURL, confPath string) (*restclient.Config, error
 	cliRule := clientcmd.ClientConfigLoadingRules{ExplicitPath: confPath}
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&SelfClientConfigLoadingRules{cliRule},
-		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: masterURL}}).ClientConfig()
+		&clientcmd.ConfigOverrides{ClusterInfo: api.Cluster{Server: masterURL}}).ClientConfig()
 }

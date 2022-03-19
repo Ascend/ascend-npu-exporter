@@ -19,6 +19,7 @@ import (
 
 	"github.com/prashantv/gostub"
 	. "github.com/smartystreets/goconvey/convey"
+
 	"huawei.com/npu-exporter/hwlog"
 )
 

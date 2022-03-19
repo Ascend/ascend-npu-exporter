@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
+
 	"huawei.com/kmc/pkg/adaptor/inbound/api"
 	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc"
 	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc/vo"
@@ -679,10 +680,10 @@ func CheckCaCertV2(caFile string, overdueTime int) ([]byte, error) {
 }
 
 // LoadCertPair load and valid encrypted certificate and private key
-func LoadCertPair(cert, key, psFile, psFileBk string, encryptAlgorithm int) (*tls.Certificate, error) {
+func LoadCertPair(cert, keyFile, psFile, psFileBk string, encryptAlgorithm int) (*tls.Certificate, error) {
 	pathMap := map[string]string{
 		CertStorePath:      cert,
-		KeyStorePath:       key,
+		KeyStorePath:       keyFile,
 		PassFilePath:       psFile,
 		PassFileBackUpPath: psFileBk,
 	}
