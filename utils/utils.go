@@ -96,16 +96,14 @@ const (
 
 var (
 	cryptoAPI api.CryptoApi
-	// Bootstrap kmc bootstrap
-	Bootstrap *kmc.ManualBootstrap
-	// CertificateMap  using certificate information
-	CertificateMap = make(map[string]*CertStatus, 4)
-	// WarningDays cert warning day ,unit days
-	WarningDays = 100
-	// CheckInterval  cert period check interval,unit days
-	CheckInterval = 1
-
-	kmcNewManualBootstrap = kmc.NewManualBootstrap
+	// bootstrap kmc bootstrap
+	bootstrap *kmc.ManualBootstrap
+	// certificateMap  using certificate information
+	certificateMap = make(map[string]*CertStatus, 4)
+	// warningDays cert warning day ,unit days
+	warningDays = 100
+	// checkInterval  cert period check interval,unit days
+	checkInterval = 1
 )
 
 // CertStatus  the certificate valid period
@@ -116,6 +114,17 @@ type CertStatus struct {
 	FingerprintSHA256 string    `json:"fingerprint_sha256,omitempty"`
 	FingerprintSHA1   string    `json:"fingerprint_sha1,omitempty"`
 	FingerprintMD5    string    `json:"fingerprint_md5,omitempty"`
+}
+
+// GetCertStatus return certifcateMap
+func GetCertStatus() map[string]*CertStatus {
+	return certificateMap
+}
+
+// SetPeriodCheckParam set period parameter
+func SetPeriodCheckParam(warningDaysFlag, checkIntervalFlag int) {
+	warningDays = warningDaysFlag
+	checkInterval = checkIntervalFlag
 }
 
 // ReadBytes read contents from file path
@@ -240,13 +249,11 @@ func ValidateCRL(crlBytes []byte) (*pkix.CertificateList, error) {
 	return crlList, nil
 }
 
-var osMkdirAll = os.MkdirAll
-
 // MakeSureDir make sure the directory was existed
 func MakeSureDir(path string) error {
 	dir := filepath.Dir(path)
 	if !IsExists(dir) {
-		err := osMkdirAll(dir, dirMode)
+		err := os.MkdirAll(dir, dirMode)
 		if err != nil {
 			return errors.New("create config directory failed")
 		}
@@ -260,7 +267,7 @@ func CheckValidityPeriod(cert *x509.Certificate) error {
 	if err != nil {
 		return err
 	}
-	if overdueDays < float64(WarningDays) && overdueDays > 0 {
+	if overdueDays < float64(warningDays) && overdueDays > 0 {
 		hwlog.RunLog.Warnf("the certificate will overdue after %d days later", int64(overdueDays))
 	}
 
@@ -487,8 +494,8 @@ func ReadOrUpdatePd(mainPath, backPath string, mode os.FileMode) []byte {
 }
 
 // KmcInit init kmc component
-var KmcInit = func(sdpAlgID int, primaryKey, standbyKey string) {
-	if Bootstrap == nil {
+func KmcInit(sdpAlgID int, primaryKey, standbyKey string) {
+	if bootstrap == nil {
 		defaultLogLevel := loglevel.Info
 		var defaultLogger gateway.CryptoLogger = &kmclog.LoggerAdaptor{}
 		defaultInitConfig := vo.NewKmcInitConfigVO()
@@ -506,13 +513,20 @@ var KmcInit = func(sdpAlgID int, primaryKey, standbyKey string) {
 			sdpAlgID = Aes256gcm
 		}
 		defaultInitConfig.SdpAlgId = sdpAlgID
-		Bootstrap = kmcNewManualBootstrap(0, defaultLogLevel, &defaultLogger, defaultInitConfig)
+		bootstrap = kmc.NewManualBootstrap(0, defaultLogLevel, &defaultLogger, defaultInitConfig)
 	}
 	var err error
-	cryptoAPI, err = Bootstrap.Start()
+	cryptoAPI, err = bootstrap.Start()
 	cryptoAPI.UpdateLifetimeDays(TenDays * TenDays)
 	if err != nil {
 		hwlog.RunLog.Fatal("initial kmc failed,please make sure the LD_LIBRARY_PATH include the kmc-ext.so ")
+	}
+}
+
+// KmcShutDown shutdown kmc init
+func KmcShutDown() {
+	if bootstrap != nil {
+		bootstrap.Shutdown()
 	}
 }
 
@@ -526,12 +540,12 @@ func checkRootMaterial(primaryKey string) {
 }
 
 // Encrypt encrypt the data
-var Encrypt = func(domainID int, data []byte) ([]byte, error) {
+func Encrypt(domainID int, data []byte) ([]byte, error) {
 	return cryptoAPI.EncryptByAppId(domainID, data)
 }
 
 // Decrypt decrypt the data
-var Decrypt = func(domainID int, data []byte) ([]byte, error) {
+func Decrypt(domainID int, data []byte) ([]byte, error) {
 	return cryptoAPI.DecryptByAppId(domainID, data)
 }
 
@@ -567,8 +581,8 @@ func EncryptPrivateKeyAgainWithMode(key *pem.Block, psFile, psBkFile string, enc
 	// clean password
 	PaddingAndCleanSlice(pd)
 	// wait certificate verify passed and then write key to file together
-	if Bootstrap != nil {
-		Bootstrap.Shutdown()
+	if bootstrap != nil {
+		bootstrap.Shutdown()
 	}
 	return encryptedBlock, nil
 }
@@ -581,9 +595,9 @@ func PaddingAndCleanSlice(pd []byte) {
 	pd = nil
 }
 
-// PeriodCheck  period check certificate
+// PeriodCheck  period check certificate, need call SetPeriodCheckParam firstly if you
 func PeriodCheck() {
-	ticker := time.NewTicker(time.Duration(CheckInterval) * dayHours * time.Hour)
+	ticker := time.NewTicker(time.Duration(checkInterval) * dayHours * time.Hour)
 	defer ticker.Stop()
 	for {
 		select {
@@ -592,7 +606,7 @@ func PeriodCheck() {
 				return
 			}
 			now := time.Now()
-			for _, v := range CertificateMap {
+			for _, v := range certificateMap {
 				checkCertStatus(now, v)
 			}
 		}
@@ -608,7 +622,7 @@ func checkCertStatus(now time.Time, v *CertStatus) {
 	if overdueDays > math.MaxInt64 {
 		overdueDays = math.MaxInt64
 	}
-	if overdueDays < float64(WarningDays) && overdueDays >= 0 {
+	if overdueDays < float64(warningDays) && overdueDays >= 0 {
 		hwlog.RunLog.Warnf("the certificate: %s will overdue after %d days later",
 			v.FingerprintSHA256, int64(overdueDays))
 	}
@@ -764,8 +778,8 @@ func LoadCertPairByte(pathMap map[string]string, encryptAlgorithm int, mode os.F
 		return nil, nil, err
 	}
 	hwlog.RunLog.Info("decrypt success")
-	if Bootstrap != nil {
-		Bootstrap.Shutdown()
+	if bootstrap != nil {
+		bootstrap.Shutdown()
 	}
 	PaddingAndCleanSlice(pd)
 	return certBytes, pem.EncodeToMemory(keyBlock), nil
@@ -902,7 +916,7 @@ func AddToCertStatusTrace(cert *x509.Certificate) error {
 		IsCA:              cert.IsCA,
 		FingerprintSHA256: fpsha256,
 	}
-	CertificateMap[fpsha256] = cs
+	certificateMap[fpsha256] = cs
 	return nil
 }
 

@@ -45,6 +45,8 @@ var (
 	containerd       string
 	endpoint         string
 	crlcerList       *pkix.CertificateList
+	warningDays      int
+	checkInterval    int
 )
 
 const (
@@ -70,6 +72,7 @@ const (
 	timeout                 = 10
 	maxConnection           = 20
 	maxHeaderBytes          = 1024
+	defaultWarningDays      = 100
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
@@ -177,12 +180,13 @@ func validate() {
 	if enableHTTP {
 		return
 	}
-	if utils.CheckInterval < 1 || utils.CheckInterval > utils.WeekDays {
+	if checkInterval < 1 || checkInterval > utils.WeekDays {
 		hwlog.RunLog.Fatal("certificate check interval time invalidate")
 	}
-	if utils.WarningDays < utils.TenDays || utils.WarningDays > utils.YearDays {
+	if warningDays < utils.TenDays || warningDays > utils.YearDays {
 		hwlog.RunLog.Fatal("certificate warning time invalidate")
 	}
+	utils.SetPeriodCheckParam(warningDays, checkInterval)
 	// key file exist and need init kmc
 	hwlog.RunLog.Info("start load imported certificate files")
 	tlsCert, err := utils.LoadCertPair(certStore, keyStore, passFile, passFileBackUp, encryptAlgorithm)
@@ -275,9 +279,9 @@ func init() {
 		"Log file path. If the file size exceeds 20MB, will be rotated")
 	flag.IntVar(&hwLogConfig.MaxBackups, "maxBackups", hwlog.DefaultMaxBackups,
 		"Maximum number of backup log files, range is (0, 30]")
-	flag.IntVar(&utils.CheckInterval, "checkInterval", utils.CheckInterval,
+	flag.IntVar(&checkInterval, "checkInterval", 1,
 		"the Interval time for certificate validate period check, range is [1, 7]")
-	flag.IntVar(&utils.WarningDays, "warningDays", utils.WarningDays,
+	flag.IntVar(&warningDays, "warningDays", defaultWarningDays,
 		"the Ahead days of warning for certificate overdue, range is [10, 365]")
 }
 
@@ -301,7 +305,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getCertStatus(w http.ResponseWriter, _ *http.Request) {
-	b, err := json.Marshal(utils.CertificateMap)
+	b, err := json.Marshal(utils.GetCertStatus())
 	if err != nil {
 		hwlog.RunLog.Error("fail to marshal cert status")
 	}

@@ -20,6 +20,7 @@ function execute_test() {
 
 export GO111MODULE="on"
 export PATH=$GOPATH/bin:$PATH
+export GOFLAGS="-gcflags=all=-l"
 unset GOPATH
 # if didn't install the following  tools, please install firstly
 #go get -insecure github.com/axw/gocov/gocov

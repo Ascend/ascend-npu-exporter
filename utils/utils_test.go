@@ -20,8 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prashantv/gostub"
+	"github.com/agiledragon/gomonkey/v2"
 	. "github.com/smartystreets/goconvey/convey"
+
 	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc"
 	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc/vo"
 	"huawei.com/kmc/pkg/application/gateway"
@@ -66,12 +67,12 @@ func TestMakeSureDir(t *testing.T) {
 			So(err, ShouldEqual, nil)
 		})
 		Convey("abnormal situation,err returned", func() {
-			mock := gostub.Stub(&osMkdirAll, func(name string, perm os.FileMode) error {
+			mock := gomonkey.ApplyFunc(os.MkdirAll, func(name string, perm os.FileMode) error {
 				return fmt.Errorf("error")
 			})
 			defer mock.Reset()
 			err := MakeSureDir("./xxxx/xxx")
-			So(err, ShouldNotBeEmpty)
+			So(err.Error(), ShouldEqual, "create config directory failed")
 		})
 	})
 }
@@ -126,11 +127,11 @@ func TestEncryptPrivateKeyAgain(t *testing.T) {
 	var backupks = "./testdata/backupPd"
 	Convey("test for EncryptPrivateKey", t, func() {
 		// mock kmcInit
-		initStub := gostub.Stub(&KmcInit, func(sdpAlgID int, primaryKey, standbyKey string) {})
-		encryptStub := gostub.Stub(&Encrypt, func(domainID int, data []byte) ([]byte, error) {
+		initStub := gomonkey.ApplyFunc(KmcInit, func(sdpAlgID int, primaryKey, standbyKey string) {})
+		defer initStub.Reset()
+		encryptStub := gomonkey.ApplyFunc(Encrypt, func(domainID int, data []byte) ([]byte, error) {
 			return []byte("test"), nil
 		})
-		defer initStub.Reset()
 		defer encryptStub.Reset()
 		keyBytes, err := ReadBytes("./testdata/cert/client.key")
 		So(err, ShouldEqual, nil)
@@ -315,10 +316,10 @@ func TestLoadEncryptedCertPair(t *testing.T) {
 		var mainks = "./testdata/mainks"
 		var backupks = "./testdata/mainks"
 		// mock kmcInit
-		initStub := gostub.Stub(&KmcInit, func(sdpAlgID int, primaryKey, standbyKey string) {})
+		initStub := gomonkey.ApplyFunc(KmcInit, func(sdpAlgID int, primaryKey, standbyKey string) {})
 		defer initStub.Reset()
 		Convey("normal cert", func() {
-			encryptStub := gostub.Stub(&Decrypt, func(domainID int, data []byte) ([]byte, error) {
+			encryptStub := gomonkey.ApplyFunc(Decrypt, func(domainID int, data []byte) ([]byte, error) {
 				return []byte("111111"), nil
 			})
 			defer encryptStub.Reset()
@@ -328,7 +329,7 @@ func TestLoadEncryptedCertPair(t *testing.T) {
 			So(c, ShouldNotBeEmpty)
 		})
 		Convey("cert not match", func() {
-			encryptStub := gostub.Stub(&Decrypt, func(domainID int, data []byte) ([]byte, error) {
+			encryptStub := gomonkey.ApplyFunc(Decrypt, func(domainID int, data []byte) ([]byte, error) {
 				return []byte("111111"), nil
 			})
 			defer encryptStub.Reset()
@@ -344,7 +345,7 @@ func TestLoadEncryptedCertPair(t *testing.T) {
 			So(err, ShouldNotBeEmpty)
 		})
 		Convey("decrypt failed", func() {
-			encryptStub := gostub.Stub(&Decrypt, func(domainID int, data []byte) ([]byte, error) {
+			encryptStub := gomonkey.ApplyFunc(Decrypt, func(domainID int, data []byte) ([]byte, error) {
 				return nil, errors.New("mock err")
 			})
 			defer encryptStub.Reset()
@@ -451,6 +452,10 @@ func TestClientIP(t *testing.T) {
 // TestGetTLSConfigForClient test for GetTLSConfigForClient
 func TestGetTLSConfigForClient(t *testing.T) {
 	Convey("get tlsconfig", t, func() {
+		gomonkey.ApplyFunc(LoadCertPairByte, func(pathMap map[string]string, encryptAlgorithm int,
+			mode os.FileMode) ([]byte, []byte, error) {
+			return nil, nil, errors.New("error")
+		})
 		cfg, err := GetTLSConfigForClient("npu-exporter", 1)
 		So(err, ShouldNotBeEmpty)
 		So(cfg, ShouldNotBeEmpty)
@@ -579,7 +584,7 @@ func TestCheckValidityPeriodWithError(t *testing.T) {
 // TestKmcInit
 func TestKmcInit(t *testing.T) {
 	Convey("success", t, func() {
-		mock := gostub.Stub(&kmcNewManualBootstrap, func(defaultAppId int, logLevel loglevel.CryptoLogLevel,
+		mock := gomonkey.ApplyFunc(kmc.NewManualBootstrap, func(defaultAppId int, logLevel loglevel.CryptoLogLevel,
 			logger *gateway.CryptoLogger, kmcInitConfig *vo.KmcInitConfigVO) *kmc.ManualBootstrap {
 			return nil
 		})

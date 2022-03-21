@@ -272,7 +272,7 @@ func importKubeConfig(kubeConf string) {
 	hwlog.RunLog.Info("import kubeConfig successfully")
 	if certFile == "" || keyFile == "" {
 		adjustOwner()
-		utils.Bootstrap.Shutdown()
+		utils.KmcShutDown()
 		if notDel {
 			hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
 			return

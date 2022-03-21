@@ -25,6 +25,7 @@ const (
 	cacheTime = 60 * time.Second
 	timestamp = 1606402
 	waitTime  = 2 * time.Second
+	npuCount  = 8
 )
 
 type mockContainerRuntimeOperator struct{}
@@ -219,7 +220,7 @@ func newTestCase(name string, wantErr bool, mockPart interface{}) testCase {
 
 func mockGetNPUInfo(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 	var npuList []HuaWeiNPUCard
-	for devicePhysicID := int32(0); devicePhysicID < 8; devicePhysicID++ {
+	for devicePhysicID := int32(0); devicePhysicID < npuCount; devicePhysicID++ {
 		chipInfo := &HuaWeiAIChip{
 			HealthStatus: Healthy,
 			ErrorCode:    0,
