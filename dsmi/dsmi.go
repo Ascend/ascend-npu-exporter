@@ -211,6 +211,9 @@ const (
 	// DefaultTemperatureWhenQueryFailed when get temperature failed, use this value
 	DefaultTemperatureWhenQueryFailed = -275
 	maxChipNum                        = 64
+	unitChange100                     = 0.01
+	unitChange10                      = 0.1
+	retryTime                         = 3
 )
 
 // HbmInfo HBM info
@@ -456,7 +459,7 @@ func (d *baseDeviceManager) GetDeviceUtilizationRate(logicID int32, deviceType D
 	err := C.dsmi_get_device_utilization_rate(C.int(logicID), C.int(deviceType), &utilRate)
 	if err != 0 {
 		hwlog.RunLog.Errorf("get device%d utilize rate failed, error code: %d, try again ... ", logicID, int32(err))
-		for i := 0; i < 3; i++ {
+		for i := 0; i < retryTime; i++ {
 			hwlog.RunLog.Errorf("try again %d", i)
 			err = C.dsmi_get_device_utilization_rate(C.int(logicID), C.int(deviceType), &utilRate)
 			if err == 0 && isValidUtilizationRate(uint32(utilRate)) {
@@ -543,7 +546,7 @@ func (d *baseDeviceManager) GetDeviceVoltage(logicID int32) (float32, error) {
 		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
-	voltage := float32(vol) * 0.01
+	voltage := float32(vol) * unitChange100
 	return voltage, nil
 }
 
@@ -561,7 +564,7 @@ func (d *baseDeviceManager) GetDevicePower(logicID int32) (float32, error) {
 		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
-	power := parsedPower * 0.1
+	power := parsedPower * unitChange10
 	return power, nil
 
 }
@@ -805,7 +808,7 @@ func (d *baseDeviceManager) GetCardPower(cardID int32) (float32, error) {
 		hwlog.RunLog.Error(errInfo)
 		return retError, errInfo
 	}
-	return parsedPower * 0.1, nil
+	return parsedPower * unitChange10, nil
 }
 
 // GetDeviceLogicID get device logicID

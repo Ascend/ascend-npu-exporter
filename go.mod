@@ -3,6 +3,7 @@ module huawei.com/npu-exporter
 go 1.16
 
 require (
+	github.com/agiledragon/gomonkey/v2 v2.2.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/golang/protobuf v1.5.1
 	github.com/patrickmn/go-cache v2.1.1-0.20191004192108-46f407853014+incompatible
