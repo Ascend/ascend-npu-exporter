@@ -4,6 +4,9 @@
 package utils
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -19,7 +22,10 @@ import (
 
 	"github.com/prashantv/gostub"
 	. "github.com/smartystreets/goconvey/convey"
-
+	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc"
+	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc/vo"
+	"huawei.com/kmc/pkg/application/gateway"
+	"huawei.com/kmc/pkg/application/gateway/loglevel"
 	"huawei.com/npu-exporter/hwlog"
 )
 
@@ -415,4 +421,174 @@ func TestReplacePrefix(t *testing.T) {
 		So(path, ShouldEqual, "****")
 	})
 
+}
+
+// TestClientIP test for ClientIP
+func TestClientIP(t *testing.T) {
+	Convey("get ip from RemoteAddr", t, func() {
+		req, err := http.NewRequest("GET", "http://127.0.0.1", nil)
+		req.RemoteAddr = "127.0.0.1:80"
+		ip := ClientIP(req)
+		So(err, ShouldEqual, nil)
+		So(ip, ShouldEqual, "127.0.0.1")
+	})
+	Convey("get ip from X-Real-Ip", t, func() {
+		req, err := http.NewRequest("GET", "http://127.0.0.1", nil)
+		req.Header.Set("X-Real-IP", "127.0.0.2")
+		ip := ClientIP(req)
+		So(err, ShouldEqual, nil)
+		So(ip, ShouldEqual, "127.0.0.2")
+	})
+	Convey("get ip from X-Forwarded-For", t, func() {
+		req, err := http.NewRequest("GET", "http://127.0.0.1", nil)
+		req.Header.Set("X-Forwarded-For", "127.0.0.3")
+		ip := ClientIP(req)
+		So(err, ShouldEqual, nil)
+		So(ip, ShouldEqual, "127.0.0.3")
+	})
+}
+
+// TestGetTLSConfigForClient test for GetTLSConfigForClient
+func TestGetTLSConfigForClient(t *testing.T) {
+	Convey("get tlsconfig", t, func() {
+		cfg, err := GetTLSConfigForClient("npu-exporter", 1)
+		So(err, ShouldNotBeEmpty)
+		So(cfg, ShouldNotBeEmpty)
+		So(cfg, ShouldEqual, nil)
+	})
+}
+
+// TestCertStatus test for checkCertStatus
+func TestCertStatus(t *testing.T) {
+	t1, err := time.Parse(time.RFC3339, "2022-03-18T00:00:00Z")
+	if err != nil {
+		fmt.Printf("Parse time failed %v\n", err)
+	}
+	t2, err := time.Parse(time.RFC3339, "2022-03-20T00:00:00Z")
+	if err != nil {
+		fmt.Printf("Parse time failed %v\n", err)
+	}
+	cs := &CertStatus{
+		NotBefore: t1,
+		NotAfter:  t2,
+		IsCA:      true,
+	}
+	Convey("overdue 1day", t, func() {
+		x, err := time.Parse(time.RFC3339, "2022-03-19T00:00:00Z")
+		if err != nil {
+			fmt.Printf("Parse time failed %v\n", err)
+		}
+		checkCertStatus(x, cs)
+	})
+}
+
+func createGetPrivateKeyLengthTestData(curve elliptic.Curve) (*x509.Certificate, *tls.Certificate) {
+	priv, err := ecdsa.GenerateKey(curve, rand.Reader)
+	if err != nil {
+		fmt.Printf("create ecdsa private key failed: %v\n", err)
+	}
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization: []string{"This is Test"},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(0, 0, 1),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	if err != nil {
+		fmt.Printf("Failed to create certificate: %s\n", err)
+	}
+	cert, err := x509.ParseCertificate(derBytes)
+	if err != nil {
+		fmt.Printf("Parse certificate failed: %s\n", err)
+	}
+	c := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	b, err := x509.MarshalECPrivateKey(priv)
+	if err != nil {
+		fmt.Printf("x509.MarshalECPrivateKey failed: %s\n", err)
+	}
+	k := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: b})
+	keypair, err := tls.X509KeyPair(c, k)
+	if err != nil {
+		fmt.Printf("tls.X509KeyPair failed: %s\n", err)
+	}
+	return cert, &keypair
+}
+
+// TestGetPrivateKeyLength
+func TestGetPrivateKeyLength(t *testing.T) {
+	Convey("get key length of Curve 384", t, func() {
+		// P384 curve key length is 388
+		const bitLengthP384 = 384
+		cert, keypair := createGetPrivateKeyLengthTestData(elliptic.P384())
+		keyLen, keyType, err := GetPrivateKeyLength(cert, keypair)
+		if err != nil {
+			fmt.Printf("GetPrivateKeyLength failed %v\n", err)
+		}
+		fmt.Printf("private key length is %v, key type is %v\n", keyLen, keyType)
+		So(keyLen, ShouldEqual, bitLengthP384)
+	})
+	Convey("get key length of Curve 256", t, func() {
+		// P521 curve key length is 256. the byte lengh is in 256
+		const bitLengthP256 = 256
+		cert, keypair := createGetPrivateKeyLengthTestData(elliptic.P256())
+		keyLen, keyType, err := GetPrivateKeyLength(cert, keypair)
+		if err != nil {
+			fmt.Printf("GetPrivateKeyLength failed %v\n", err)
+		}
+		fmt.Printf("private key length is %v, key type is %v\n", keyLen, keyType)
+		So(keyLen, ShouldEqual, bitLengthP256)
+	})
+}
+
+// TestGetPrivateKeyLength
+func TestCheckValidityPeriodWithError(t *testing.T) {
+	Convey("normal", t, func() {
+		now := time.Now()
+		cert := &x509.Certificate{
+			NotBefore: now,
+			NotAfter:  now.AddDate(1, 0, 0),
+		}
+		err := CheckValidityPeriodWithError(cert, 1)
+		So(err, ShouldEqual, nil)
+	})
+	Convey("need update", t, func() {
+		now := time.Now()
+		cert := &x509.Certificate{
+			NotBefore: now,
+			NotAfter:  now.AddDate(0, 0, 1),
+		}
+		err := CheckValidityPeriodWithError(cert, 1)
+		So(err.Error(), ShouldContainSubstring, "need to update certification")
+	})
+	Convey("overdue", t, func() {
+		now := time.Now()
+		cert := &x509.Certificate{
+			NotBefore: now,
+			NotAfter:  now,
+		}
+		err := CheckValidityPeriodWithError(cert, 1)
+		So(err.Error(), ShouldContainSubstring, "the certificate overdue")
+	})
+}
+
+// TestKmcInit
+func TestKmcInit(t *testing.T) {
+	Convey("success", t, func() {
+		mock := gostub.Stub(&kmcNewManualBootstrap, func(defaultAppId int, logLevel loglevel.CryptoLogLevel,
+			logger *gateway.CryptoLogger, kmcInitConfig *vo.KmcInitConfigVO) *kmc.ManualBootstrap {
+			return nil
+		})
+		defer mock.Reset()
+		defer func() {
+			if r := recover(); r != nil {
+				So(fmt.Sprintf("%v", r), ShouldContainSubstring, "invalid memory address")
+			}
+		}()
+		KmcInit(0, "./primary.key", "standby.key")
+	})
 }
