@@ -30,23 +30,22 @@ import (
 )
 
 var (
-	port             int
-	updateTime       int
-	certificate      *tls.Certificate
-	ip               string
-	enableHTTP       bool
-	caBytes          []byte
-	encryptAlgorithm int
-	version          bool
-	tlsSuites        int
-	cipherSuites     uint16
-	concurrency      int
-	containerMode    string
-	containerd       string
-	endpoint         string
-	crlcerList       *pkix.CertificateList
-	warningDays      int
-	checkInterval    int
+	port          int
+	updateTime    int
+	certificate   *tls.Certificate
+	ip            string
+	enableHTTP    bool
+	caBytes       []byte
+	version       bool
+	tlsSuites     int
+	cipherSuites  uint16
+	concurrency   int
+	containerMode string
+	containerd    string
+	endpoint      string
+	crlcerList    *pkix.CertificateList
+	warningDays   int
+	checkInterval int
 )
 
 const (
@@ -189,7 +188,7 @@ func validate() {
 	utils.SetPeriodCheckParam(warningDays, checkInterval)
 	// key file exist and need init kmc
 	hwlog.RunLog.Info("start load imported certificate files")
-	tlsCert, err := utils.LoadCertPair(certStore, keyStore, passFile, passFileBackUp, encryptAlgorithm)
+	tlsCert, err := utils.LoadCertPair(certStore, keyStore, passFile, passFileBackUp, utils.Aes256gcm)
 	if err != nil {
 		hwlog.RunLog.Fatal(err)
 	}
@@ -231,10 +230,6 @@ func baseParamValid() {
 	if enableHTTP {
 		return
 	}
-	if encryptAlgorithm != utils.Aes128gcm && encryptAlgorithm != utils.Aes256gcm {
-		hwlog.RunLog.Warn("reset invalid encryptAlgorithm ")
-		encryptAlgorithm = utils.Aes256gcm
-	}
 	if tlsSuites != 0 && tlsSuites != 1 {
 		hwlog.RunLog.Warn("reset invalid tlsSuites = 1 ")
 		tlsSuites = 1
@@ -255,8 +250,6 @@ func init() {
 		"Interval (seconds) to update the npu metrics cache,range[1-60]")
 	flag.BoolVar(&enableHTTP, "enableHTTP", false,
 		"If true, the program will not check certificate files and enable http server (default false)")
-	flag.IntVar(&encryptAlgorithm, "encryptAlgorithm", utils.Aes256gcm,
-		"Use 8 for aes128gcm,9 for aes256gcm,not recommended config it in general")
 	flag.IntVar(&tlsSuites, "tlsSuites", 1,
 		"Use 0 for TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 ,1 for TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256")
 	flag.BoolVar(&version, "version", false,
