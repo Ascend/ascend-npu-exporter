@@ -744,8 +744,11 @@ func CheckCertFiles(pathMap map[string]string) error {
 		hwlog.RunLog.Error("certFile is empty")
 		return os.ErrNotExist
 	}
-	for _, v := range pathMap {
+	for k, v := range pathMap {
 		if _, err := CheckPath(v); err != nil {
+			if err == os.ErrNotExist && (k == PassFilePath || k == PassFileBackUpPath) {
+				continue
+			}
 			return err
 		}
 	}
