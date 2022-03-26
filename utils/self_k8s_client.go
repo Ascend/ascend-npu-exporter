@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sync"
 
@@ -92,17 +91,18 @@ func (rules *SelfClientConfigLoadingRules) Load() (*api.Config, error) {
 
 // LoadFromFile takes a filename and deserializes the contents into Config object
 func LoadFromFile(filename string) (*api.Config, error) {
-	kubeconfigBytes, err := ioutil.ReadFile(filename)
+	kubeconfigBytes, err := ReadLimitBytes(filename, Size10M)
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.HasPrefix(kubeconfigBytes, []byte("apiVersion:")) {
-		KmcInit(Aes256gcm, "", "")
-		hwlog.RunLog.Info("start to decrypt cfg")
-		kubeconfigBytes, err = Decrypt(0, kubeconfigBytes)
-		if err != nil {
-			return nil, err
-		}
+	if bytes.HasPrefix(kubeconfigBytes, []byte("apiVersion:")) {
+		return nil, errors.New("do not support non-encrypted kubeConfig")
+	}
+	KmcInit(Aes256gcm, "", "")
+	hwlog.RunLog.Info("start to decrypt cfg")
+	kubeconfigBytes, err = Decrypt(0, kubeconfigBytes)
+	if err != nil {
+		return nil, err
 	}
 	cfg, err := clientcmd.Load(kubeconfigBytes)
 	if err != nil {

@@ -323,6 +323,10 @@ func TestLoadEncryptedCertPair(t *testing.T) {
 				return []byte("111111"), nil
 			})
 			defer encryptStub.Reset()
+			isEncryptedStub := gomonkey.ApplyFunc(isEncryptedKey, func(keyFile string) (bool, error) {
+				return true, nil
+			})
+			defer isEncryptedStub.Reset()
 			c, err := LoadCertPair("./testdata/cert/client-v3.crt",
 				"./testdata/cert/client.key", mainks, backupks, 0)
 			So(err, ShouldEqual, nil)
