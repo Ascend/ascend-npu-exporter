@@ -15,7 +15,7 @@ import (
 func TestBuildConfigFromFlags(t *testing.T) {
 	Convey("relative path", t, func() {
 		kubeconfigBytes, err := ReadLimitBytes("./testdata/test.conf", Size10M)
-		initStub := gomonkey.ApplyFunc(bytes.HasPrefix, func(s, prefix []byte) bool {
+		initStub := gomonkey.ApplyFunc(bytes.Contains, func(s, prefix []byte) bool {
 			return false
 		})
 		defer initStub.Reset()

@@ -19,7 +19,10 @@ import (
 	"huawei.com/npu-exporter/hwlog"
 )
 
-const prefix = "/etc/mindx-dl/"
+const (
+	prefix       = "/etc/mindx-dl/"
+	configPrefix = "apiVersion:"
+)
 
 var (
 	k8sClientOnce sync.Once
@@ -95,7 +98,7 @@ func LoadFromFile(filename string) (*api.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	if bytes.HasPrefix(kubeconfigBytes, []byte("apiVersion:")) {
+	if bytes.Contains(kubeconfigBytes, []byte(configPrefix)) {
 		return nil, errors.New("do not support non-encrypted kubeConfig")
 	}
 	KmcInit(Aes256gcm, "", "")
