@@ -13,7 +13,7 @@ require (
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
+	golang.org/x/crypto v0.0.0-20220314234659-1baeb1ce4c0b
 	google.golang.org/grpc v1.28.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	huawei.com/kmc v1.0.6

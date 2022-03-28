@@ -456,6 +456,18 @@ func DecryptPrivateKeyWithPd(keyFile string, passwd []byte) (*pem.Block, error) 
 	return block, nil
 }
 
+func isEncryptedKey(keyFile string) (bool, error) {
+	keyBytes, err := ReadLimitBytes(keyFile, Size10M)
+	if err != nil {
+		return false, err
+	}
+	block, _ := pem.Decode(keyBytes)
+	if block == nil {
+		return false, errors.New("decode key file failed")
+	}
+	return x509.IsEncryptedPEMBlock(block), nil
+}
+
 // GetRandomPass produce the new password
 func GetRandomPass() []byte {
 	k := make([]byte, byteSize, byteSize)
@@ -776,6 +788,13 @@ func LoadCertPairByte(pathMap map[string]string, encryptAlgorithm int, mode os.F
 		return nil, nil, errors.New("decrypt passwd failed")
 	}
 	hwlog.RunLog.Info("decrypt passwd successfully")
+	isEncode, err := isEncryptedKey(key)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !isEncode {
+		return nil, nil, errors.New("mindx-dl don't support non-encrypted key ")
+	}
 	keyBlock, err := DecryptPrivateKeyWithPd(key, pd)
 	if err != nil {
 		return nil, nil, err

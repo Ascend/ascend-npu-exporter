@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sync"
 
@@ -20,7 +19,10 @@ import (
 	"huawei.com/npu-exporter/hwlog"
 )
 
-const prefix = "/etc/mindx-dl/"
+const (
+	prefix       = "/etc/mindx-dl/"
+	configPrefix = "apiVersion:"
+)
 
 var (
 	k8sClientOnce sync.Once
@@ -92,17 +94,18 @@ func (rules *SelfClientConfigLoadingRules) Load() (*api.Config, error) {
 
 // LoadFromFile takes a filename and deserializes the contents into Config object
 func LoadFromFile(filename string) (*api.Config, error) {
-	kubeconfigBytes, err := ioutil.ReadFile(filename)
+	kubeconfigBytes, err := ReadLimitBytes(filename, Size10M)
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.HasPrefix(kubeconfigBytes, []byte("apiVersion:")) {
-		KmcInit(Aes256gcm, "", "")
-		hwlog.RunLog.Info("start to decrypt cfg")
-		kubeconfigBytes, err = Decrypt(0, kubeconfigBytes)
-		if err != nil {
-			return nil, err
-		}
+	if bytes.Contains(kubeconfigBytes, []byte(configPrefix)) {
+		return nil, errors.New("do not support non-encrypted kubeConfig")
+	}
+	KmcInit(Aes256gcm, "", "")
+	hwlog.RunLog.Info("start to decrypt cfg")
+	kubeconfigBytes, err = Decrypt(0, kubeconfigBytes)
+	if err != nil {
+		return nil, err
 	}
 	cfg, err := clientcmd.Load(kubeconfigBytes)
 	if err != nil {
