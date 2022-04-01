@@ -41,7 +41,7 @@ var (
 	kubeConfStore    string
 	defaultLogFile   = "/var/log/mindx-dl/cert-importer/cert-importer.log"
 	cptMap           = map[string]string{
-		"ne": "npu-exporter", "am": "access-manager", "tm": "task-manager", "lm": "license-manager", "la": "license-agent",
+		"ne": "npu-exporter", "am": "access-manager", "lm": "license-manager", "la": "license-agent",
 		"hc": "hccl-controller", "dp": "device-plugin", "nd": "noded",
 	}
 	notDel bool
@@ -77,7 +77,7 @@ func init() {
 	flag.IntVar(&encryptAlgorithm, "encryptAlgorithm", utils.Aes256gcm,
 		"Use 8 for aes128gcm,9 for aes256gcm,not recommended config it in general")
 	flag.StringVar(&component, "cpt", "ne", "The component name such as ne (npu-exporter),"+
-		"am (access-manager),tm(task-manager),lm(license-manager),la(license agent),hc(hccl-controller),"+
+		"am (access-manager),lm(license-manager),la(license agent),hc(hccl-controller),"+
 		"dp(device-plugin),nd(noded)")
 	flag.BoolVar(&version, "version", false,
 		"If true,query the version of the program (default false)")
