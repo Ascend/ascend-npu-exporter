@@ -51,11 +51,11 @@ spec:
         image: npu-exporter:beta
         resources:
           requests:
-              memory: 300Mi
-              cpu: 500m
+              memory: 1000Mi
+              cpu: 1000m
           limits:
-              memory: 300Mi
-              cpu: 500m
+              memory: 1000Mi
+              cpu: 1000m
         imagePullPolicy: Never
         command: [ "/bin/bash", "-c", "--"]
         # NOTE: enable HTTPS needs to use
