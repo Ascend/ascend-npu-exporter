@@ -71,6 +71,7 @@ func (l *localLimitListener) Accept() (net.Conn, error) {
 		if err != nil {
 			hwlog.RunLog.Warn(err)
 		}
+		return &limitListenerConn{Conn: c, release: func() {}}, nil
 	}
 	return &limitListenerConn{Conn: c, release: l.release}, nil
 }
