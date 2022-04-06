@@ -4,7 +4,7 @@ RUN useradd -d /home/hwMindX -u 9000 -m -s /usr/sbin/nologin hwMindX &&\
 COPY ./npu-exporter  /usr/local/bin/
 COPY ./lib  /usr/local/lib
 RUN chown root:root /usr/local/bin/npu-exporter  &&\
-    chmod 750 /home/hwMindX &&\
+    chmod 750 -R /home/hwMindX &&\
     chmod 550 /usr/local/bin/ /usr/local/lib &&\
     chmod 500 /usr/local/lib/* &&\
     chmod 500 /usr/local/bin/npu-exporter &&\
