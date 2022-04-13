@@ -102,8 +102,8 @@ func (d *DeviceManagerMockErr) GetLogicIDFromPhyID(phyID uint32) (int32, error) 
 }
 
 // GetNPUMajorID query the MajorID of NPU devices
-func (d *DeviceManagerMockErr) GetNPUMajorID() (string, error) {
-	return "", fmt.Errorf(errorMsg)
+func (d *DeviceManagerMockErr) GetNPUMajorID() ([]string, error) {
+	return nil, fmt.Errorf(errorMsg)
 }
 
 // GetCardList get npu card array
