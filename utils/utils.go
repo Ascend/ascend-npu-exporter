@@ -529,9 +529,12 @@ func KmcInit(sdpAlgID int, primaryKey, standbyKey string) {
 	}
 	var err error
 	cryptoAPI, err = bootstrap.Start()
-	cryptoAPI.UpdateLifetimeDays(TenDays * TenDays)
 	if err != nil {
 		hwlog.RunLog.Fatal("initial kmc failed,please make sure the LD_LIBRARY_PATH include the kmc-ext.so ")
+	}
+	err = cryptoAPI.UpdateLifetimeDays(TenDays * TenDays)
+	if err != nil{
+		hwlog.RunLog.Warn("update crypto lifetime failed")
 	}
 }
 

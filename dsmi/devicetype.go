@@ -24,5 +24,7 @@ const (
 	// AICoreNormalFreq AI core normal frequency  Ascend910 only
 	AICoreNormalFreq DeviceType = 9
 	// HBMBandWidth Ascend910 only
-	HBMBandWidth DeviceType = 10
+	HBMBandWidth  DeviceType = 10
+	deviceCount              = 2
+	maxSearchLine            = 512
 )
