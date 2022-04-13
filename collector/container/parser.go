@@ -34,7 +34,7 @@ const (
 	devicesList                 = "devices.list"
 	expectDevicesListColNum     = 3
 	expectDeviceIDNum           = 2
-	maxNpuCardsNum              = 64
+	maxNpuCardsNum              = 512
 	namespaceMoby               = "moby"   // Docker
 	namespaceK8s                = "k8s.io" // CRI + Containerd
 	sliceLen8                   = 8
@@ -59,7 +59,7 @@ var (
 	// ErrFromContext error is from the context
 	ErrFromContext = errors.New("error from context")
 
-	npuMajorID               string
+	npuMajorID               []string
 	npuMajorFetchCtrl        sync.Once
 	parsingNpuDefaultTimeout = 3 * time.Second
 	procMountInfoGet         sync.Once
@@ -413,7 +413,7 @@ func getUnit(prefix, name string) string {
 var ScanForAscendDevices = func(devicesListFile string) ([]int, bool, error) {
 	minorNumbers := make([]int, 0, sliceLen8)
 	majorID := npuMajor()
-	if majorID == "" {
+	if len(majorID) == 0 {
 		return nil, false, fmt.Errorf("majorID is null")
 	}
 
@@ -440,7 +440,7 @@ var ScanForAscendDevices = func(devicesListFile string) ([]int, bool, error) {
 			return nil, false, fmt.Errorf("second field of cgroup entry %q should have one colon", text)
 		}
 
-		if fields[0] == "c" && majorMinor[0] == majorID {
+		if fields[0] == "c" && contains(majorID, majorMinor[0]) {
 			minorNumber, err := strconv.Atoi(majorMinor[1])
 			if err != nil {
 				return nil, false, fmt.Errorf("cgroup entry %q: minor number is not integer", text)
@@ -456,7 +456,7 @@ var ScanForAscendDevices = func(devicesListFile string) ([]int, bool, error) {
 	return minorNumbers, len(minorNumbers) > 0, nil
 }
 
-func npuMajor() string {
+func npuMajor() []string {
 	npuMajorFetchCtrl.Do(func() {
 		var err error
 		npuMajorID, err = dsmi.GetDeviceManager().GetNPUMajorID()
@@ -465,4 +465,13 @@ func npuMajor() string {
 		}
 	})
 	return npuMajorID
+}
+
+func contains(slice []string, target string) bool {
+	for _, v := range slice {
+		if v == target {
+			return true
+		}
+	}
+	return false
 }

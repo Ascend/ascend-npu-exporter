@@ -187,9 +187,9 @@ import "C"
 import (
 	"bufio"
 	"fmt"
-	"io"
+	"huawei.com/npu-exporter/utils"
 	"math"
-	"os/exec"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -295,7 +295,7 @@ type getDeviceInfoInterface interface {
 	// GetLogicIDFromPhyID convert npu device logicId to physicalID
 	GetLogicIDFromPhyID(phyID uint32) (int32, error)
 	// GetNPUMajorID query the MajorID of NPU devices
-	GetNPUMajorID() (string, error)
+	GetNPUMajorID() ([]string, error)
 	// GetCardList get npu card array
 	GetCardList() (int32, []int32, error)
 	// GetDeviceNumOnCard get device number on the npu card
@@ -703,48 +703,37 @@ func (d *baseDeviceManager) GetChipInfo(logicID int32) (*ChipInfo, error) {
 }
 
 // GetNPUMajorID query the MajorID of NPU devices
-func (d *baseDeviceManager) GetNPUMajorID() (string, error) {
-	command := "ls -al /dev/davinci*"
-	cmd := exec.Command("/bin/sh", "-c", command)
-	stdout, err := cmd.StdoutPipe()
+func (d *baseDeviceManager) GetNPUMajorID() ([]string, error) {
+	path, err := utils.CheckPath("/proc/devices")
 	if err != nil {
-		hwlog.RunLog.Errorf("command exec failed:%s", command)
-		return "", fmt.Errorf("ls command exec failed")
+		return nil, err
 	}
-	err = cmd.Start()
+	majorID := make([]string, 0, deviceCount)
+	f, err := os.Open(path)
 	if err != nil {
-		hwlog.RunLog.Errorf("start cmd error:%v", err)
+		return majorID, err
 	}
-	reader := bufio.NewReader(stdout)
-	var firstResult string
-	for {
-		line, err2 := reader.ReadString('\n')
-		if err2 != nil || io.EOF == err2 {
-			hwlog.RunLog.Errorf("err:%v", err2)
+	defer f.Close()
+	s := bufio.NewScanner(f)
+	count := 0
+	for s.Scan() {
+		// prevent from searching too many lines
+		if count > maxSearchLine {
 			break
 		}
-		hwlog.RunLog.Infof("LINE:%v", line)
-		if line != "" {
-			firstResult = line
-			break
+		count++
+		text := s.Text()
+		matched, err := regexp.MatchString("^[0-9]{1,3}\\s[v]?devdrv-cdev$", text)
+		if err != nil {
+			return majorID, err
 		}
+		if !matched {
+			continue
+		}
+		fields := strings.Fields(text)
+		majorID = append(majorID, fields[0])
 	}
-	if err := cmd.Wait(); err != nil {
-		hwlog.RunLog.Errorf("command exec failed,%v", err)
-		return "", err
-	}
-	if firstResult == "" {
-		hwlog.RunLog.Errorf("can't to find NPU majorId")
-		return "", fmt.Errorf("can't find NPU majorId")
-	}
-	// for example like this : crw-rw---- 1 HwHiAiUser HwHiAiUser 239, 0 Sep 28 21:56 /dev/davinci0
-	reg := regexp.MustCompile("\\d{3},")
-	res := reg.FindString(firstResult)
-	if res == "" {
-		hwlog.RunLog.Errorf("regex match error,original string is %s", firstResult)
-		return "", fmt.Errorf("regex match error")
-	}
-	return strings.TrimSuffix(res, ","), nil
+	return majorID, nil
 }
 
 // GetCardList get npu card array

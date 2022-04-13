@@ -107,7 +107,7 @@ func (operator *RuntimeOperatorTool) GetContainers(ctx context.Context) ([]*v1al
 	if operator.criClient == nil {
 		return nil, errors.New("criClient is empty")
 	}
-	r, err := operator.criClient.ListContainers(context.Background(), request)
+	r, err := operator.criClient.ListContainers(ctx, request)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return nil, err
