@@ -231,7 +231,7 @@ func validateLogConfigFiled(config *LogConfig) error {
 	if config.OnlyToStdout {
 		return nil
 	}
-	if _, err := CheckPath(config.LogFileName); err != nil {
+	if _, err := CheckPath(config.LogFileName); err != nil && err != os.ErrNotExist {
 		return fmt.Errorf("config log path is not absolute path")
 	}
 
