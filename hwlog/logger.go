@@ -130,10 +130,10 @@ func createFile(filePath string) error {
 	fileName := path.Base(filePath)
 	if !isExist(filePath) {
 		f, err := os.Create(filePath)
-		defer f.Close()
 		if err != nil {
 			return fmt.Errorf("create file(%s) failed", fileName)
 		}
+		defer f.Close()
 	}
 	return nil
 }
@@ -231,7 +231,7 @@ func validateLogConfigFiled(config *LogConfig) error {
 	if config.OnlyToStdout {
 		return nil
 	}
-	if !path.IsAbs(config.LogFileName) {
+	if _, err := CheckPath(config.LogFileName); err != nil {
 		return fmt.Errorf("config log path is not absolute path")
 	}
 

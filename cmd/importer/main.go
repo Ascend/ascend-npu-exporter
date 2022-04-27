@@ -291,7 +291,7 @@ func importKubeConfig(kubeConf string) {
 func adjustOwner() {
 	path, err := utils.CheckPath(dirPrefix)
 	if err != nil {
-		hwlog.RunLog.Warn("config file directory is not safe")
+		hwlog.RunLog.Fatal("config file directory is not safe")
 	}
 	if err := chownR(path, hwMindX, hwMindX); err != nil {
 		hwlog.RunLog.Warn("change file owner failed, please chown to hwMindX manually")
@@ -301,7 +301,7 @@ func adjustOwner() {
 func chownR(path string, uid, gid int) error {
 	return filepath.Walk(path, func(name string, info os.FileInfo, err error) error {
 		if err == nil {
-			err = os.Chown(name, uid, gid)
+			err = os.Lchown(name, uid, gid)
 		}
 		return err
 	})

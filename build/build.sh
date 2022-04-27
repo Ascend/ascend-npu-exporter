@@ -19,8 +19,7 @@ echo "Build Architecture is" "${arch}"
 
 OUTPUT_NAME="npu-exporter"
 DOCKER_FILE_NAME="Dockerfile"
-docker_zip_name="npu-exporter-${build_version}-${arch}.tar.gz"
-docker_images_name="npu-exporter:${build_version}"
+
 
 function clean() {
   rm -rf "${TOP_DIR}"/output
