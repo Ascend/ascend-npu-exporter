@@ -46,8 +46,6 @@ const (
 	dirMode   = 0700
 	// FileMode file privilege
 	FileMode = 0400
-	// RWMode for read and write
-	RWMode = 0600
 	// Aes128gcm AES128-GCM
 	Aes128gcm = 8
 	// Aes256gcm AES256-GCM
@@ -148,10 +146,10 @@ func ReadLimitBytes(path string, limitLength int) ([]byte, error) {
 		return nil, err
 	}
 	file, err := os.OpenFile(key, os.O_RDONLY, FileMode)
-	defer file.Close()
 	if err != nil {
 		return nil, err
 	}
+	defer file.Close()
 	if limitLength < 0 || limitLength > maxSize {
 		return nil, errors.New("the limit length is not valid")
 	}
@@ -469,10 +467,11 @@ func isEncryptedKey(keyFile string) (bool, error) {
 }
 
 // GetRandomPass produce the new password
-func GetRandomPass() []byte {
+func GetRandomPass() ([]byte, error) {
 	k := make([]byte, byteSize, byteSize)
 	if _, err := rand.Read(k); err != nil {
 		hwlog.RunLog.Error("get random words failed")
+		return nil, err
 	}
 	length := base64.RawStdEncoding.EncodedLen(byteSize)
 	if length > capacity || length < byteSize {
@@ -480,7 +479,7 @@ func GetRandomPass() []byte {
 	}
 	dst := make([]byte, length, length)
 	base64.RawStdEncoding.Encode(dst, k)
-	return dst
+	return dst, nil
 }
 
 // ReadOrUpdatePd  read or update the password file
@@ -572,7 +571,10 @@ func EncryptPrivateKeyAgain(key *pem.Block, psFile, psBkFile string, encrypt int
 func EncryptPrivateKeyAgainWithMode(key *pem.Block, psFile, psBkFile string, encrypt int, mode os.FileMode) (*pem.Block,
 	error) {
 	// generate new passwd for private key
-	pd := GetRandomPass()
+	pd, err := GetRandomPass()
+	if err != nil {
+		hwlog.RunLog.Fatal("generate passwd failed")
+	}
 	KmcInit(encrypt, "", "")
 	encryptedPd, err := Encrypt(0, pd)
 	if err != nil {
@@ -951,16 +953,22 @@ func CheckPath(path string) (string, error) {
 
 // ClientIP try to get the clientIP
 func ClientIP(r *http.Request) string {
+	// get forward ip fistly
+	var ip string
 	xForwardedFor := r.Header.Get("X-Forwarded-For")
-	ip := strings.TrimSpace(strings.Split(xForwardedFor, ",")[0])
-	if ip != "" {
-		return ip
+	forwardSlice := strings.Split(xForwardedFor, ",")
+	if len(forwardSlice) >= 1 {
+		if ip = strings.TrimSpace(forwardSlice[0]); ip != "" {
+			return ip
+		}
 	}
+	// try get ip from "X-Real-Ip"
 	ip = strings.TrimSpace(r.Header.Get("X-Real-Ip"))
 	if ip != "" {
 		return ip
 	}
-	if ip, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr)); err == nil {
+	var err error
+	if ip, _, err = net.SplitHostPort(strings.TrimSpace(r.RemoteAddr)); err == nil {
 		return ip
 	}
 	return ""
