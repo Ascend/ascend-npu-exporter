@@ -4,9 +4,9 @@
 package collector
 
 import (
+	"context"
 	"fmt"
 	"math"
-	"os"
 	"reflect"
 	"strconv"
 	"sync"
@@ -61,7 +61,7 @@ type npuCollector struct {
 }
 
 // NewNpuCollector new a instance of prometheus Collector
-func NewNpuCollector(cacheTime time.Duration, updateTime time.Duration, stop chan os.Signal,
+func NewNpuCollector(ctx context.Context, cacheTime time.Duration, updateTime time.Duration,
 	deviceParser *container.DevicesParser) prometheus.Collector {
 	npuCollect := &npuCollector{
 		cache:         cache.New(cacheTime, five*time.Minute),
@@ -69,7 +69,7 @@ func NewNpuCollector(cacheTime time.Duration, updateTime time.Duration, stop cha
 		updateTime:    updateTime,
 		devicesParser: deviceParser,
 	}
-	go start(npuCollect, stop, dsmi.GetDeviceManager())
+	go start(ctx, npuCollect, dsmi.GetDeviceManager())
 	return npuCollect
 }
 
@@ -153,14 +153,14 @@ var assembleNPUInfoV1 = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 	return npuList
 }
 
-var start = func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface) {
+var start = func(ctx context.Context, n *npuCollector, dmgr dsmi.DeviceMgrInterface) {
 	defer func() {
 		if err := recover(); err != nil {
 			hwlog.RunLog.Errorf("go routine failed with %v", err)
 		}
 	}()
 
-	if n == nil || stop == nil {
+	if n == nil {
 		hwlog.RunLog.Error("Invalid param in function start")
 		return
 	}
@@ -189,7 +189,7 @@ var start = func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInte
 			hwlog.RunLog.Infof("update cache,key is %s", containersDevicesInfoKey)
 		case err := <-n.devicesParser.RecvErr():
 			hwlog.RunLog.Errorf("received error from device parser: %v", err)
-		case _, ok := <-stop:
+		case _, ok := <-ctx.Done():
 			if !ok {
 				hwlog.RunLog.Error("closed")
 				return
@@ -197,7 +197,7 @@ var start = func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInte
 			ticker.Stop()
 			hwlog.RunLog.Warn("received the stop signal,STOPPED")
 			dsmi.ShutDown()
-			os.Exit(0)
+			return
 		}
 	}
 }

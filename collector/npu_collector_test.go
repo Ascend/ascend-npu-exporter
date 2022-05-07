@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/patrickmn/go-cache"
 	"github.com/prashantv/gostub"
 	"github.com/prometheus/client_golang/prometheus"
@@ -67,14 +68,14 @@ func makeMockDevicesParser() *container.DevicesParser {
 // TestNewNpuCollector test method of NewNpuCollector
 func TestNewNpuCollector(t *testing.T) {
 	tests := []struct {
-		mockFunc func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface)
+		mockFunc func(ctx context.Context, n *npuCollector, dmgr dsmi.DeviceMgrInterface)
 		name     string
 		path     string
 	}{
 		{
 			name: "should return full list metrics when npuInfo not empty",
 			path: "testdata/prometheus_metrics",
-			mockFunc: func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface) {
+			mockFunc: func(ctx context.Context, n *npuCollector, dmgr dsmi.DeviceMgrInterface) {
 				_ = n.devicesParser.Init()
 				npuInfo := mockGetNPUInfo(nil)
 				n.cache.Set(key, npuInfo, n.cacheTime)
@@ -83,7 +84,7 @@ func TestNewNpuCollector(t *testing.T) {
 		{
 			name: "should return full list metrics when npuInfo is empty",
 			path: "testdata/prometheus_metrics2",
-			mockFunc: func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface) {
+			mockFunc: func(ctx context.Context, n *npuCollector, dmgr dsmi.DeviceMgrInterface) {
 				_ = n.devicesParser.Init()
 				var npuInfo []HuaWeiNPUCard
 				n.cache.Set(key, npuInfo, n.cacheTime)
@@ -98,14 +99,13 @@ func TestNewNpuCollector(t *testing.T) {
 }
 
 func excuteTestCollector(t *testing.T, tt struct {
-	mockFunc func(n *npuCollector, stop <-chan os.Signal, dmgr dsmi.DeviceMgrInterface)
+	mockFunc func(ctx context.Context, n *npuCollector, dmgr dsmi.DeviceMgrInterface)
 	name     string
 	path     string
 }) {
 	startStub := gostub.Stub(&start, tt.mockFunc)
 	defer startStub.Reset()
-	var stopChan chan os.Signal
-	c := NewNpuCollector(cacheTime, time.Second, stopChan, makeMockDevicesParser())
+	c := NewNpuCollector(context.Background(), cacheTime, time.Second, makeMockDevicesParser())
 	time.Sleep(1 * time.Second)
 	r := prometheus.NewRegistry()
 	r.MustRegister(c)
@@ -278,7 +278,7 @@ func TestStart(t *testing.T) {
 	gostub.Stub(&getNPUInfo, mockGetNPUInfo)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			go start(tt.collector, ch, dsmi.NewDeviceManagerMock())
+			go start(context.Background(), tt.collector, dsmi.NewDeviceManagerMock())
 			time.Sleep(waitTime)
 			objm, ok := tt.collector.cache.Get(key)
 			assert.NotNil(t, objm)
@@ -297,6 +297,6 @@ func init() {
 	}
 	stopCh := make(chan struct{})
 	hwlog.InitRunLogger(&config, stopCh)
-	gostub.Stub(&container.ScanForAscendDevices, mockScan4AscendDevices)
-	gostub.Stub(&container.GetCgroupPath, mockGetCgroupPath)
+	gomonkey.ApplyFunc(container.ScanForAscendDevices, mockScan4AscendDevices)
+	gomonkey.ApplyFunc(container.GetCgroupPath, mockGetCgroupPath)
 }

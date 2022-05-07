@@ -185,11 +185,13 @@ func (lg *Logger) PanicfWithCtx(ctx context.Context, format string, args ...inte
 }
 
 // Fatal record fatal not format
+// Deprecated: fatal will call os.exit and this will cause defer function do not execute
 func (lg *Logger) Fatal(args ...interface{}) {
 	lg.FatalWithCtx(nil, args...)
 }
 
 // Fatalf record fatal
+// Deprecated: fatal will call os.exit and this will cause defer function do not execute
 func (lg *Logger) Fatalf(format string, args ...interface{}) {
 	lg.FatalfWithCtx(nil, format, args...)
 }

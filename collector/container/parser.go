@@ -270,7 +270,7 @@ func withDefault(v time.Duration, d time.Duration) time.Duration {
 }
 
 // GetCgroupPath the method of caculate cgroup path of device.list
-var GetCgroupPath = func(controller, specCgroupsPath string) (string, error) {
+func GetCgroupPath(controller, specCgroupsPath string) (string, error) {
 	devicesController, err := getCgroupControllerPath(controller)
 	if err != nil {
 		return "", errors.Wrapf(err, "getting mount point of cgroup devices subsystem fail")
@@ -410,7 +410,7 @@ func getUnit(prefix, name string) string {
 }
 
 // ScanForAscendDevices scan ascend devices from device.list file
-var ScanForAscendDevices = func(devicesListFile string) ([]int, bool, error) {
+func ScanForAscendDevices(devicesListFile string) ([]int, bool, error) {
 	minorNumbers := make([]int, 0, sliceLen8)
 	majorID := npuMajor()
 	if len(majorID) == 0 {
