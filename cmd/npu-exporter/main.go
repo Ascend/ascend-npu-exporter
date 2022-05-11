@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -12,11 +13,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -91,12 +89,8 @@ func main() {
 	}
 	validate()
 	hwlog.RunLog.Infof("npu exporter starting and the version is %s", hwlog.BuildVersion)
-
 	opts := readCntMonitoringFlags()
-	stop := make(chan os.Signal)
-	defer close(stop)
-	signal.Notify(stop, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGKILL)
-	reg := regPrometheus(stop, opts)
+	reg := regPrometheus(opts)
 
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 	http.Handle("/", http.HandlerFunc(indexHandler))
@@ -165,11 +159,11 @@ func readCntMonitoringFlags() container.CntNpuMonitorOpts {
 	return opts
 }
 
-func regPrometheus(stop chan os.Signal, opts container.CntNpuMonitorOpts) *prometheus.Registry {
+func regPrometheus(opts container.CntNpuMonitorOpts) *prometheus.Registry {
 	deviceParser := container.MakeDevicesParser(opts)
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(
-		collector.NewNpuCollector(cacheTime, time.Duration(updateTime)*time.Second, stop, deviceParser),
+		collector.NewNpuCollector(context.Background(), cacheTime, time.Duration(updateTime)*time.Second, deviceParser),
 	)
 	return reg
 }
