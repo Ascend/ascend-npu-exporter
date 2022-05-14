@@ -87,9 +87,11 @@ const (
 	// TenDays ten days
 	TenDays = 10
 	// Size10M  bytes of 10M
-	Size10M   = 10 * 1024 * 1024
-	maxSize   = 1024 * 1024 * 1024
-	byteToBit = 8
+	Size10M            = 10 * 1024 * 1024
+	maxSize            = 1024 * 1024 * 1024
+	byteToBit          = 8
+	defaultWarningDays = 100
+	initSize           = 4
 )
 
 var (
@@ -97,9 +99,9 @@ var (
 	// bootstrap kmc bootstrap
 	bootstrap *kmc.ManualBootstrap
 	// certificateMap  using certificate information
-	certificateMap = make(map[string]*CertStatus, 4)
+	certificateMap = make(map[string]*CertStatus, initSize)
 	// warningDays cert warning day ,unit days
-	warningDays = 100
+	warningDays = defaultWarningDays
 	// checkInterval  cert period check interval,unit days
 	checkInterval = 1
 )
