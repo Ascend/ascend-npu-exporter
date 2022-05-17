@@ -38,6 +38,8 @@ const (
 	namespaceMoby               = "moby"   // Docker
 	namespaceK8s                = "k8s.io" // CRI + Containerd
 	sliceLen8                   = 8
+	cgroupIndex                 = 4
+	mountPointIdx               = 3
 )
 
 const (
@@ -312,7 +314,7 @@ func getCgroupControllerPath(controller string) (string, error) {
 		}
 
 		// finding cgroup mount point, ignore others
-		if split[l-3] != "cgroup" {
+		if split[l-mountPointIdx] != "cgroup" {
 			continue
 		}
 
@@ -320,7 +322,7 @@ func getCgroupControllerPath(controller string) (string, error) {
 		for _, opt := range strings.Split(split[l-1], ",") {
 			if opt == controller {
 				// returns the path of specified cgroup controller in fs
-				return split[4], nil
+				return split[cgroupIndex], nil
 			}
 		}
 	}
