@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -92,6 +93,7 @@ const (
 	byteToBit          = 8
 	defaultWarningDays = 100
 	initSize           = 4
+	minCount           = 2
 )
 
 var (
@@ -481,6 +483,17 @@ func GetRandomPass() ([]byte, error) {
 	}
 	dst := make([]byte, length, length)
 	base64.RawStdEncoding.Encode(dst, k)
+	var checkRes int
+	regx := []string{"[A-Z]+", "[a-z]+", "[0-9]+", "[+/=]+"}
+	for _, r := range regx {
+		if res, err := regexp.Match(r, dst); err != nil || !res {
+			continue
+		}
+		checkRes++
+	}
+	if checkRes < minCount {
+		return nil, errors.New("the password is to simple,please retry")
+	}
 	return dst, nil
 }
 

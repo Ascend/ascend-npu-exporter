@@ -601,3 +601,29 @@ func TestKmcInit(t *testing.T) {
 		KmcInit(0, "./primary.key", "standby.key")
 	})
 }
+
+func TestGetRandomPass(t *testing.T) {
+	Convey("normal situation", t, func() {
+		r1 := gomonkey.ApplyFunc(rand.Read, func(b []byte) (int, error) {
+			for i := range b {
+				b[i] = byte(i)
+			}
+			return len(b), nil
+		})
+		defer r1.Reset()
+		res, err := GetRandomPass()
+		So(err, ShouldEqual, nil)
+		So(len(res), ShouldNotEqual, 0)
+	})
+	Convey("simple passwd situation", t, func() {
+		r2 := gomonkey.ApplyFunc(rand.Read, func(b []byte) (int, error) {
+			for i := range b {
+				b[i] = 1
+			}
+			return len(b), nil
+		})
+		defer r2.Reset()
+		_, err := GetRandomPass()
+		So(err.Error(), ShouldEqual, "the password is to simple,please retry")
+	})
+}
