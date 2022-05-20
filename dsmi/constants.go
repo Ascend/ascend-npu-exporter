@@ -13,8 +13,8 @@ const (
 	HIAIMaxCardNum = 16
 	// Ascend910 Enum
 	Ascend910 ChipType = "Ascend910"
-	// Ascend710 chip type enum
-	Ascend710 ChipType = "Ascend710"
+	// Ascend310P chip type enum
+	Ascend310P ChipType = "Ascend310P"
 	// Ascend310 chip type enum
 	Ascend310 ChipType = "Ascend310"
 	// DefaultErrorValue default error value

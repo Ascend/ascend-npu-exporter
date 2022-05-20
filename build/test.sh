@@ -12,7 +12,7 @@ function execute_test() {
     exit 1
   else
     gocov convert cov.out | gocov-html >"$file_detail_output"
-    gotestsum --junitfile unit-tests.xml "${TOP_DIR}"/collector/...
+    gotestsum --junitfile unit-tests.xml "${TOP_DIR}"/...
     exit 0
   fi
 }
