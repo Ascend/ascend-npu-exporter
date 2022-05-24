@@ -6,7 +6,6 @@ package utils
 import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
-	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
@@ -36,6 +35,7 @@ import (
 	"huawei.com/kmc/pkg/application/gateway/loglevel"
 	"huawei.com/npu-exporter/hwlog"
 	"huawei.com/npu-exporter/kmclog"
+	"huawei.com/npu-exporter/rand"
 )
 
 const (
