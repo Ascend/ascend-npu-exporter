@@ -118,12 +118,12 @@ func assembleNPUInfoV2(cardID int32, logicID int32, dmgr dsmi.DeviceMgrInterface
 	}
 	chipInfo := packChipInfo(logicID, dmgr)
 	chipInfo.DeviceID = int(phyID)
-	if dsmi.GetChipTypeNow() == dsmi.Ascend710 {
+	if dsmi.GetChipTypeNow() == dsmi.Ascend310P {
 		cardPower, err := dmgr.GetCardPower(cardID)
 		if err != nil {
 			cardPower = float32(dsmi.DefaultErrorValue)
 		}
-		// Ascend710 use cardPower to replace chipPower
+		// Ascend310P use cardPower to replace chipPower
 		chipInfo.Power = cardPower
 	}
 	return chipInfo

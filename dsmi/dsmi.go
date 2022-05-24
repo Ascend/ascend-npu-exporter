@@ -324,7 +324,7 @@ type baseDeviceManager struct{}
 type deviceManager910 struct {
 	baseDeviceManager
 }
-type deviceManager710 struct {
+type deviceManager310P struct {
 	baseDeviceManager
 }
 type deviceManager310 struct {
@@ -372,10 +372,10 @@ func GetDeviceManager() DeviceMgrInterface {
 			hwlog.RunLog.Error("chip info is nil")
 			return
 		}
-		if IsAscend710(chipinfo.ChipName) {
-			hwlog.RunLog.Info("change the instance to deviceManager710")
-			instance = &deviceManager710{}
-			chipType = Ascend710
+		if IsAscend310P(chipinfo.ChipName) {
+			hwlog.RunLog.Info("change the instance to deviceManager310P")
+			instance = &deviceManager310P{}
+			chipType = Ascend310P
 		}
 		if IsAscend910(chipinfo.ChipName) {
 			hwlog.RunLog.Info("change the instance to deviceManager910")
@@ -589,7 +589,7 @@ func (d *baseDeviceManager) GetDeviceFrequency(logicID int32, subType DeviceType
 	return int32(cFrequency), nil
 }
 
-// GetDeviceHbmInfo mock this function on Ascend310 or Ascend710
+// GetDeviceHbmInfo mock this function on Ascend310 or Ascend310P
 func (d *baseDeviceManager) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
 	hbmInfo := NewHbmInfo(0, 0, 0, 0, 0)
 	return hbmInfo, nil
@@ -615,9 +615,9 @@ func (d *deviceManager910) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
 	return hbmInfo, nil
 }
 
-// GetDevicePower mock this function on Ascend710
-func (d *deviceManager710) GetDevicePower(logicID int32) (float32, error) {
-	// Ascend710 not support chip power
+// GetDevicePower mock this function on Ascend310P
+func (d *deviceManager310P) GetDevicePower(logicID int32) (float32, error) {
+	// Ascend310P not support chip power
 	return 0, nil
 
 }
@@ -647,7 +647,7 @@ func (d *deviceManager310) createMemoryInfoObj(cmInfo *CStructDsmiMemoryInfo) *M
 	return NewMemInfo(uint64(cmInfo.memory_size), uint32(cmInfo.freq), uint32(cmInfo.utiliza))
 }
 
-// The unit of Ascend910 and Ascend710 is KB. Therefore, you need to convert the unit to MB.
+// The unit of Ascend910 and Ascend310P is KB. Therefore, you need to convert the unit to MB.
 func (d *baseDeviceManager) createMemoryInfoObj(cmInfo *CStructDsmiMemoryInfo) *MemoryInfo {
 	return NewMemInfo(
 		uint64(cmInfo.memory_size)/uint64(OneKilo),
@@ -782,7 +782,7 @@ func (d *baseDeviceManager) GetDeviceNumOnCard(cardID int32) (int32, error) {
 	return int32(deviceNum), nil
 }
 
-// GetCardPower get card power with Ascend710
+// GetCardPower get card power with Ascend310P
 func (d *baseDeviceManager) GetCardPower(cardID int32) (float32, error) {
 	var power C.int
 	if err := C.dcmi_mcu_get_power_info(C.int(cardID), &power); err != 0 {
@@ -837,9 +837,9 @@ func IsAscend910(chipName string) bool {
 	return strings.Contains(chipName, "910")
 }
 
-// IsAscend710 check chipName
-func IsAscend710(chipName string) bool {
-	return strings.Contains(chipName, "710")
+// IsAscend310P check chipName
+func IsAscend310P(chipName string) bool {
+	return strings.Contains(chipName, "710") || strings.Contains(chipName, "310P")
 }
 
 // ShutDown clean the dynamically loaded resource
