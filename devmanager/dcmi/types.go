@@ -1,6 +1,6 @@
 //  Copyright(C) 2022. Huawei Technologies Co.,Ltd.  All rights reserved.
 
-// Package devmanager this for device model
+// Package dcmi this for device model
 package dcmi
 
 // CgoDcmiCreateVDevOut create virtual device info

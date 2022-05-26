@@ -1,6 +1,6 @@
 //  Copyright(C) 2022. Huawei Technologies Co.,Ltd.  All rights reserved.
 
-// Package devmanager this for constants
+// Package dcmi this for constants
 package dcmi
 
 // deviceType device type enum
