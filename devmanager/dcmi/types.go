@@ -1,7 +1,7 @@
 //  Copyright(C) 2022. Huawei Technologies Co.,Ltd.  All rights reserved.
 
 // Package devmanager this for device model
-package devmanager
+package dcmi
 
 // CgoDcmiCreateVDevOut create virtual device info
 type CgoDcmiCreateVDevOut struct {
@@ -116,8 +116,6 @@ type CgoVDevInfo struct {
 	CID           []uint64  // container id
 	CoreNum       []float32 // aicore num for virtual device
 }
-
-// dcmi model end
 
 // MemoryInfo memory information struct
 type MemoryInfo struct {

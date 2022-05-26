@@ -1,7 +1,7 @@
 //  Copyright(C) 2022. Huawei Technologies Co.,Ltd.  All rights reserved.
 
-// Package devmanager this for dcmi manager
-package devmanager
+// Package dcmi this for dcmi manager
+package dcmi
 
 // #cgo LDFLAGS: -ldl
 /*
@@ -64,6 +64,93 @@ package devmanager
    	CALL_FUNC(dcmi_get_device_type,card_id,device_id,device_type)
    }
 
+   int (*dcmi_get_device_health_func)(int card_id, int device_id, unsigned int *health);
+   int dcmi_get_device_health(int card_id, int device_id, unsigned int *health){
+   	CALL_FUNC(dcmi_get_device_health,card_id,device_id,health)
+   }
+
+   int (*dcmi_get_device_utilization_rate_func)(int card_id, int device_id, int input_type,
+    unsigned int *utilization_rate);
+   int dcmi_get_device_utilization_rate(int card_id, int device_id, int input_type, unsigned int *utilization_rate){
+   	CALL_FUNC(dcmi_get_device_utilization_rate,card_id,device_id,input_type,utilization_rate)
+   }
+
+   int (*dcmi_get_device_temperature_func)(int card_id, int device_id, int *temperature);
+   int dcmi_get_device_temperature(int card_id, int device_id, int *temperature){
+    CALL_FUNC(dcmi_get_device_temperature,card_id,device_id,temperature)
+   }
+
+   int (*dcmi_get_device_voltage_func)(int card_id, int device_id, unsigned int *voltage);
+   int dcmi_get_device_voltage(int card_id, int device_id, unsigned int *voltage){
+    CALL_FUNC(dcmi_get_device_voltage,card_id,device_id,voltage)
+   }
+
+   int (*dcmi_get_device_power_info_func)(int card_id, int device_id, int *power);
+   int dcmi_get_device_power_info(int card_id, int device_id, int *power){
+    CALL_FUNC(dcmi_get_device_power_info,card_id,device_id,power)
+   }
+
+   int (*dcmi_get_device_frequency_func)(int card_id, int device_id, enum dcmi_freq_type input_type,
+    unsigned int *frequency);
+   int dcmi_get_device_frequency(int card_id, int device_id, enum dcmi_freq_type input_type, unsigned int *frequency){
+    CALL_FUNC(dcmi_get_device_frequency,card_id,device_id,input_type,frequency)
+   }
+
+   int (*dcmi_get_device_memory_info_v3_func)(int card_id, int device_id,
+    struct dcmi_get_memory_info_stru *memory_info);
+   int dcmi_get_device_memory_info_v3(int card_id, int device_id, struct dcmi_get_memory_info_stru *memory_info){
+    CALL_FUNC(dcmi_get_device_memory_info_v3,card_id,device_id,memory_info)
+   }
+
+   int (*dcmi_get_device_hbm_info_func)(int card_id, int device_id, struct dcmi_hbm_info *hbm_info);
+   int dcmi_get_device_hbm_info(int card_id, int device_id, struct dcmi_hbm_info *hbm_info){
+    CALL_FUNC(dcmi_get_device_hbm_info,card_id,device_id,hbm_info)
+   }
+
+   int (*dcmi_get_device_errorcode_v2_func)(int card_id, int device_id, int *error_count, unsigned int *error_code_list,
+    unsigned int list_len);
+   int dcmi_get_device_errorcode_v2(int card_id, int device_id, int *error_count,
+    unsigned int *error_code_list, unsigned int list_len){
+    CALL_FUNC(dcmi_get_device_errorcode_v2,card_id,device_id,error_count,error_code_list,list_len)
+   }
+
+   int (*dcmi_get_device_chip_info_func)(int card_id, int device_id, struct dcmi_chip_info *chip_info);
+   int dcmi_get_device_chip_info(int card_id, int device_id, struct dcmi_chip_info *chip_info){
+    CALL_FUNC(dcmi_get_device_chip_info,card_id,device_id,chip_info)
+   }
+
+   int (*dcmi_get_device_phyid_from_logicid_func)(unsigned int logicid, unsigned int *phyid);
+   int dcmi_get_device_phyid_from_logicid(unsigned int logicid, unsigned int *phyid){
+    CALL_FUNC(dcmi_get_device_phyid_from_logicid,logicid,phyid)
+   }
+
+   int (*dcmi_get_device_logicid_from_phyid_func)(unsigned int phyid, unsigned int *logicid);
+   int dcmi_get_device_logicid_from_phyid(unsigned int phyid, unsigned int *logicid){
+    CALL_FUNC(dcmi_get_device_logicid_from_phyid,phyid,logicid)
+   }
+
+   int (*dcmi_get_device_ip_func)(int card_id, int device_id, enum dcmi_port_type input_type, int port_id,
+    struct dcmi_ip_addr *ip, struct dcmi_ip_addr *mask);
+   int dcmi_get_device_ip(int card_id, int device_id, enum dcmi_port_type input_type, int port_id,
+    struct dcmi_ip_addr *ip, struct dcmi_ip_addr *mask){
+    CALL_FUNC(dcmi_get_device_ip,card_id,device_id,input_type,port_id,ip,mask)
+   }
+
+   int (*dcmi_get_device_network_health_func)(int card_id, int device_id, enum dcmi_rdfx_detect_result *result);
+   int dcmi_get_device_network_health(int card_id, int device_id, enum dcmi_rdfx_detect_result *result){
+    CALL_FUNC(dcmi_get_device_network_health,card_id,device_id,result)
+   }
+
+   int (*dcmi_get_card_list_func)(int *card_num, int *card_list, int list_len);
+   int dcmi_get_card_list(int *card_num, int *card_list, int list_len){
+    CALL_FUNC(dcmi_get_card_list,card_num,card_list,list_len)
+   }
+
+   int (*dcmi_get_device_id_in_card_func)(int card_id, int *device_id_max, int *mcu_id, int *cpu_id);
+   int dcmi_get_device_id_in_card(int card_id, int *device_id_max, int *mcu_id, int *cpu_id){
+    CALL_FUNC(dcmi_get_device_id_in_card,card_id,device_id_max,mcu_id,cpu_id)
+   }
+
    // load .so files and functions
    int dcmiInit_dl(void){
    	dcmiHandle = dlopen("libdcmi.so",RTLD_LAZY | RTLD_GLOBAL);
@@ -88,6 +175,38 @@ package devmanager
 
    	dcmi_get_device_type_func = dlsym(dcmiHandle,"dcmi_get_device_type");
 
+   	dcmi_get_device_health_func = dlsym(dcmiHandle,"dcmi_get_device_health");
+
+   	dcmi_get_device_utilization_rate_func = dlsym(dcmiHandle,"dcmi_get_device_utilization_rate");
+
+   	dcmi_get_device_temperature_func = dlsym(dcmiHandle,"dcmi_get_device_temperature");
+
+   	dcmi_get_device_voltage_func = dlsym(dcmiHandle,"dcmi_get_device_voltage");
+
+   	dcmi_get_device_power_info_func = dlsym(dcmiHandle,"dcmi_get_device_power_info");
+
+   	dcmi_get_device_frequency_func = dlsym(dcmiHandle,"dcmi_get_device_frequency");
+
+   	dcmi_get_device_memory_info_v3_func = dlsym(dcmiHandle,"dcmi_get_device_memory_info_v3");
+
+   	dcmi_get_device_hbm_info_func = dlsym(dcmiHandle,"dcmi_get_device_hbm_info");
+
+   	dcmi_get_device_errorcode_v2_func = dlsym(dcmiHandle,"dcmi_get_device_errorcode_v2");
+
+   	dcmi_get_device_chip_info_func = dlsym(dcmiHandle,"dcmi_get_device_chip_info");
+
+   	dcmi_get_device_phyid_from_logicid_func = dlsym(dcmiHandle,"dcmi_get_device_phyid_from_logicid");
+
+   	dcmi_get_device_logicid_from_phyid_func = dlsym(dcmiHandle,"dcmi_get_device_logicid_from_phyid");
+
+   	dcmi_get_device_ip_func = dlsym(dcmiHandle,"dcmi_get_device_ip");
+
+   	dcmi_get_device_network_health_func = dlsym(dcmiHandle,"dcmi_get_device_network_health");
+
+   	dcmi_get_card_list_func = dlsym(dcmiHandle,"dcmi_get_card_list");
+
+   	dcmi_get_device_id_in_card_func = dlsym(dcmiHandle,"dcmi_get_device_id_in_card");
+
    	return SUCCESS;
    }
 
@@ -107,11 +226,30 @@ import (
 	"huawei.com/npu-exporter/hwlog"
 )
 
-// DcmiInterface interface for dcmi
-type DcmiInterface interface {
+// DriverInterface interface for dcmi
+type DriverInterface interface {
+	Init()
+	ShutDown()
+
+	GetDeviceCount() (int32, error)
+	GetDeviceHealth(int32, int32) (int32, error)
+	GetDeviceNetWorkHealth(int32, int32) (uint32, error)
+	GetDeviceUtilizationRate(int32, int32, deviceType) (int32, error)
+	GetDeviceTemperature(int32, int32) (int32, error)
+	GetDeviceVoltage(int32, int32) (float32, error)
+	GetDevicePowerInfo(int32, int32) (float32, error)
+	GetDeviceFrequency(int32, int32, deviceType) (int32, error)
+	GetMemoryInfoV3(int32, int32) (*MemoryInfo, error)
+	GetHbmInfo(int32, int32) (*HbmInfo, error)
+	GetDeviceErrorCodeV2(int32, int32) (int32, int64, error)
+	GetChipInfo(int32, int32) (*ChipInfo, error)
+	GetPhysicIDFromLogicID(uint32) (int32, error)
+	GetLogicIDFromPhysicID(uint32) (int32, error)
+	GetDeviceLogicID(int32, int32) (int32, error)
+	GetDeviceIPAddress(int32, int32) (string, error)
+
 	GetCardList() (int32, []int32, error)
 	GetDeviceNumInCard(int32) (int32, error)
-	GetDeviceLogicID(int32, int32) (uint32, error)
 	SetDestroyVirtualDevice(int32, int32, uint32) error
 	CreateVirtualDevice(int32, int32, int32, uint32) (CgoDcmiCreateVDevOut, error)
 	GetDeviceVDevResource(int32, int32, uint32) (CgoVDevQueryStru, error)
@@ -124,12 +262,12 @@ type DcmiInterface interface {
 	DestroyVDevice(uint32, uint32) error
 }
 
-// DcmiManager for manager dcmi interface
-type DcmiManager struct{}
+// DcManager for manager dcmi interface
+type DcManager struct{}
 
-// NewDcmiManager new dcmi manager instance
-func NewDcmiManager() *DcmiManager {
-	return &DcmiManager{}
+// NewDcManager new dcmi manager instance
+func NewDcManager() *DcManager {
+	return &DcManager{}
 }
 
 // Init load symbol and initialize dcmi
@@ -144,16 +282,17 @@ func Init() {
 }
 
 // ShutDown clean the dynamically loaded resource
-func (d *DcmiManager) ShutDown() {
+func (d *DcManager) ShutDown() {
 	if err := C.dcmiShutDown(); err != C.SUCCESS {
 		hwlog.RunLog.Errorf("dcmi shut down failed, error code: %d\n", int32(err))
 	}
 }
 
 // GetCardList get card list
-func (d *DcmiManager) GetCardList() (int32, []int32, error) {
+func (d *DcManager) GetCardList() (int32, []int32, error) {
 	var ids [hiAIMaxCardNum]C.int
 	var cNum C.int
+	// follow: dcmi_get_card_num_list will be replaced in feature
 	if err := C.dcmi_get_card_num_list(&cNum, &ids[0], hiAIMaxCardNum); err != 0 {
 		return retError, nil, fmt.Errorf("get card list failed, error code: %d", int32(err))
 	}
@@ -176,7 +315,7 @@ func (d *DcmiManager) GetCardList() (int32, []int32, error) {
 }
 
 // GetDeviceNumInCard get device number in the npu card
-func (d *DcmiManager) GetDeviceNumInCard(cardID int32) (int32, error) {
+func (d *DcManager) GetDeviceNumInCard(cardID int32) (int32, error) {
 	var deviceNum C.int
 	if err := C.dcmi_get_device_num_in_card(C.int(cardID), &deviceNum); err != 0 {
 		return retError, fmt.Errorf("get device count on the card failed, error code: %d", int32(err))
@@ -188,7 +327,7 @@ func (d *DcmiManager) GetDeviceNumInCard(cardID int32) (int32, error) {
 }
 
 // GetDeviceLogicID get device logicID
-func (d *DcmiManager) GetDeviceLogicID(cardID, deviceID int32) (uint32, error) {
+func (d *DcManager) GetDeviceLogicID(cardID, deviceID int32) (uint32, error) {
 	var logicID C.int
 	if err := C.dcmi_get_device_logic_id(&logicID, C.int(cardID), C.int(deviceID)); err != 0 {
 		return unretError, fmt.Errorf("get logicID failed, error code: %d", int32(err))
@@ -202,7 +341,7 @@ func (d *DcmiManager) GetDeviceLogicID(cardID, deviceID int32) (uint32, error) {
 }
 
 // SetDestroyVirtualDevice destroy virtual device
-func (d *DcmiManager) SetDestroyVirtualDevice(cardID, deviceID int32, vDevID uint32) error {
+func (d *DcManager) SetDestroyVirtualDevice(cardID, deviceID int32, vDevID uint32) error {
 	if err := C.dcmi_set_destroy_vdevice(C.int(cardID), C.int(deviceID), C.uint(vDevID)); err != 0 {
 		return fmt.Errorf("destroy virtual device failed, error code: %d", int32(err))
 	}
@@ -221,7 +360,7 @@ func convertCreateVDevOut(cCreateVDevOut C.struct_dcmi_create_vdev_out) CgoDcmiC
 }
 
 // CreateVirtualDevice create virtual device
-func (d *DcmiManager) CreateVirtualDevice(cardID, deviceID, vDevID int32, aiCore uint32) (CgoDcmiCreateVDevOut,
+func (d *DcManager) CreateVirtualDevice(cardID, deviceID, vDevID int32, aiCore uint32) (CgoDcmiCreateVDevOut,
 	error) {
 	switch aiCore {
 	case aiCoreNum1, aiCoreNum2, aiCoreNum4, aiCoreNum8, aiCoreNum16:
@@ -327,7 +466,7 @@ func convertVDevQueryStru(cVDevQueryStru C.struct_dcmi_vdev_query_stru) CgoVDevQ
 }
 
 // GetDeviceVDevResource get virtual device resource info
-func (d *DcmiManager) GetDeviceVDevResource(cardID, deviceID int32, vDevID uint32) (CgoVDevQueryStru, error) {
+func (d *DcManager) GetDeviceVDevResource(cardID, deviceID int32, vDevID uint32) (CgoVDevQueryStru, error) {
 	var cMainCmd = C.enum_dcmi_main_cmd(MainCmdVDevMng)
 	subCmd := VmngSubCmdGetVDevResource
 	var vDevResource C.struct_dcmi_vdev_query_stru
@@ -356,7 +495,7 @@ func convertSocTotalResource(cSocTotalResource C.struct_dcmi_soc_total_resource)
 }
 
 // GetDeviceTotalResource get device total resource info
-func (d *DcmiManager) GetDeviceTotalResource(cardID, deviceID int32) (CgoDcmiSocTotalResource, error) {
+func (d *DcManager) GetDeviceTotalResource(cardID, deviceID int32) (CgoDcmiSocTotalResource, error) {
 	var cMainCmd = C.enum_dcmi_main_cmd(MainCmdVDevMng)
 	subCmd := VmngSubCmdGetTotalResource
 	var totalResource C.struct_dcmi_soc_total_resource
@@ -384,7 +523,7 @@ func convertSocFreeResource(cSocFreeResource C.struct_dcmi_soc_free_resource) Cg
 }
 
 // GetDeviceFreeResource get device free resource info
-func (d *DcmiManager) GetDeviceFreeResource(cardID, deviceID int32) (CgoDcmiSocFreeResource, error) {
+func (d *DcManager) GetDeviceFreeResource(cardID, deviceID int32) (CgoDcmiSocFreeResource, error) {
 	var cMainCmd = C.enum_dcmi_main_cmd(MainCmdVDevMng)
 	subCmd := VmngSubCmdGetFreeResource
 	var freeResource C.struct_dcmi_soc_free_resource
@@ -397,7 +536,7 @@ func (d *DcmiManager) GetDeviceFreeResource(cardID, deviceID int32) (CgoDcmiSocF
 }
 
 // GetDeviceInfo get device resource info
-func (d *DcmiManager) GetDeviceInfo(cardID, deviceID int32) (CgoVDevInfo, error) {
+func (d *DcManager) GetDeviceInfo(cardID, deviceID int32) (CgoVDevInfo, error) {
 	var unitType C.enum_dcmi_unit_type
 	if err := C.dcmi_get_device_type(C.int(cardID), C.int(deviceID), &unitType); err != 0 {
 		return CgoVDevInfo{}, fmt.Errorf("get device type failed, error is: %d", int32(err))
@@ -437,7 +576,7 @@ func (d *DcmiManager) GetDeviceInfo(cardID, deviceID int32) (CgoVDevInfo, error)
 }
 
 // GetCardIDDeviceID get card id and device id from logic id
-func (d *DcmiManager) GetCardIDDeviceID(logicID uint32) (int32, int32, error) {
+func (d *DcManager) GetCardIDDeviceID(logicID uint32) (int32, int32, error) {
 	if logicID > uint32(math.MaxInt8) {
 		return retError, retError, fmt.Errorf("input invalid logicID: %d", logicID)
 	}
@@ -469,7 +608,7 @@ func (d *DcmiManager) GetCardIDDeviceID(logicID uint32) (int32, int32, error) {
 }
 
 // CreateVDevice create virtual device by logic id
-func (d *DcmiManager) CreateVDevice(logicID, aiCore uint32) (uint32, error) {
+func (d *DcManager) CreateVDevice(logicID, aiCore uint32) (uint32, error) {
 	cardID, deviceID, err := d.GetCardIDDeviceID(logicID)
 	if err != nil {
 		return unretError, fmt.Errorf("get card id and device id failed, error is: %v", err)
@@ -494,7 +633,7 @@ func (d *DcmiManager) CreateVDevice(logicID, aiCore uint32) (uint32, error) {
 }
 
 // GetVDeviceInfo get virtual device info by logic id
-func (d *DcmiManager) GetVDeviceInfo(logicID uint32) (CgoVDevInfo, error) {
+func (d *DcManager) GetVDeviceInfo(logicID uint32) (CgoVDevInfo, error) {
 	cardID, deviceID, err := d.GetCardIDDeviceID(logicID)
 	if err != nil {
 		return CgoVDevInfo{}, fmt.Errorf("get card id and device id failed, error is: %v", err)
@@ -508,7 +647,7 @@ func (d *DcmiManager) GetVDeviceInfo(logicID uint32) (CgoVDevInfo, error) {
 }
 
 // DestroyVDevice destroy spec virtual device by logic id
-func (d *DcmiManager) DestroyVDevice(logicID, vDevID uint32) error {
+func (d *DcManager) DestroyVDevice(logicID, vDevID uint32) error {
 	cardID, deviceID, err := d.GetCardIDDeviceID(logicID)
 	if err != nil {
 		return fmt.Errorf("get card id and device id failed, error is: %v", err)

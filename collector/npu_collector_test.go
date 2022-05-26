@@ -18,7 +18,7 @@ import (
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	"huawei.com/npu-exporter/collector/container"
-	"huawei.com/npu-exporter/dsmi"
+	"huawei.com/npu-exporter/devmanager/dsmi"
 	"huawei.com/npu-exporter/hwlog"
 )
 

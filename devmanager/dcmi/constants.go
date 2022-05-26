@@ -1,7 +1,35 @@
 //  Copyright(C) 2022. Huawei Technologies Co.,Ltd.  All rights reserved.
 
 // Package devmanager this for constants
-package devmanager
+package dcmi
+
+// deviceType device type enum
+type deviceType int32
+
+const (
+	// Memory  Ascend310 & Ascend910
+	Memory deviceType = 1
+	// AICore Ascend310 & Ascend910
+	AICore deviceType = 2
+	// AICPU  Ascend310 & Ascend910
+	AICPU deviceType = 3
+	// CTRLCPU  Ascend310 & Ascend910
+	CTRLCPU deviceType = 4
+	// MEMBandWidth memory bandwidth Ascend310 & Ascend910
+	MEMBandWidth deviceType = 5
+	// HBM Ascend910 only
+	HBM deviceType = 6
+	// AICoreCurrentFreq AI core current frequency Ascend910 only
+	AICoreCurrentFreq deviceType = 7
+	// DDR now is not supported
+	DDR deviceType = 8
+	// AICoreNormalFreq AI core normal frequency Ascend910 only
+	AICoreNormalFreq deviceType = 9
+	// HBMBandWidth Ascend910 only
+	HBMBandWidth deviceType = 10
+	// VectorCore now is not supported
+	VectorCore deviceType = 12
+)
 
 // MainCmd main command enum
 type MainCmd uint32
