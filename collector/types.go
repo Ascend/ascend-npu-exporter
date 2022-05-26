@@ -6,7 +6,7 @@ package collector
 import (
 	"time"
 
-	"huawei.com/npu-exporter/dsmi"
+	"huawei.com/npu-exporter/devmanager/dsmi"
 )
 
 // HealthEnum enum
