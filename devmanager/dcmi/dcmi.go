@@ -223,6 +223,7 @@ import (
 	"math"
 	"unsafe"
 
+	"huawei.com/npu-exporter/devmanager/common"
 	"huawei.com/npu-exporter/hwlog"
 )
 
@@ -657,4 +658,79 @@ func (d *DcManager) DestroyVDevice(logicID, vDevID uint32) error {
 		return fmt.Errorf("destroy virtual device failed, error is: %v", err)
 	}
 	return nil
+}
+
+// GetDeviceCount get device count
+func (d *DcManager) GetDeviceCount() (int32, error) {
+	var cardNum C.int
+	var cardList [common.HiAIMaxDeviceNum]C.int
+	if err := C.dcmi_get_card_list(&cardNum, &cardList[0], common.HiAIMaxDeviceNum); err != 0 {
+		errInfo := fmt.Errorf("get device count failed, error code: %d", int32(err))
+		hwlog.RunLog.Error(errInfo)
+		return retError, errInfo
+	}
+	// Invalid number of devices.
+	if cardNum < 0 || cardNum > common.MaxChipNum {
+		errInfo := fmt.Errorf("get device count failed, the number of devices is: %d", int32(cardNum))
+		hwlog.RunLog.Error(errInfo)
+		return retError, errInfo
+	}
+	return int32(cardNum), nil
+}
+
+// GetDeviceHealth get device health
+func (d *DcManager) GetDeviceHealth(cardID, deviceID int32) (int32, error) {
+	var health C.uint
+	if err := C.dcmi_get_device_health(C.int(cardID), C.int(deviceID), &health); err != 0 {
+		errInfo := fmt.Errorf("get device (cardID: %d, deviceID: %d) health state failed, error code: %d",
+			cardID, deviceID, int32(err))
+		hwlog.RunLog.Error(errInfo)
+		return retError, errInfo
+	}
+	if common.IsGreaterThanOrEqualInt32(int64(health)) {
+		errInfo := fmt.Errorf("get wrong health state , device (cardID: %d, deviceID: %d) health: %d",
+			cardID, deviceID, int64(health))
+		hwlog.RunLog.Error(errInfo)
+		return retError, errInfo
+	}
+	return int32(health), nil
+}
+
+// GetDeviceUtilizationRate get device utils rate by id
+func (d *DcManager) GetDeviceUtilizationRate(cardID int32, deviceID int32, devType deviceType) (int32, error) {
+	var rate C.uint
+	if err := C.dcmi_get_device_utilization_rate(C.int(cardID), C.int(deviceID), C.int(devType), &rate); err != 0 {
+		hwlog.RunLog.Errorf("get device (cardID: %d, deviceID: %d) utilize rate failed, error code: %d, "+
+			"try again ... ", cardID, deviceID, int32(err))
+		for i := 0; i < common.RetryTime; i++ {
+			err = C.dcmi_get_device_utilization_rate(C.int(cardID), C.int(deviceID), C.int(devType), &rate)
+			if err == 0 && common.IsValidUtilizationRate(uint32(rate)) {
+				return int32(rate), nil
+			}
+		}
+		return retError, fmt.Errorf("get device (cardID: %d, deviceID: %d) utilization rate failed, error "+
+			"code: %d", cardID, deviceID, int32(err))
+	}
+	if !common.IsValidUtilizationRate(uint32(rate)) {
+		return retError, fmt.Errorf("get wrong device utilize rate, device (cardID: %d, deviceID: %d) "+
+			"utilize rate: %d", cardID, deviceID, uint32(rate))
+	}
+	return int32(rate), nil
+}
+
+// GetDeviceTemperature get the device temperature
+func (d *DcManager) GetDeviceTemperature(cardID int32, deviceID int32) (int32, error) {
+	var temp C.int
+	if err := C.dcmi_get_device_temperature(C.int(cardID), C.int(deviceID), &temp); err != 0 {
+		errInfo := fmt.Errorf("get device (cardID: %d, deviceID: %d) temperature failed ,error code is : %d",
+			cardID, deviceID, int32(err))
+		return retError, errInfo
+	}
+	parsedTemp := int32(temp)
+	if parsedTemp < int32(common.DefaultTemperatureWhenQueryFailed) {
+		errInfo := fmt.Errorf("get wrong device temperature, devcie (cardID: %d, deviceID: %d), temperature: %d",
+			cardID, deviceID, parsedTemp)
+		return retError, errInfo
+	}
+	return parsedTemp, nil
 }
