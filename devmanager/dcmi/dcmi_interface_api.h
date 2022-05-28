@@ -275,6 +275,17 @@ DCMIDLLEXPORT int dcmi_get_card_id_device_id_from_phyid(int *card_id, int *devic
 /* The following interfaces are V1 version interfaces. In order to ensure the compatibility is temporarily reserved,
  * the later version will be deleted. Please switch to the V2 version interface as soon as possible */
 
+struct dcmi_memory_info_stru {
+    unsigned long long memory_size;
+    unsigned int freq;
+    unsigned int utiliza;
+};
+
+DCMIDLLEXPORT int dcmi_get_memory_info(int card_id, int device_id, struct dcmi_memory_info_stru *device_memory_info);
+
+DCMIDLLEXPORT int dcmi_get_device_errorcode(
+    int card_id, int device_id, int *error_count, unsigned int *error_code, int *error_width);
+
 DCMIDLLEXPORT int dcmi_mcu_get_power_info(int card_id, int *power);
 #endif
 

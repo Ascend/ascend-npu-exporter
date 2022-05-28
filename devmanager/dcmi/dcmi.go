@@ -21,22 +21,22 @@ package dcmi
 
    // dcmi
    int (*dcmi_init_func)();
-   int dcmi_init(){
+   int dcmi_init_new(){
    	CALL_FUNC(dcmi_init)
    }
 
    int (*dcmi_get_card_num_list_func)(int *card_num,int *card_list,int list_length);
-   int dcmi_get_card_num_list(int *card_num,int *card_list,int list_length){
+   int dcmi_get_card_num_list_new(int *card_num,int *card_list,int list_length){
    	CALL_FUNC(dcmi_get_card_num_list,card_num,card_list,list_length)
    }
 
    int (*dcmi_get_device_num_in_card_func)(int card_id,int *device_num);
-   int dcmi_get_device_num_in_card(int card_id,int *device_num){
+   int dcmi_get_device_num_in_card_new(int card_id,int *device_num){
    	CALL_FUNC(dcmi_get_device_num_in_card,card_id,device_num)
    }
 
    int (*dcmi_get_device_logic_id_func)(int *device_logic_id,int card_id,int device_id);
-   int dcmi_get_device_logic_id(int *device_logic_id,int card_id,int device_id){
+   int dcmi_get_device_logic_id_new(int *device_logic_id,int card_id,int device_id){
    	CALL_FUNC(dcmi_get_device_logic_id,device_logic_id,card_id,device_id)
    }
 
@@ -151,6 +151,18 @@ package dcmi
     CALL_FUNC(dcmi_get_device_id_in_card,card_id,device_id_max,mcu_id,cpu_id)
    }
 
+   int (*dcmi_get_memory_info_func)(int card_id, int device_id, struct dcmi_memory_info_stru *device_memory_info);
+   int dcmi_get_memory_info(int card_id, int device_id, struct dcmi_memory_info_stru *device_memory_info){
+    CALL_FUNC(dcmi_get_memory_info,card_id,device_id,device_memory_info)
+   }
+
+   int (*dcmi_get_device_errorcode_func)(int card_id, int device_id, int *error_count, unsigned int *error_code,
+   int *error_width);
+   int dcmi_get_device_errorcode(int card_id, int device_id, int *error_count, unsigned int *error_code,
+   int *error_width){
+    CALL_FUNC(dcmi_get_device_errorcode,card_id,device_id,error_count,error_code,error_width)
+   }
+
    // load .so files and functions
    int dcmiInit_dl(void){
    	dcmiHandle = dlopen("libdcmi.so",RTLD_LAZY | RTLD_GLOBAL);
@@ -207,6 +219,10 @@ package dcmi
 
    	dcmi_get_device_id_in_card_func = dlsym(dcmiHandle,"dcmi_get_device_id_in_card");
 
+   	dcmi_get_memory_info_func = dlsym(dcmiHandle,"dcmi_get_memory_info");
+
+   	dcmi_get_device_errorcode_func = dlsym(dcmiHandle,"dcmi_get_device_errorcode");
+
    	return SUCCESS;
    }
 
@@ -227,40 +243,46 @@ import (
 	"huawei.com/npu-exporter/hwlog"
 )
 
-// DriverInterface interface for dcmi
-type DriverInterface interface {
-	Init()
-	ShutDown()
+// CDcmiMemoryInfoV3 the c struct of memoryInfo for v3
+type CDcmiMemoryInfoV3 = C.struct_dcmi_get_memory_info_stru
 
-	GetDeviceCount() (int32, error)
-	GetDeviceHealth(int32, int32) (int32, error)
-	GetDeviceNetWorkHealth(int32, int32) (uint32, error)
-	GetDeviceUtilizationRate(int32, int32, deviceType) (int32, error)
-	GetDeviceTemperature(int32, int32) (int32, error)
-	GetDeviceVoltage(int32, int32) (float32, error)
-	GetDevicePowerInfo(int32, int32) (float32, error)
-	GetDeviceFrequency(int32, int32, deviceType) (int32, error)
-	GetMemoryInfoV3(int32, int32) (*MemoryInfo, error)
-	GetHbmInfo(int32, int32) (*HbmInfo, error)
-	GetDeviceErrorCodeV2(int32, int32) (int32, int64, error)
-	GetChipInfo(int32, int32) (*ChipInfo, error)
-	GetPhysicIDFromLogicID(uint32) (int32, error)
-	GetLogicIDFromPhysicID(uint32) (int32, error)
-	GetDeviceLogicID(int32, int32) (int32, error)
-	GetDeviceIPAddress(int32, int32) (string, error)
+// CDcmiMemoryInfoV1 the c struct of memoryInfo for v1
+type CDcmiMemoryInfoV1 = C.struct_dcmi_memory_info_stru
 
-	GetCardList() (int32, []int32, error)
-	GetDeviceNumInCard(int32) (int32, error)
-	SetDestroyVirtualDevice(int32, int32, uint32) error
-	CreateVirtualDevice(int32, int32, int32, uint32) (CgoDcmiCreateVDevOut, error)
-	GetDeviceVDevResource(int32, int32, uint32) (CgoVDevQueryStru, error)
-	GetDeviceTotalResource(int32, int32) (CgoDcmiSocTotalResource, error)
-	GetDeviceFreeResource(int32, int32) (CgoDcmiSocFreeResource, error)
-	GetDeviceInfo(int32, int32) (CgoVDevInfo, error)
-	GetCardIDDeviceID(uint32) (int32, int32, error)
-	CreateVDevice(uint32, uint32) (uint32, error)
-	GetVDeviceInfo(uint32) (CgoVDevInfo, error)
-	DestroyVDevice(uint32, uint32) error
+// DcDriverInterface interface for dcmi
+type DcDriverInterface interface {
+	DcInit()
+	DcShutDown()
+
+	DcGetDeviceCount() (int32, error)
+	DcGetDeviceHealth(int32, int32) (int32, error)
+	DcGetDeviceNetWorkHealth(int32, int32) (uint32, error)
+	DcGetDeviceUtilizationRate(int32, int32, common.DeviceType) (int32, error)
+	DcGetDeviceTemperature(int32, int32) (int32, error)
+	DcGetDeviceVoltage(int32, int32) (float32, int32)
+	DcGetDevicePowerInfo(int32, int32) (float32, int32)
+	DcGetDeviceFrequency(int32, int32, common.DeviceType) (int32, int32)
+	DcGetMemoryInfo(int32, int32) (*common.MemoryInfo, int32)
+	DcGetHbmInfo(int32, int32) (*common.HbmInfo, int32)
+	DcGetDeviceErrorCode(int32, int32) (int32, int64, int32)
+	DcGetChipInfo(int32, int32) (*common.ChipInfo, error)
+	DcGetPhysicIDFromLogicID(uint32) (int32, error)
+	DcGetLogicIDFromPhysicID(uint32) (int32, error)
+	DcGetDeviceLogicID(int32, int32) (int32, error)
+	DcGetDeviceIPAddress(int32, int32) (string, error)
+
+	DcGetCardList() (int32, []int32, error)
+	DcGetDeviceNumInCard(int32) (int32, error)
+	DcSetDestroyVirtualDevice(int32, int32, uint32) error
+	DcCreateVirtualDevice(int32, int32, int32, uint32) (CgoDcmiCreateVDevOut, error)
+	DcGetDeviceVDevResource(int32, int32, uint32) (CgoVDevQueryStru, error)
+	DcGetDeviceTotalResource(int32, int32) (CgoDcmiSocTotalResource, error)
+	DcGetDeviceFreeResource(int32, int32) (CgoDcmiSocFreeResource, error)
+	DcGetDeviceInfo(int32, int32) (CgoVDevInfo, error)
+	DcGetCardIDDeviceID(uint32) (int32, int32, error)
+	DcCreateVDevice(uint32, uint32) (uint32, error)
+	DcGetVDeviceInfo(uint32) (CgoVDevInfo, error)
+	DcDestroyVDevice(uint32, uint32) error
 }
 
 // DcManager for manager dcmi interface
@@ -271,35 +293,35 @@ func NewDcManager() *DcManager {
 	return &DcManager{}
 }
 
-// Init load symbol and initialize dcmi
-func Init() {
+// DcInit load symbol and initialize dcmi
+func (d *DcManager) DcInit() {
 	if err := C.dcmiInit_dl(); err != C.SUCCESS {
 		fmt.Printf("dcmi lib load failed, error code: %d\n", int32(err))
 		return
 	}
-	if err := C.dcmi_init(); err != C.SUCCESS {
+	if err := C.dcmi_init_new(); err != C.SUCCESS {
 		fmt.Printf("dcmi init failed, error code: %d\n", int32(err))
 	}
 }
 
-// ShutDown clean the dynamically loaded resource
-func (d *DcManager) ShutDown() {
+// DcShutDown clean the dynamically loaded resource
+func (d *DcManager) DcShutDown() {
 	if err := C.dcmiShutDown(); err != C.SUCCESS {
 		hwlog.RunLog.Errorf("dcmi shut down failed, error code: %d\n", int32(err))
 	}
 }
 
-// GetCardList get card list
-func (d *DcManager) GetCardList() (int32, []int32, error) {
-	var ids [hiAIMaxCardNum]C.int
+// DcGetCardList get card list
+func (d *DcManager) DcGetCardList() (int32, []int32, error) {
+	var ids [common.HiAIMaxCardNum]C.int
 	var cNum C.int
-	// follow: dcmi_get_card_num_list will be replaced in feature
-	if err := C.dcmi_get_card_num_list(&cNum, &ids[0], hiAIMaxCardNum); err != 0 {
-		return retError, nil, fmt.Errorf("get card list failed, error code: %d", int32(err))
+	// follow: dcmi_get_card_num_list_new will be replaced in feature
+	if err := C.dcmi_get_card_num_list_new(&cNum, &ids[0], common.HiAIMaxCardNum); err != 0 {
+		return common.RetError, nil, fmt.Errorf("get card list failed, error code: %d", int32(err))
 	}
 	// checking card's quantity
-	if cNum <= 0 || cNum > hiAIMaxCardNum {
-		return retError, nil, fmt.Errorf("get error card quantity: %d", int32(cNum))
+	if cNum <= 0 || cNum > common.HiAIMaxCardNum {
+		return common.RetError, nil, fmt.Errorf("get error card quantity: %d", int32(cNum))
 	}
 	var cardNum = int32(cNum)
 	var i int32
@@ -315,34 +337,34 @@ func (d *DcManager) GetCardList() (int32, []int32, error) {
 	return cardNum, cardIDList, nil
 }
 
-// GetDeviceNumInCard get device number in the npu card
-func (d *DcManager) GetDeviceNumInCard(cardID int32) (int32, error) {
+// DcGetDeviceNumInCard get device number in the npu card
+func (d *DcManager) DcGetDeviceNumInCard(cardID int32) (int32, error) {
 	var deviceNum C.int
-	if err := C.dcmi_get_device_num_in_card(C.int(cardID), &deviceNum); err != 0 {
-		return retError, fmt.Errorf("get device count on the card failed, error code: %d", int32(err))
+	if err := C.dcmi_get_device_num_in_card_new(C.int(cardID), &deviceNum); err != 0 {
+		return common.RetError, fmt.Errorf("get device count on the card failed, error code: %d", int32(err))
 	}
 	if deviceNum <= 0 {
-		return retError, fmt.Errorf("get error device quantity: %d", int32(deviceNum))
+		return common.RetError, fmt.Errorf("get error device quantity: %d", int32(deviceNum))
 	}
 	return int32(deviceNum), nil
 }
 
-// GetDeviceLogicID get device logicID
-func (d *DcManager) GetDeviceLogicID(cardID, deviceID int32) (uint32, error) {
+// DcGetDeviceLogicID get device logicID
+func (d *DcManager) DcGetDeviceLogicID(cardID, deviceID int32) (uint32, error) {
 	var logicID C.int
-	if err := C.dcmi_get_device_logic_id(&logicID, C.int(cardID), C.int(deviceID)); err != 0 {
-		return unretError, fmt.Errorf("get logicID failed, error code: %d", int32(err))
+	if err := C.dcmi_get_device_logic_id_new(&logicID, C.int(cardID), C.int(deviceID)); err != 0 {
+		return common.UnRetError, fmt.Errorf("get logicID failed, error code: %d", int32(err))
 	}
 
 	// check whether logicID is invalid
 	if logicID < 0 || uint32(logicID) > uint32(math.MaxInt8) {
-		return unretError, fmt.Errorf("get invalid logicID: %d", int32(logicID))
+		return common.UnRetError, fmt.Errorf("get invalid logicID: %d", int32(logicID))
 	}
 	return uint32(logicID), nil
 }
 
-// SetDestroyVirtualDevice destroy virtual device
-func (d *DcManager) SetDestroyVirtualDevice(cardID, deviceID int32, vDevID uint32) error {
+// DcSetDestroyVirtualDevice destroy virtual device
+func (d *DcManager) DcSetDestroyVirtualDevice(cardID, deviceID int32, vDevID uint32) error {
 	if err := C.dcmi_set_destroy_vdevice(C.int(cardID), C.int(deviceID), C.uint(vDevID)); err != 0 {
 		return fmt.Errorf("destroy virtual device failed, error code: %d", int32(err))
 	}
@@ -360,11 +382,11 @@ func convertCreateVDevOut(cCreateVDevOut C.struct_dcmi_create_vdev_out) CgoDcmiC
 	return cgoCreateVDevOut
 }
 
-// CreateVirtualDevice create virtual device
-func (d *DcManager) CreateVirtualDevice(cardID, deviceID, vDevID int32, aiCore uint32) (CgoDcmiCreateVDevOut,
+// DcCreateVirtualDevice create virtual device
+func (d *DcManager) DcCreateVirtualDevice(cardID, deviceID, vDevID int32, aiCore uint32) (CgoDcmiCreateVDevOut,
 	error) {
 	switch aiCore {
-	case aiCoreNum1, aiCoreNum2, aiCoreNum4, aiCoreNum8, aiCoreNum16:
+	case common.AiCoreNum1, common.AiCoreNum2, common.AiCoreNum4, common.AiCoreNum8, common.AiCoreNum16:
 	default:
 		return CgoDcmiCreateVDevOut{}, fmt.Errorf("input invalid aiCore: %d", aiCore)
 	}
@@ -466,8 +488,8 @@ func convertVDevQueryStru(cVDevQueryStru C.struct_dcmi_vdev_query_stru) CgoVDevQ
 	return vDevQueryStru
 }
 
-// GetDeviceVDevResource get virtual device resource info
-func (d *DcManager) GetDeviceVDevResource(cardID, deviceID int32, vDevID uint32) (CgoVDevQueryStru, error) {
+// DcGetDeviceVDevResource get virtual device resource info
+func (d *DcManager) DcGetDeviceVDevResource(cardID, deviceID int32, vDevID uint32) (CgoVDevQueryStru, error) {
 	var cMainCmd = C.enum_dcmi_main_cmd(MainCmdVDevMng)
 	subCmd := VmngSubCmdGetVDevResource
 	var vDevResource C.struct_dcmi_vdev_query_stru
@@ -495,8 +517,8 @@ func convertSocTotalResource(cSocTotalResource C.struct_dcmi_soc_total_resource)
 	return socTotalResource
 }
 
-// GetDeviceTotalResource get device total resource info
-func (d *DcManager) GetDeviceTotalResource(cardID, deviceID int32) (CgoDcmiSocTotalResource, error) {
+// DcGetDeviceTotalResource get device total resource info
+func (d *DcManager) DcGetDeviceTotalResource(cardID, deviceID int32) (CgoDcmiSocTotalResource, error) {
 	var cMainCmd = C.enum_dcmi_main_cmd(MainCmdVDevMng)
 	subCmd := VmngSubCmdGetTotalResource
 	var totalResource C.struct_dcmi_soc_total_resource
@@ -506,7 +528,8 @@ func (d *DcManager) GetDeviceTotalResource(cardID, deviceID int32) (CgoDcmiSocTo
 		return CgoDcmiSocTotalResource{}, fmt.Errorf("get device info failed, error is: %d", int32(err))
 	}
 	if uint32(totalResource.vdev_num) > dcmiMaxVdevNum {
-		return CgoDcmiSocTotalResource{}, fmt.Errorf("get error virtual quantity: %d", uint32(totalResource.vdev_num))
+		return CgoDcmiSocTotalResource{}, fmt.Errorf("get error virtual quantity: %d",
+			uint32(totalResource.vdev_num))
 	}
 
 	return convertSocTotalResource(totalResource), nil
@@ -523,8 +546,8 @@ func convertSocFreeResource(cSocFreeResource C.struct_dcmi_soc_free_resource) Cg
 	return socFreeResource
 }
 
-// GetDeviceFreeResource get device free resource info
-func (d *DcManager) GetDeviceFreeResource(cardID, deviceID int32) (CgoDcmiSocFreeResource, error) {
+// DcGetDeviceFreeResource get device free resource info
+func (d *DcManager) DcGetDeviceFreeResource(cardID, deviceID int32) (CgoDcmiSocFreeResource, error) {
 	var cMainCmd = C.enum_dcmi_main_cmd(MainCmdVDevMng)
 	subCmd := VmngSubCmdGetFreeResource
 	var freeResource C.struct_dcmi_soc_free_resource
@@ -536,22 +559,22 @@ func (d *DcManager) GetDeviceFreeResource(cardID, deviceID int32) (CgoDcmiSocFre
 	return convertSocFreeResource(freeResource), nil
 }
 
-// GetDeviceInfo get device resource info
-func (d *DcManager) GetDeviceInfo(cardID, deviceID int32) (CgoVDevInfo, error) {
+// DcGetDeviceInfo get device resource info
+func (d *DcManager) DcGetDeviceInfo(cardID, deviceID int32) (CgoVDevInfo, error) {
 	var unitType C.enum_dcmi_unit_type
 	if err := C.dcmi_get_device_type(C.int(cardID), C.int(deviceID), &unitType); err != 0 {
 		return CgoVDevInfo{}, fmt.Errorf("get device type failed, error is: %d", int32(err))
 	}
-	if int32(unitType) != npuType {
+	if int32(unitType) != common.NpuType {
 		return CgoVDevInfo{}, fmt.Errorf("not support unit type: %d", int32(unitType))
 	}
 
-	cgoDcmiSocTotalResource, err := d.GetDeviceTotalResource(cardID, deviceID)
+	cgoDcmiSocTotalResource, err := d.DcGetDeviceTotalResource(cardID, deviceID)
 	if err != nil {
 		return CgoVDevInfo{}, fmt.Errorf("get device total resource failed, error is: %v", err)
 	}
 
-	cgoDcmiSocFreeResource, err := d.GetDeviceFreeResource(cardID, deviceID)
+	cgoDcmiSocFreeResource, err := d.DcGetDeviceFreeResource(cardID, deviceID)
 	if err != nil {
 		return CgoVDevInfo{}, fmt.Errorf("get device free resource failed, error is: %v", err)
 	}
@@ -564,7 +587,7 @@ func (d *DcManager) GetDeviceInfo(cardID, deviceID int32) (CgoVDevInfo, error) {
 		dcmiVDevInfo.VDevID = append(dcmiVDevInfo.VDevID, cgoDcmiSocTotalResource.vDevID[i])
 	}
 	for _, vDevID := range cgoDcmiSocTotalResource.vDevID {
-		cgoVDevQueryStru, err := d.GetDeviceVDevResource(cardID, deviceID, vDevID)
+		cgoVDevQueryStru, err := d.DcGetDeviceVDevResource(cardID, deviceID, vDevID)
 		if err != nil {
 			return CgoVDevInfo{}, fmt.Errorf("get device virtual resource failed, error is: %v", err)
 		}
@@ -576,25 +599,25 @@ func (d *DcManager) GetDeviceInfo(cardID, deviceID int32) (CgoVDevInfo, error) {
 	return dcmiVDevInfo, nil
 }
 
-// GetCardIDDeviceID get card id and device id from logic id
-func (d *DcManager) GetCardIDDeviceID(logicID uint32) (int32, int32, error) {
+// DcGetCardIDDeviceID get card id and device id from logic id
+func (d *DcManager) DcGetCardIDDeviceID(logicID uint32) (int32, int32, error) {
 	if logicID > uint32(math.MaxInt8) {
-		return retError, retError, fmt.Errorf("input invalid logicID: %d", logicID)
+		return common.RetError, common.RetError, fmt.Errorf("input invalid logicID: %d", logicID)
 	}
 
-	_, cards, err := d.GetCardList()
+	_, cards, err := d.DcGetCardList()
 	if err != nil {
-		return retError, retError, fmt.Errorf("get card list failed, error is: %v", err)
+		return common.RetError, common.RetError, fmt.Errorf("get card list failed, error is: %v", err)
 	}
 
 	for _, cardID := range cards {
-		deviceNum, err := d.GetDeviceNumInCard(cardID)
+		deviceNum, err := d.DcGetDeviceNumInCard(cardID)
 		if err != nil {
 			hwlog.RunLog.Errorf("get device num in card failed, error is: %v", err)
 			continue
 		}
 		for deviceID := int32(0); deviceID < deviceNum; deviceID++ {
-			logicIDGet, err := d.GetDeviceLogicID(cardID, deviceID)
+			logicIDGet, err := d.DcGetDeviceLogicID(cardID, deviceID)
 			if err != nil {
 				hwlog.RunLog.Errorf("get device logic id failed, error is: %v", err)
 				continue
@@ -605,59 +628,248 @@ func (d *DcManager) GetCardIDDeviceID(logicID uint32) (int32, int32, error) {
 		}
 	}
 	errInfo := fmt.Errorf("the card id and device id corresponding to the logic id are not found")
-	return retError, retError, errInfo
+	return common.RetError, common.RetError, errInfo
 }
 
-// CreateVDevice create virtual device by logic id
-func (d *DcManager) CreateVDevice(logicID, aiCore uint32) (uint32, error) {
-	cardID, deviceID, err := d.GetCardIDDeviceID(logicID)
+// DcCreateVDevice create virtual device by logic id
+func (d *DcManager) DcCreateVDevice(logicID, aiCore uint32) (uint32, error) {
+	cardID, deviceID, err := d.DcGetCardIDDeviceID(logicID)
 	if err != nil {
-		return unretError, fmt.Errorf("get card id and device id failed, error is: %v", err)
+		return common.UnRetError, fmt.Errorf("get card id and device id failed, error is: %v", err)
 	}
 
-	cgoDcmiSocFreeResource, err := d.GetDeviceFreeResource(cardID, deviceID)
+	cgoDcmiSocFreeResource, err := d.DcGetDeviceFreeResource(cardID, deviceID)
 	if err != nil {
-		return unretError, fmt.Errorf("get virtual device info failed, error is: %v", err)
+		return common.UnRetError, fmt.Errorf("get virtual device info failed, error is: %v", err)
 	}
 
 	if cgoDcmiSocFreeResource.computing.aic < float32(aiCore) {
-		return unretError, fmt.Errorf("the remaining core resource is insufficient, free core: %f",
+		return common.UnRetError, fmt.Errorf("the remaining core resource is insufficient, free core: %f",
 			cgoDcmiSocFreeResource.computing.aic)
 	}
 
 	var vDevID int32
-	createVDevOut, err := d.CreateVirtualDevice(cardID, deviceID, vDevID, aiCore)
+	createVDevOut, err := d.DcCreateVirtualDevice(cardID, deviceID, vDevID, aiCore)
 	if err != nil {
-		return unretError, fmt.Errorf("create virtual device failed, error is: %v", err)
+		return common.UnRetError, fmt.Errorf("create virtual device failed, error is: %v", err)
 	}
 	return createVDevOut.VDevID, nil
 }
 
-// GetVDeviceInfo get virtual device info by logic id
-func (d *DcManager) GetVDeviceInfo(logicID uint32) (CgoVDevInfo, error) {
-	cardID, deviceID, err := d.GetCardIDDeviceID(logicID)
+// DcGetVDeviceInfo get virtual device info by logic id
+func (d *DcManager) DcGetVDeviceInfo(logicID uint32) (CgoVDevInfo, error) {
+	cardID, deviceID, err := d.DcGetCardIDDeviceID(logicID)
 	if err != nil {
 		return CgoVDevInfo{}, fmt.Errorf("get card id and device id failed, error is: %v", err)
 	}
 
-	dcmiVDevInfo, err := d.GetDeviceInfo(cardID, deviceID)
+	dcmiVDevInfo, err := d.DcGetDeviceInfo(cardID, deviceID)
 	if err != nil {
 		return CgoVDevInfo{}, fmt.Errorf("get virtual device info failed, error is: %v", err)
 	}
 	return dcmiVDevInfo, nil
 }
 
-// DestroyVDevice destroy spec virtual device by logic id
-func (d *DcManager) DestroyVDevice(logicID, vDevID uint32) error {
-	cardID, deviceID, err := d.GetCardIDDeviceID(logicID)
+// DcDestroyVDevice destroy spec virtual device by logic id
+func (d *DcManager) DcDestroyVDevice(logicID, vDevID uint32) error {
+	cardID, deviceID, err := d.DcGetCardIDDeviceID(logicID)
 	if err != nil {
 		return fmt.Errorf("get card id and device id failed, error is: %v", err)
 	}
 
-	if err = d.SetDestroyVirtualDevice(cardID, deviceID, vDevID); err != nil {
+	if err = d.DcSetDestroyVirtualDevice(cardID, deviceID, vDevID); err != nil {
 		return fmt.Errorf("destroy virtual device failed, error is: %v", err)
 	}
 	return nil
+}
+
+// DcGetDeviceVoltage the accuracy is 0.01v.
+func (d *DcManager) DcGetDeviceVoltage(cardID, deviceID int32) (float32, int32) {
+	var vol C.uint
+	rCode := C.dcmi_get_device_voltage(C.int(cardID), C.int(deviceID), &vol)
+	retCode := int32(rCode)
+	if retCode != common.Success {
+		hwlog.RunLog.Errorf("failed to obtain the voltage based on card_id(%d) and device_id(%d),"+
+			"error code: %d", cardID, deviceID, retCode)
+		return common.RetError, retCode
+	}
+	// the voltage's value is error if it's greater than or equal to MaxInt32
+	if common.IsGreaterThanOrEqualInt32(int64(vol)) {
+		hwlog.RunLog.Errorf("voltage value out of range(max is int32), card_id(%d) and device_id(%d), "+
+			"voltage: %d", cardID, deviceID, int64(vol))
+		return common.RetError, common.RetError
+	}
+
+	return float32(vol) * common.ReduceOnePercent, common.Success
+}
+
+// DcGetDevicePowerInfo the accuracy is 0.1w, the result like: 8.2
+func (d *DcManager) DcGetDevicePowerInfo(cardID, deviceID int32) (float32, int32) {
+	var cpower C.int
+	rCode := C.dcmi_get_device_power_info(C.int(cardID), C.int(deviceID), &cpower)
+	retCode := int32(rCode)
+	if retCode != common.Success {
+		hwlog.RunLog.Errorf("failed to obtain the power based on card_id(%d) and device_id(%d), "+
+			"error code: %d", cardID, deviceID, retCode)
+		return common.RetError, retCode
+	}
+	parsedPower := float32(cpower)
+	if parsedPower < 0 {
+		hwlog.RunLog.Errorf("get wrong device power, card_id(%d) and device_id(%d), power: %f", cardID, deviceID,
+			parsedPower)
+		return common.RetError, common.RetError
+	}
+
+	return parsedPower * common.ReduceTenth, common.Success
+
+}
+
+// DcGetDeviceFrequency get device frequency, unit MHz
+// Ascend910 with frequency type: 1,6,7,9
+// Ascend310 with frequency type: 1,2,3,4,5
+// more information see common.DeviceType
+func (d *DcManager) DcGetDeviceFrequency(cardID, deviceID int32, devType common.DeviceType) (int32, int32) {
+	var cFrequency C.uint
+	rCode := C.dcmi_get_device_frequency(C.int(cardID), C.int(deviceID), C.enum_dcmi_freq_type(devType), &cFrequency)
+	retCode := int32(rCode)
+	if retCode != common.Success {
+		hwlog.RunLog.Errorf("failed to obtain the frequency based on card_id(%d) and device_id(%d), error code: %d",
+			cardID, deviceID, retCode)
+		return common.RetError, retCode
+	}
+	// check whether cFrequency is too big
+	if common.IsGreaterThanOrEqualInt32(int64(cFrequency)) {
+		hwlog.RunLog.Errorf("frequency value out of range(max is int32), card_id(%d) and device_id(%d), "+
+			"frequency: %d", cardID, deviceID, int64(cFrequency))
+		return common.RetError, common.RetError
+	}
+	return int32(cFrequency), common.Success
+}
+
+func (d *DcManager) getMemoryInfoUseCompatibleAPI(cardID, deviceID int32) (*common.MemoryInfo, int32) {
+	var cmInfoV3 CDcmiMemoryInfoV3
+	// firstly, try new interface with version 3, if func not found, try interface with version 1
+	rCode := C.dcmi_get_device_memory_info_v3(C.int(cardID), C.int(deviceID), &cmInfoV3)
+	retCode := int32(rCode)
+	if retCode == common.Success {
+		hwlog.RunLog.Debug("use v3 interface to get device memory info common.Success")
+		return &common.MemoryInfo{
+			MemorySize:  uint64(cmInfoV3.memory_size),
+			Frequency:   uint32(cmInfoV3.freq),
+			Utilization: uint32(cmInfoV3.utiliza),
+		}, common.Success
+	}
+	if retCode != common.FuncNotFound {
+		hwlog.RunLog.Errorf("failed to obtain the memory info by v3 interface based on card_id("+
+			"%d) and device_id(%d), error code: %d", cardID, deviceID, retCode)
+		return nil, common.RetError
+	}
+
+	hwlog.RunLog.Debug("use v1 interface to get device memory info")
+	var cmInfo CDcmiMemoryInfoV1
+	// then, try old interface
+	rCode = C.dcmi_get_memory_info(C.int(cardID), C.int(deviceID), &cmInfo)
+	retCode = int32(rCode)
+	if retCode == common.Success {
+		return &common.MemoryInfo{
+			MemorySize:  uint64(cmInfo.memory_size),
+			Frequency:   uint32(cmInfo.freq),
+			Utilization: uint32(cmInfo.utiliza),
+		}, common.Success
+	}
+
+	hwlog.RunLog.Errorf("failed to obtain the memory info by v1 interface based on card_id(%d) and device_id("+
+		"%d),  error code: %d", cardID, deviceID, retCode)
+	return nil, retCode
+}
+
+// DcGetMemoryInfo get memory info with v3 interface or v1 interface
+func (d *DcManager) DcGetMemoryInfo(cardID, deviceID int32) (*common.MemoryInfo, int32) {
+	memInfo, retCode := d.getMemoryInfoUseCompatibleAPI(cardID, deviceID)
+	if retCode != common.Success {
+		return nil, retCode
+	}
+	if !common.IsValidUtilizationRate(memInfo.Utilization) {
+		hwlog.RunLog.Errorf("get wrong memory utilization by memory info interface, card_id(%d) and device_id(%d), "+
+			"utilization: %d", cardID, deviceID, memInfo.Utilization)
+		return nil, common.RetError
+	}
+
+	return memInfo, common.Success
+}
+
+// DcGetHbmInfo get HBM information, only for Ascend910
+func (d *DcManager) DcGetHbmInfo(cardID, deviceID int32) (*common.HbmInfo, int32) {
+	var cHbmInfo C.struct_dcmi_hbm_info
+	rCode := C.dcmi_get_device_hbm_info(C.int(cardID), C.int(deviceID), &cHbmInfo)
+	retCode := int32(rCode)
+	if retCode != common.Success {
+		hwlog.RunLog.Errorf("failed to obtain the hbm info based on card_id(%d) and device_id(%d), error code: %d",
+			cardID, deviceID, retCode)
+		return nil, retCode
+	}
+	hbmTemp := int32(cHbmInfo.temp)
+	if hbmTemp < 0 {
+		hwlog.RunLog.Errorf("get wrong device HBM temporary, card_id(%d) and device_id(%d), HBM.temp: %d",
+			cardID, deviceID, hbmTemp)
+		return nil, common.RetError
+	}
+	return &common.HbmInfo{
+		MemorySize:        uint64(cHbmInfo.memory_size),
+		Frequency:         uint32(cHbmInfo.freq),
+		Usage:             uint64(cHbmInfo.memory_usage),
+		Temp:              hbmTemp,
+		BandWidthUtilRate: uint32(cHbmInfo.bandwith_util_rate)}, common.Success
+
+}
+
+// DcGetDeviceErrorCode get the error count and errorcode of the device,only return the first errorcode
+func (d *DcManager) DcGetDeviceErrorCode(cardID, deviceID int32) (int32, int64, int32) {
+	errorCodeCount, errCodeArray, retCode := d.getDevErrCodeUseCompatibleAPI(cardID, deviceID)
+	if retCode != common.Success {
+		return common.RetError, common.RetError, retCode
+	}
+	if errorCodeCount < 0 || errorCodeCount > common.MaxErrorCodeCount {
+		hwlog.RunLog.Errorf("get wrong errorcode count, card_id(%d) and device_id(%d), errorcode count: %d",
+			cardID, deviceID, errorCodeCount)
+		return common.RetError, common.RetError, common.RetError
+	}
+
+	return errorCodeCount, int64(errCodeArray[0]), common.Success
+}
+
+func (d *DcManager) getDevErrCodeUseCompatibleAPI(cardID, deviceID int32) (int32, [common.MaxErrorCodeCount]C.uint,
+	int32) {
+	var eCount C.int
+	var errCodeArrayV2 [common.MaxErrorCodeCount]C.uint
+	// firstly, try new interface with version 2, if func not found, try interface with version 1
+	rCode := C.dcmi_get_device_errorcode_v2(C.int(cardID), C.int(deviceID), &eCount, &errCodeArrayV2[0],
+		common.MaxErrorCodeCount)
+	retCode := int32(rCode)
+	errCount := int32(eCount)
+	if retCode == common.Success {
+		return errCount, errCodeArrayV2, common.Success
+	}
+	if retCode != common.FuncNotFound {
+		hwlog.RunLog.Errorf("failed to obtain the device errorcode based on card_id(%d) and device_id(%d), "+
+			"error code: %d, error count: %d", cardID, deviceID, retCode, errCount)
+		return errCount, errCodeArrayV2, retCode
+	}
+
+	var errCodeWidth C.int
+	var errCodeArray [common.MaxErrorCodeCount]C.uint
+	// then, try old interface
+	rCode = C.dcmi_get_device_errorcode(C.int(cardID), C.int(deviceID), &eCount, &errCodeArray[0],
+		&errCodeWidth)
+	retCode = int32(rCode)
+	errCount = int32(eCount)
+	if retCode == common.Success {
+		return errCount, errCodeArray, common.Success
+	}
+
+	hwlog.RunLog.Errorf("failed to obtain the device errorcode based on card_id(%d) and device_id(%d), "+
+		"error code: %d, error count: %d", cardID, deviceID, retCode, errCount)
+	return errCount, errCodeArray, retCode
 }
 
 // GetDeviceCount get device count
