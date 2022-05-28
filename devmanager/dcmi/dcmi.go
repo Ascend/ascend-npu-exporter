@@ -255,6 +255,7 @@ type DcDriverInterface interface {
 	DcShutDown()
 
 	DcGetDeviceCount() (int32, error)
+	DcGetDeviceList() (int32, []int32, error)
 	DcGetDeviceHealth(int32, int32) (int32, error)
 	DcGetDeviceNetWorkHealth(int32, int32) (uint32, error)
 	DcGetDeviceUtilizationRate(int32, int32, common.DeviceType) (int32, error)
@@ -872,44 +873,65 @@ func (d *DcManager) getDevErrCodeUseCompatibleAPI(cardID, deviceID int32) (int32
 	return errCount, errCodeArray, retCode
 }
 
-// GetDeviceCount get device count
-func (d *DcManager) GetDeviceCount() (int32, error) {
-	var cardNum C.int
-	var cardList [common.HiAIMaxDeviceNum]C.int
-	if err := C.dcmi_get_card_list(&cardNum, &cardList[0], common.HiAIMaxDeviceNum); err != 0 {
-		errInfo := fmt.Errorf("get device count failed, error code: %d", int32(err))
-		hwlog.RunLog.Error(errInfo)
-		return retError, errInfo
+// DcGetDeviceCount get device count
+func (d *DcManager) DcGetDeviceCount() (int32, error) {
+	devNum, _, err := d.DcGetDeviceList()
+	if err != nil {
+		return common.RetError, fmt.Errorf("get device count failed, error: %v", err)
 	}
-	// Invalid number of devices.
-	if cardNum < 0 || cardNum > common.MaxChipNum {
-		errInfo := fmt.Errorf("get device count failed, the number of devices is: %d", int32(cardNum))
-		hwlog.RunLog.Error(errInfo)
-		return retError, errInfo
-	}
-	return int32(cardNum), nil
+	return devNum, nil
 }
 
-// GetDeviceHealth get device health
-func (d *DcManager) GetDeviceHealth(cardID, deviceID int32) (int32, error) {
+// DcGetDeviceList get device logic id list
+func (d *DcManager) DcGetDeviceList() (int32, []int32, error) {
+	var devices []int32
+	var totalNum int32
+	_, cardList, err := d.DcGetCardList()
+	if err != nil {
+		return common.RetError, devices, fmt.Errorf("get card list failed, error: %v", err)
+	}
+	for _, cardID := range cardList {
+		devNumInCard, err := d.DcGetDeviceNumInCard(cardID)
+		if err != nil {
+			return common.RetError, devices, fmt.Errorf("get device num by cardID: %d failed, error: %v",
+				cardID, err)
+		}
+		totalNum += devNumInCard
+		if totalNum > common.MaxChipNum {
+			return common.RetError, nil, fmt.Errorf("get device num greater than 64, count: %d", totalNum)
+		}
+		for devID := int32(0); devID < devNumInCard; devID++ {
+			logicID, err := d.DcGetDeviceLogicID(cardID, devID)
+			if err != nil {
+				return common.RetError, nil, fmt.Errorf("get device (cardID: %d, deviceID: %d) logic id "+
+					"failed, error: %v", cardID, devID, err)
+			}
+			devices = append(devices, int32(logicID))
+		}
+	}
+	if int(totalNum) != len(devices) {
+		return common.RetError, nil, fmt.Errorf("device num: %d not equal device list length: %d",
+			totalNum, len(devices))
+	}
+	return totalNum, devices, nil
+}
+
+// DcGetDeviceHealth get device health
+func (d *DcManager) DcGetDeviceHealth(cardID, deviceID int32) (int32, error) {
 	var health C.uint
 	if err := C.dcmi_get_device_health(C.int(cardID), C.int(deviceID), &health); err != 0 {
-		errInfo := fmt.Errorf("get device (cardID: %d, deviceID: %d) health state failed, error code: %d",
-			cardID, deviceID, int32(err))
-		hwlog.RunLog.Error(errInfo)
-		return retError, errInfo
+		return common.RetError, fmt.Errorf("get device (cardID: %d, deviceID: %d) health state failed, error "+
+			"code: %d", cardID, deviceID, int32(err))
 	}
 	if common.IsGreaterThanOrEqualInt32(int64(health)) {
-		errInfo := fmt.Errorf("get wrong health state , device (cardID: %d, deviceID: %d) health: %d",
-			cardID, deviceID, int64(health))
-		hwlog.RunLog.Error(errInfo)
-		return retError, errInfo
+		return common.RetError, fmt.Errorf("get wrong health state , device (cardID: %d, deviceID: %d) "+
+			"health: %d", cardID, deviceID, int64(health))
 	}
 	return int32(health), nil
 }
 
-// GetDeviceUtilizationRate get device utils rate by id
-func (d *DcManager) GetDeviceUtilizationRate(cardID int32, deviceID int32, devType deviceType) (int32, error) {
+// DcGetDeviceUtilizationRate get device utils rate by id
+func (d *DcManager) DcGetDeviceUtilizationRate(cardID, deviceID int32, devType common.DeviceType) (int32, error) {
 	var rate C.uint
 	if err := C.dcmi_get_device_utilization_rate(C.int(cardID), C.int(deviceID), C.int(devType), &rate); err != 0 {
 		hwlog.RunLog.Errorf("get device (cardID: %d, deviceID: %d) utilize rate failed, error code: %d, "+
@@ -920,29 +942,27 @@ func (d *DcManager) GetDeviceUtilizationRate(cardID int32, deviceID int32, devTy
 				return int32(rate), nil
 			}
 		}
-		return retError, fmt.Errorf("get device (cardID: %d, deviceID: %d) utilization rate failed, error "+
-			"code: %d", cardID, deviceID, int32(err))
+		return common.RetError, fmt.Errorf("get device (cardID: %d, deviceID: %d) utilization rate failed, "+
+			"error code: %d", cardID, deviceID, int32(err))
 	}
 	if !common.IsValidUtilizationRate(uint32(rate)) {
-		return retError, fmt.Errorf("get wrong device utilize rate, device (cardID: %d, deviceID: %d) "+
+		return common.RetError, fmt.Errorf("get wrong device utilize rate, device (cardID: %d, deviceID: %d) "+
 			"utilize rate: %d", cardID, deviceID, uint32(rate))
 	}
 	return int32(rate), nil
 }
 
-// GetDeviceTemperature get the device temperature
-func (d *DcManager) GetDeviceTemperature(cardID int32, deviceID int32) (int32, error) {
+// DcGetDeviceTemperature get the device temperature
+func (d *DcManager) DcGetDeviceTemperature(cardID, deviceID int32) (int32, error) {
 	var temp C.int
 	if err := C.dcmi_get_device_temperature(C.int(cardID), C.int(deviceID), &temp); err != 0 {
-		errInfo := fmt.Errorf("get device (cardID: %d, deviceID: %d) temperature failed ,error code is : %d",
-			cardID, deviceID, int32(err))
-		return retError, errInfo
+		return common.RetError, fmt.Errorf("get device (cardID: %d, deviceID: %d) temperature failed, error "+
+			"code is : %d", cardID, deviceID, int32(err))
 	}
 	parsedTemp := int32(temp)
 	if parsedTemp < int32(common.DefaultTemperatureWhenQueryFailed) {
-		errInfo := fmt.Errorf("get wrong device temperature, devcie (cardID: %d, deviceID: %d), temperature: %d",
-			cardID, deviceID, parsedTemp)
-		return retError, errInfo
+		return common.RetError, fmt.Errorf("get wrong device temperature, devcie (cardID: %d, deviceID: %d), "+
+			"temperature: %d", cardID, deviceID, parsedTemp)
 	}
 	return parsedTemp, nil
 }

@@ -1,4 +1,4 @@
-//  Copyright(C) 2020. Huawei Technologies Co.,Ltd. All rights reserved.
+//  Copyright(C) 2022. Huawei Technologies Co.,Ltd. All rights reserved.
 
 // Package common define common variable
 package common
@@ -68,4 +68,10 @@ const (
 	ReduceOnePercent = 0.01
 	// ReduceTenth for calculation reduce one tenth
 	ReduceTenth = 0.1
+	// DefaultTemperatureWhenQueryFailed when get temperature failed, use this value
+	DefaultTemperatureWhenQueryFailed = -275
+	// MaxChipNum chip number max value
+	MaxChipNum = 64
+	// RetryTime retry times
+	RetryTime = 3
 )
