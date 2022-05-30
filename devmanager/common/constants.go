@@ -68,4 +68,8 @@ const (
 	ReduceOnePercent = 0.01
 	// ReduceTenth for calculation reduce one tenth
 	ReduceTenth = 0.1
+	// DefaultTemperatureWhenQueryFailed when get temperature failed, use this value
+	DefaultTemperatureWhenQueryFailed = -275
+	// MaxChipNum chip number max value
+	MaxChipNum = 64
 )
