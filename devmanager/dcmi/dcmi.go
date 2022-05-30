@@ -237,6 +237,8 @@ import "C"
 import (
 	"fmt"
 	"math"
+	"net"
+	"strings"
 	"unsafe"
 
 	"huawei.com/npu-exporter/devmanager/common"
@@ -354,12 +356,12 @@ func (d *DcManager) DcGetDeviceNumInCard(cardID int32) (int32, error) {
 func (d *DcManager) DcGetDeviceLogicID(cardID, deviceID int32) (int32, error) {
 	var logicID C.int
 	if err := C.dcmi_get_device_logic_id_new(&logicID, C.int(cardID), C.int(deviceID)); err != 0 {
-		return common.UnRetError, fmt.Errorf("get logicID failed, error code: %d", int32(err))
+		return common.RetError, fmt.Errorf("get logicID failed, error code: %d", int32(err))
 	}
 
 	// check whether logicID is invalid
 	if logicID < 0 || int32(logicID) > int32(math.MaxInt8) {
-		return common.UnRetError, fmt.Errorf("get invalid logicID: %d", int32(logicID))
+		return common.RetError, fmt.Errorf("get invalid logicID: %d", int32(logicID))
 	}
 	return int32(logicID), nil
 }
@@ -955,4 +957,129 @@ func (d *DcManager) DcGetDeviceTemperature(cardID, deviceID int32) (int32, error
 			"temperature: %d", cardID, deviceID, parsedTemp)
 	}
 	return parsedTemp, nil
+}
+
+func convertUCharToCharArr(cgoArr [maxChipNameLen]C.uchar) []byte {
+	var charArr []byte
+	for _, v := range cgoArr {
+		if v == 0 {
+			break
+		}
+		charArr = append(charArr, byte(v))
+	}
+	return charArr
+}
+
+// DcGetChipInfo get the chip info by cardID and deviceID
+func (d *DcManager) DcGetChipInfo(cardID, deviceID int32) (*common.ChipInfo, error) {
+	if !common.IsValidCardID(cardID) {
+		return nil, fmt.Errorf("cardID(%d) is invalid", cardID)
+	}
+	if !common.IsValidDeviceID(deviceID) {
+		return nil, fmt.Errorf("deviceID(%d) is invalid", deviceID)
+	}
+	var chipInfo C.struct_dcmi_chip_info
+	if rCode := C.dcmi_get_device_chip_info(C.int(cardID), C.int(deviceID), &chipInfo); int32(rCode) != common.Success {
+		return nil, fmt.Errorf("get device ChipInfo information failed, cardID(%d), deviceID(%d),"+
+			" error code: %d", cardID, deviceID, int32(rCode))
+	}
+
+	name := convertUCharToCharArr(chipInfo.chip_name)
+	cType := convertUCharToCharArr(chipInfo.chip_type)
+	ver := convertUCharToCharArr(chipInfo.chip_ver)
+
+	chip := &common.ChipInfo{
+		Name:    string(name),
+		Type:    string(cType),
+		Version: string(ver),
+	}
+	if !common.IsValidChipInfo(chip) {
+		return nil, fmt.Errorf("get device ChipInfo information failed, chip info is empty,"+
+			" cardID(%d), deviceID(%d)", cardID, deviceID)
+	}
+
+	return chip, nil
+}
+
+// DcGetPhysicIDFromLogicID get physicID from logicID
+func (d *DcManager) DcGetPhysicIDFromLogicID(logicID uint32) (int32, error) {
+	if !common.IsValidLogicID(logicID) {
+		return common.RetError, fmt.Errorf("logicID(%d) is invalid", logicID)
+	}
+	var physicID C.uint
+	if rCode := C.dcmi_get_device_phyid_from_logicid(C.uint(logicID), &physicID); int32(rCode) != common.Success {
+		return common.RetError, fmt.Errorf("get physic id from logicID(%d) failed, error code: %d", logicID, int32(rCode))
+	}
+	if uint32(physicID) > uint32(math.MaxInt8) {
+		return common.RetError, fmt.Errorf("get wrong physicID(%d) from logicID(%d)", uint32(physicID), logicID)
+	}
+	return int32(physicID), nil
+}
+
+// DcGetDeviceIPAddress get device IP address by cardID and deviceID
+func (d *DcManager) DcGetDeviceIPAddress(cardID, deviceID int32) (string, error) {
+	if !common.IsValidCardID(cardID) {
+		return "", fmt.Errorf("cardID(%d) is invalid", cardID)
+	}
+	if !common.IsValidDeviceID(deviceID) {
+		return "", fmt.Errorf("deviceID(%d) is invalid", deviceID)
+	}
+	var portType C.enum_dcmi_port_type = 1
+	var portID C.int
+	var ipAddress C.struct_dcmi_ip_addr
+	var maskAddress C.struct_dcmi_ip_addr
+	rCode := C.dcmi_get_device_ip(C.int(cardID), C.int(deviceID), portType, portID, &ipAddress, &maskAddress)
+	if int32(rCode) != common.Success {
+		return "", fmt.Errorf("get device IP address failed, cardID(%d), deviceID(%d), error code: %d",
+			cardID, deviceID, int32(rCode))
+	}
+
+	unionPara := ipAddress.u_addr
+	var deviceIP []string
+	for i := 0; i < common.DeviceIPLength; i++ {
+		deviceIP = append(deviceIP, fmt.Sprintf("%d", uint8(unionPara[i])))
+	}
+	parsedIP := net.ParseIP(strings.Join(deviceIP, "."))
+	if parsedIP == nil {
+		return "", fmt.Errorf("the device IP address %s is invalid", deviceIP)
+	}
+	return parsedIP.String(), nil
+}
+
+// DcGetDeviceNetWorkHealth get device network health by cardID and deviceID
+func (d *DcManager) DcGetDeviceNetWorkHealth(cardID, deviceID int32) (uint32, error) {
+	if !common.IsValidCardID(cardID) {
+		return common.UnRetError, fmt.Errorf("cardID(%d) is invalid", cardID)
+	}
+	if !common.IsValidDeviceID(deviceID) {
+		return common.UnRetError, fmt.Errorf("deviceID(%d) is invalid", deviceID)
+	}
+	var healthCode C.enum_dcmi_rdfx_detect_result
+	rCode := C.dcmi_get_device_network_health(C.int(cardID), C.int(deviceID), &healthCode)
+	if int32(rCode) != common.Success {
+		return common.UnRetError, fmt.Errorf("get device network healthCode failed, cardID(%d),"+
+			" deviceID(%d), error code: %d", cardID, deviceID, int32(rCode))
+	}
+	if int32(healthCode) < 0 || int32(healthCode) > int32(math.MaxInt8) {
+		return common.UnRetError, fmt.Errorf("get wrong device network healthCode, cardID(%d), deviceID(%d),"+
+			" error healthCode: %d", cardID, deviceID, int32(healthCode))
+	}
+	return uint32(healthCode), nil
+}
+
+// DcGetLogicIDFromPhysicID get logicID from physicID
+func (d *DcManager) DcGetLogicIDFromPhysicID(physicID uint32) (int32, error) {
+	if !common.IsValidPhysicID(physicID) {
+		return common.RetError, fmt.Errorf("physicID(%d) is invalid", physicID)
+	}
+	var logicID C.uint
+	if rCode := C.dcmi_get_device_logicid_from_phyid(C.uint(physicID), &logicID); int32(rCode) != common.Success {
+		return common.RetError, fmt.Errorf("get logicID from physicID(%d) failed, error code: %d",
+			physicID, int32(rCode))
+	}
+
+	if uint32(logicID) > uint32(math.MaxInt8) {
+		return common.RetError, fmt.Errorf("get wrong logicID(%d) from physicID(%d)", uint32(logicID), physicID)
+	}
+	return int32(logicID), nil
 }
