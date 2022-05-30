@@ -351,17 +351,17 @@ func (d *DcManager) DcGetDeviceNumInCard(cardID int32) (int32, error) {
 }
 
 // DcGetDeviceLogicID get device logicID
-func (d *DcManager) DcGetDeviceLogicID(cardID, deviceID int32) (uint32, error) {
+func (d *DcManager) DcGetDeviceLogicID(cardID, deviceID int32) (int32, error) {
 	var logicID C.int
 	if err := C.dcmi_get_device_logic_id_new(&logicID, C.int(cardID), C.int(deviceID)); err != 0 {
 		return common.UnRetError, fmt.Errorf("get logicID failed, error code: %d", int32(err))
 	}
 
 	// check whether logicID is invalid
-	if logicID < 0 || uint32(logicID) > uint32(math.MaxInt8) {
+	if logicID < 0 || int32(logicID) > int32(math.MaxInt8) {
 		return common.UnRetError, fmt.Errorf("get invalid logicID: %d", int32(logicID))
 	}
-	return uint32(logicID), nil
+	return int32(logicID), nil
 }
 
 // DcSetDestroyVirtualDevice destroy virtual device
@@ -623,7 +623,7 @@ func (d *DcManager) DcGetCardIDDeviceID(logicID uint32) (int32, int32, error) {
 				hwlog.RunLog.Errorf("get device logic id failed, error is: %v", err)
 				continue
 			}
-			if logicID == logicIDGet {
+			if int32(logicID) == logicIDGet {
 				return cardID, deviceID, nil
 			}
 		}
@@ -898,7 +898,8 @@ func (d *DcManager) DcGetDeviceList() (int32, []int32, error) {
 		}
 		totalNum += devNumInCard
 		if totalNum > common.MaxChipNum {
-			return common.RetError, nil, fmt.Errorf("get device num greater than 64, count: %d", totalNum)
+			return common.RetError, nil, fmt.Errorf("get device num: %d greater than %d",
+				totalNum, common.MaxChipNum)
 		}
 		for devID := int32(0); devID < devNumInCard; devID++ {
 			logicID, err := d.DcGetDeviceLogicID(cardID, devID)
@@ -906,12 +907,8 @@ func (d *DcManager) DcGetDeviceList() (int32, []int32, error) {
 				return common.RetError, nil, fmt.Errorf("get device (cardID: %d, deviceID: %d) logic id "+
 					"failed, error: %v", cardID, devID, err)
 			}
-			devices = append(devices, int32(logicID))
+			devices = append(devices, logicID)
 		}
-	}
-	if int(totalNum) != len(devices) {
-		return common.RetError, nil, fmt.Errorf("device num: %d not equal device list length: %d",
-			totalNum, len(devices))
 	}
 	return totalNum, devices, nil
 }
@@ -919,7 +916,7 @@ func (d *DcManager) DcGetDeviceList() (int32, []int32, error) {
 // DcGetDeviceHealth get device health
 func (d *DcManager) DcGetDeviceHealth(cardID, deviceID int32) (int32, error) {
 	var health C.uint
-	if err := C.dcmi_get_device_health(C.int(cardID), C.int(deviceID), &health); err != 0 {
+	if err := C.dcmi_get_device_health(C.int(cardID), C.int(deviceID), &health); int(err) != common.Success {
 		return common.RetError, fmt.Errorf("get device (cardID: %d, deviceID: %d) health state failed, error "+
 			"code: %d", cardID, deviceID, int32(err))
 	}
@@ -933,21 +930,14 @@ func (d *DcManager) DcGetDeviceHealth(cardID, deviceID int32) (int32, error) {
 // DcGetDeviceUtilizationRate get device utils rate by id
 func (d *DcManager) DcGetDeviceUtilizationRate(cardID, deviceID int32, devType common.DeviceType) (int32, error) {
 	var rate C.uint
-	if err := C.dcmi_get_device_utilization_rate(C.int(cardID), C.int(deviceID), C.int(devType), &rate); err != 0 {
-		hwlog.RunLog.Errorf("get device (cardID: %d, deviceID: %d) utilize rate failed, error code: %d, "+
-			"try again ... ", cardID, deviceID, int32(err))
-		for i := 0; i < common.RetryTime; i++ {
-			err = C.dcmi_get_device_utilization_rate(C.int(cardID), C.int(deviceID), C.int(devType), &rate)
-			if err == 0 && common.IsValidUtilizationRate(uint32(rate)) {
-				return int32(rate), nil
-			}
-		}
-		return common.RetError, fmt.Errorf("get device (cardID: %d, deviceID: %d) utilization rate failed, "+
-			"error code: %d", cardID, deviceID, int32(err))
+	err := C.dcmi_get_device_utilization_rate(C.int(cardID), C.int(deviceID), C.int(devType), &rate)
+	if int(err) != common.Success {
+		return common.RetError, fmt.Errorf("get device (cardID: %d, deviceID: %d) utilization rate: %d failed, "+
+			"error code: %d", cardID, deviceID, uint32(rate), int32(err))
 	}
 	if !common.IsValidUtilizationRate(uint32(rate)) {
-		return common.RetError, fmt.Errorf("get wrong device utilize rate, device (cardID: %d, deviceID: %d) "+
-			"utilize rate: %d", cardID, deviceID, uint32(rate))
+		return common.RetError, fmt.Errorf("get wrong device (cardID: %d, deviceID: %d) utilization rate: %d",
+			cardID, deviceID, uint32(rate))
 	}
 	return int32(rate), nil
 }
@@ -955,7 +945,7 @@ func (d *DcManager) DcGetDeviceUtilizationRate(cardID, deviceID int32, devType c
 // DcGetDeviceTemperature get the device temperature
 func (d *DcManager) DcGetDeviceTemperature(cardID, deviceID int32) (int32, error) {
 	var temp C.int
-	if err := C.dcmi_get_device_temperature(C.int(cardID), C.int(deviceID), &temp); err != 0 {
+	if err := C.dcmi_get_device_temperature(C.int(cardID), C.int(deviceID), &temp); int(err) != common.Success {
 		return common.RetError, fmt.Errorf("get device (cardID: %d, deviceID: %d) temperature failed, error "+
 			"code is : %d", cardID, deviceID, int32(err))
 	}

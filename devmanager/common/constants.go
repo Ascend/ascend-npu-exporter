@@ -72,6 +72,4 @@ const (
 	DefaultTemperatureWhenQueryFailed = -275
 	// MaxChipNum chip number max value
 	MaxChipNum = 64
-	// RetryTime retry times
-	RetryTime = 3
 )
