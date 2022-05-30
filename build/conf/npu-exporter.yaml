@@ -1,0 +1,87 @@
+component: npu-exporter
+product: MindXDL
+systemEnv:
+  - workspace
+  - processor
+compile:
+  input:
+    dependency:
+      - name: huawei_secure_c
+        version: 1.0
+        type: opensource
+      - name: openssl
+        version: 1.0
+        type: opensource
+      - name: KMC_Java
+        version: 1.0
+        type: opensource
+      - name: KMC
+        version: 1.0
+        type: opensource
+      - name: cert-importer
+        version: 1.0
+        type: opensource
+        buildFile: "{{ systemEnv.workspace }}/{{component}}/build/conf"
+    envVariables:
+      GO111MODULE: "on"
+      CGO_CFLAGS: "-fstack-protector-strong -D_FORTIFY_SOURCE=2 -O2 -fPIC -ftrapv"
+      CGO_CPPFLAGS: "-fstack-protector-strong -D_FORTIFY_SOURCE=2 -O2 -fPIC -ftrapv"
+    files:
+  process:
+    language: go
+    compilePath: "{{ systemEnv.workspace }}/{{component}}/cmd/npu-exporter/"
+    parameters: [
+    [ "mod", "mod" ],
+    [ "buildmode", "pie" ],
+    [ "ldflags", '-s -extldflags=-Wl,-z,now  -X "huawei.com/npu-exporter/hwlog.BuildName=npu-exporter" -X "huawei.com/npu-exporter/hwlog.BuildVersion={{version}}_linux-{{systemEnv.processor}}"' ],
+    [ "o", "{{component}}" ],
+    ]
+  output:
+    files:
+      include:
+        - move:
+            src: ['{{ systemEnv.workspace }}/{{component}}/cmd/npu-exporter/{{component}}']
+            des: '{{ systemEnv.workspace }}/{{component}}/output/'
+        - copy:
+            src: ['{{ systemEnv.workspace }}/{{component}}/build/npu-exporter.yaml']
+            des: "{{ systemEnv.workspace }}/{{component}}/output/npu-exporter-{{version}}.yaml"
+            rename: True
+        - sed:
+            option: "-i"
+            srcstr: "s/npu-exporter:.*/npu-exporter:{{version}}/"
+            curfile: "{{ systemEnv.workspace }}/{{component}}/output/npu-exporter-{{version}}.yaml"
+        - copy:
+            src: ['{{ systemEnv.workspace }}/{{component}}/lib','{{ systemEnv.workspace }}/npu-exporter/build/Dockerfile']
+            des: "{{ systemEnv.workspace }}/{{ component}}/output/"
+        - mode:
+            src: ["{{ systemEnv.workspace }}/{{ component}}/output/*"]
+            mode: "400"
+        - mode:
+            src: [ "{{ systemEnv.workspace }}/{{ component}}/output/lib" ]
+            mode: "550"
+        - mode:
+            src: [ "{{ systemEnv.workspace }}/{{ component}}/output/lib/*","{{ systemEnv.workspace }}/{{ component}}/output/{{ component }}" ]
+            mode: "500"
+        - move:
+            src: [ '{{ systemEnv.workspace }}/{{component}}/cmd/importer/cert-importer' ]
+            des: '{{ systemEnv.workspace }}/{{component}}/output/'
+        - mode:
+            src: [ "{{ systemEnv.workspace }}/{{ component}}/output/cert-importer" ]
+            mode: "500"
+        - makeArchive:
+            - src: "{{ systemEnv.workspace }}/{{ component}}/output/"
+              des: "{{ systemEnv.workspace }}/{{ component}}/output/Ascend-mindxdl-npu-exporter_{{pkgversion}}_linux-{{ systemEnv.processor }}"
+              prefix: zip
+              arch: "{{ systemEnv.processor }}"
+
+
+test:
+  input:
+    files:
+  process:
+    type: ut
+    testTool: shell
+    execdir: "{{systemEnv.workspace}}/{{component}}/build"
+    parameters: ""
+    script: "test.sh"
+  output:
