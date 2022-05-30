@@ -390,13 +390,13 @@ func (d *DcManager) DcCreateVirtualDevice(cardID, deviceID, vDevID int32, aiCore
 	default:
 		return CgoDcmiCreateVDevOut{}, fmt.Errorf("input invalid aiCore: %d", aiCore)
 	}
-	// templateName like vir01,vir02,vir04,vir08,vir16
+	// templateName like vir02,vir04,vir08,vir16
 	templateName := fmt.Sprintf("%s%02d", vDeviceCreateTemplateNamePrefix, aiCore)
 	cTemplateName := C.CString(templateName)
 	defer C.free(unsafe.Pointer(cTemplateName))
 
 	var createVDevOut C.struct_dcmi_create_vdev_out
-	if err := C.dcmi_create_vdevice(C.int(cardID), C.int(deviceID), C.int(vDevID), (*C.char)(cTemplateName),
+	if err := C.dcmi_create_vdevice(C.int(cardID), C.int(deviceID), C.int(vDevID), cTemplateName,
 		&createVDevOut); err != 0 {
 		return CgoDcmiCreateVDevOut{}, fmt.Errorf("create vdevice failed, error is: %d", int32(err))
 	}
