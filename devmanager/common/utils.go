@@ -5,6 +5,7 @@ package common
 
 import (
 	"math"
+	"strings"
 )
 
 // IsGreaterThanOrEqualInt32 check num range
@@ -40,12 +41,35 @@ func IsValidDeviceID(deviceID int32) bool {
 	return deviceID >= 0 && deviceID < HiAIMaxDeviceNum
 }
 
-// IsValidLogicID valid logic id
-func IsValidLogicID(logicID uint32) bool {
-	return logicID < HiAIMaxCardNum*HiAIMaxDeviceNum
+// IsValidLogicIDOrPhyID valid logic id
+func IsValidLogicIDOrPhyID(id int32) bool {
+	return id >= 0 && id < HiAIMaxCardNum*HiAIMaxDeviceNum
 }
 
-// IsValidPhysicID valid physic id
-func IsValidPhysicID(physicID uint32) bool {
-	return physicID < HiAIMaxCardNum*HiAIMaxDeviceNum
+// IsValidCardIDAndDeviceID check two params both needs meet the requirement
+func IsValidCardIDAndDeviceID(cardID, deviceID int32) bool {
+	if !IsValidCardID(cardID) {
+		return false
+	}
+
+	return IsValidDeviceID(deviceID)
+}
+
+// IsValidDevNumInCard valid devNum in card
+func IsValidDevNumInCard(num int32) bool {
+	return num > 0 && num <= HiAIMaxDeviceNum
+}
+
+// GetDeviceTypeByChipName get device type by chipName
+func GetDeviceTypeByChipName(chipName string) string {
+	if strings.Contains(chipName, "310P") || strings.Contains(chipName, "710") {
+		return Ascend310P
+	}
+	if strings.Contains(chipName, "310") {
+		return Ascend310
+	}
+	if strings.Contains(chipName, "910") {
+		return Ascend910
+	}
+	return ""
 }
