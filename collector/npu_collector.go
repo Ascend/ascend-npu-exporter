@@ -326,7 +326,11 @@ func validate(ch chan<- prometheus.Metric, objs ...interface{}) bool {
 		return false
 	}
 	for _, v := range objs {
-		if reflect.ValueOf(v).IsNil() {
+		val := reflect.ValueOf(v)
+		if val.Kind() != reflect.Ptr {
+			return false
+		}
+		if val.IsNil() {
 			return false
 		}
 	}
