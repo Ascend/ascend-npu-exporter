@@ -3,6 +3,8 @@
 // Package common define common variable
 package common
 
+import "math"
+
 // DeviceType device type enum
 type DeviceType int32
 
@@ -43,12 +45,18 @@ const (
 	// MaxErrorCodeCount number of error codes
 	MaxErrorCodeCount = 128
 	// UnRetError return unsigned int error
-	UnRetError = 100
+	UnRetError = math.MaxUint32
 	// OneKilo for unit change kb to mb
 	OneKilo = 1024
 
+	// DeviceIPLength length of device ip address
+	DeviceIPLength = 4
+
 	// HiAIMaxCardNum max card number
-	HiAIMaxCardNum = 16
+	HiAIMaxCardNum = 64
+
+	// HiAIMaxDeviceNum max device number
+	HiAIMaxDeviceNum = 4
 
 	// NpuType present npu chip
 	NpuType = 0

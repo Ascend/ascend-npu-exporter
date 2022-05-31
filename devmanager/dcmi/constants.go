@@ -15,6 +15,8 @@ const (
 	// dcmiVDevResNameLen length of vnpu resource name
 	dcmiVDevResNameLen = 16
 
+	maxChipNameLen = 32
+
 	// vDeviceCreateTemplateNamePrefix prefix of vnpu template name
 	vDeviceCreateTemplateNamePrefix = "vir"
 
