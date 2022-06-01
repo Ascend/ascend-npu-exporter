@@ -72,7 +72,7 @@ func AutoInit(dType string) (DeviceManager, error) {
 	}
 	devManager.DevType = devType
 	if err = devManager.Init(); err != nil {
-		return DeviceManager{}, fmt.Errorf("DeviceManager init failed, err: %v", err)
+		return DeviceManager{}, fmt.Errorf("deviceManager init failed, err: %v", err)
 	}
 	return devManager, nil
 }
