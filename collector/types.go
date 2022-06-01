@@ -6,7 +6,7 @@ package collector
 import (
 	"time"
 
-	"huawei.com/npu-exporter/devmanager/dsmi"
+	"huawei.com/npu-exporter/devmanager/common"
 )
 
 // HealthEnum enum
@@ -30,11 +30,11 @@ const (
 // HuaWeiAIChip chip info
 type HuaWeiAIChip struct {
 	// the memoryInfo of the chip
-	Meminf *dsmi.MemoryInfo `json:"memory_info"`
+	Meminf *common.MemoryInfo `json:"memory_info"`
 	// the chip info
-	ChipIfo *dsmi.ChipInfo `json:"chip_info"`
+	ChipIfo *common.ChipInfo `json:"chip_info"`
 	// the hbm info
-	HbmInfo *dsmi.HbmInfo `json:"hbm_info"`
+	HbmInfo *common.HbmInfo `json:"hbm_info"`
 	// the healthy status of the  AI chip
 	HealthStatus HealthEnum `json:"health_status"`
 	// the error code of the chip

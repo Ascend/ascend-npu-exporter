@@ -4,12 +4,17 @@
 package devmanager
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"os"
+	"regexp"
+	"strings"
 
 	"huawei.com/npu-exporter/devmanager/common"
 	"huawei.com/npu-exporter/devmanager/dcmi"
 	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/npu-exporter/utils"
 )
 
 // DeviceInterface for common device interface
@@ -18,6 +23,7 @@ type DeviceInterface interface {
 	ShutDown() error
 	GetDeviceCount() (int32, error)
 	GetCardList() (int32, []int32, error)
+	GetDeviceNumInCard(cardID int32) (int32, error)
 	GetDeviceList() (int32, []int32, error)
 	GetDeviceHealth(logicID int32) (uint32, error)
 	GetDeviceNetWorkHealth(logicID int32) (uint32, error)
@@ -25,6 +31,7 @@ type DeviceInterface interface {
 	GetDeviceTemperature(logicID int32) (int32, error)
 	GetDeviceVoltage(logicID int32) (float32, error)
 	GetDevicePowerInfo(logicID int32) (float32, error)
+	GetMcuPowerInfo(cardID int32) (float32, error)
 	GetDeviceFrequency(logicID int32, deviceType common.DeviceType) (int32, error)
 	GetDeviceMemoryInfo(logicID int32) (*common.MemoryInfo, error)
 	GetDeviceHbmInfo(logicID int32) (*common.HbmInfo, error)
@@ -33,10 +40,14 @@ type DeviceInterface interface {
 	GetPhysicIDFromLogicID(logicID int32) (int32, error)
 	GetLogicIDFromPhysicID(physicID int32) (int32, error)
 	GetDeviceLogicID(cardID, deviceID int32) (int32, error)
+	GetCardIDDeviceID(logicID int32) (int32, int32, error)
 	GetDeviceIPAddress(logicID int32) (string, error)
 	CreateVirtualDevice(logicID int32, aiCore uint32) (uint32, error)
 	GetVirtualDeviceInfo(logicID int32) (common.VirtualDevInfo, error)
 	DestroyVirtualDevice(logicID int32, vDevID uint32) error
+	// GetNPUMajorID query the MajorID of NPU devices
+	GetNPUMajorID() ([]string, error)
+	GetDevType() string
 }
 
 // DeviceManager common device manager for Ascend910/310P/310
@@ -48,13 +59,18 @@ type DeviceManager struct {
 	DevType string
 }
 
+// GetDevType return dev type
+func (d *DeviceManager) GetDevType() string {
+	return d.DevType
+}
+
 // AutoInit auto detect npu chip type and return the corresponding processing object
-func AutoInit(dType string) (DeviceManager, error) {
+func AutoInit(dType string) (*DeviceManager, error) {
 	chipInfo, err := getChipInfoForInit()
 	if err != nil {
-		return DeviceManager{}, fmt.Errorf("auto init failed, err: %s", err)
+		return nil, fmt.Errorf("auto init failed, err: %s", err)
 	}
-	devManager := DeviceManager{}
+	devManager := &DeviceManager{}
 	devType := common.GetDeviceTypeByChipName(chipInfo.Name)
 	switch devType {
 	case common.Ascend910:
@@ -64,15 +80,15 @@ func AutoInit(dType string) (DeviceManager, error) {
 	case common.Ascend310:
 		devManager.DcMgr = &A310Manager{}
 	default:
-		return DeviceManager{}, fmt.Errorf("unsupport device type (%s)", devType)
+		return nil, fmt.Errorf("unsupport device type (%s)", devType)
 	}
 	if dType != "" && devType != dType {
-		return DeviceManager{}, fmt.Errorf("the value of dType(%s) is inconsistent with the actual chip type(%s)",
+		return nil, fmt.Errorf("the value of dType(%s) is inconsistent with the actual chip type(%s)",
 			dType, devType)
 	}
 	devManager.DevType = devType
 	if err = devManager.Init(); err != nil {
-		return DeviceManager{}, fmt.Errorf("deviceManager init failed, err: %v", err)
+		return nil, fmt.Errorf("deviceManager init failed, err: %v", err)
 	}
 	return devManager, nil
 }
@@ -140,6 +156,11 @@ func (d *DeviceManager) GetDeviceCount() (int32, error) {
 // GetCardList  get all card list
 func (d *DeviceManager) GetCardList() (int32, []int32, error) {
 	return d.DcMgr.DcGetCardList()
+}
+
+// GetDeviceNumInCard  get all device list in one card
+func (d *DeviceManager) GetDeviceNumInCard(cardID int32) (int32, error) {
+	return d.DcMgr.DcGetDeviceNumInCard(cardID)
 }
 
 // GetDeviceList get all device logicID list
@@ -403,4 +424,53 @@ func (d *DeviceManager) GetVirtualDeviceInfo(logicID int32) (common.VirtualDevIn
 // DestroyVirtualDevice destroy virtual device
 func (d *DeviceManager) DestroyVirtualDevice(logicID int32, vDevID uint32) error {
 	return d.DcMgr.DcDestroyVDevice(logicID, vDevID)
+}
+
+// GetMcuPowerInfo get mcu power info for cardID
+func (d *DeviceManager) GetMcuPowerInfo(cardID int32) (float32, error) {
+	return d.DcMgr.DcGetMcuPowerInfo(cardID)
+}
+
+// GetCardIDDeviceID get cardID and deviceID by logicID
+func (d *DeviceManager) GetCardIDDeviceID(logicID int32) (int32, int32, error) {
+	return d.DcMgr.DcGetCardIDDeviceID(logicID)
+}
+
+// GetNPUMajorID query the MajorID of NPU devices
+func (d *DeviceManager) GetNPUMajorID() ([]string, error) {
+	const (
+		deviceCount   = 2
+		maxSearchLine = 512
+	)
+
+	path, err := utils.CheckPath("/proc/devices")
+	if err != nil {
+		return nil, err
+	}
+	majorID := make([]string, 0, deviceCount)
+	f, err := os.Open(path)
+	if err != nil {
+		return majorID, err
+	}
+	defer f.Close()
+	s := bufio.NewScanner(f)
+	count := 0
+	for s.Scan() {
+		// prevent from searching too many lines
+		if count > maxSearchLine {
+			break
+		}
+		count++
+		text := s.Text()
+		matched, err := regexp.MatchString("^[0-9]{1,3}\\s[v]?devdrv-cdev$", text)
+		if err != nil {
+			return majorID, err
+		}
+		if !matched {
+			continue
+		}
+		fields := strings.Fields(text)
+		majorID = append(majorID, fields[0])
+	}
+	return majorID, nil
 }

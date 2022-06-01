@@ -5,9 +5,10 @@ package common
 
 // MemoryInfo memory information struct
 type MemoryInfo struct {
-	MemorySize  uint64 `json:"memory_size"`
-	Frequency   uint32 `json:"memory_frequency"`
-	Utilization uint32 `json:"memory_utilization"`
+	MemorySize      uint64 `json:"memory_size"`
+	MemoryAvailable uint64 `json:"memory_available"`
+	Frequency       uint32 `json:"memory_frequency"`
+	Utilization     uint32 `json:"memory_utilization"`
 }
 
 // HbmInfo HBM info

@@ -17,7 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
-	"huawei.com/npu-exporter/devmanager/dsmi"
+	"huawei.com/npu-exporter/devmanager"
 	"huawei.com/npu-exporter/hwlog"
 	"huawei.com/npu-exporter/utils"
 )
@@ -66,6 +66,7 @@ var (
 	parsingNpuDefaultTimeout = 3 * time.Second
 	procMountInfoGet         sync.Once
 	procMountInfo            string
+	devMgr                   devmanager.DeviceInterface
 )
 
 // CntNpuMonitorOpts contains setting options for monitoring containers
@@ -458,10 +459,15 @@ func ScanForAscendDevices(devicesListFile string) ([]int, bool, error) {
 	return minorNumbers, len(minorNumbers) > 0, nil
 }
 
+// SetDevManager set the devMgr
+func SetDevManager(mgr devmanager.DeviceInterface) {
+	devMgr = mgr
+}
+
 func npuMajor() []string {
 	npuMajorFetchCtrl.Do(func() {
 		var err error
-		npuMajorID, err = dsmi.GetDeviceManager().GetNPUMajorID()
+		npuMajorID, err = devMgr.GetNPUMajorID()
 		if err != nil {
 			return
 		}
