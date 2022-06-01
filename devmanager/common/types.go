@@ -26,5 +26,25 @@ type ChipInfo struct {
 	Version string `json:"chip_version"`
 }
 
+// CgoDsmiSubVDevInfo single VDevInfo info
+type CgoDsmiSubVDevInfo struct {
+	Status uint32
+	VDevID uint32
+	VfID   uint32
+	CID    uint64
+	Spec   CgoDsmiVdevSpecInfo
+}
+
+// CgoDsmiVdevSpecInfo is special info
+type CgoDsmiVdevSpecInfo struct {
+	CoreNum  string
+	Reserved string
+}
+
 // VirtualDevInfo virtual device infos
-type VirtualDevInfo struct{}
+type VirtualDevInfo struct {
+	VDevNum             uint32
+	CoreNumUnused       uint32
+	CoreCount           uint32
+	CgoDsmiSubVDevInfos []CgoDsmiSubVDevInfo
+}

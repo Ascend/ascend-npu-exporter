@@ -78,6 +78,11 @@ const (
 	ReduceTenth = 0.1
 	// DefaultTemperatureWhenQueryFailed when get temperature failed, use this value
 	DefaultTemperatureWhenQueryFailed = -275
-	// MaxChipNum chip number max value
-	MaxChipNum = 64
+
+	// Ascend310 ascend 310 chip
+	Ascend310 = "Ascend310"
+	// Ascend310P ascend 310P chip
+	Ascend310P = "Ascend310P"
+	// Ascend910 ascend 910 chip
+	Ascend910 = "Ascend910"
 )
