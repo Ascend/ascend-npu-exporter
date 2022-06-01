@@ -66,7 +66,7 @@ func AutoInit(dType string) (DeviceManager, error) {
 	default:
 		return DeviceManager{}, fmt.Errorf("unsupport device type (%s)", devType)
 	}
-	if devType != dType {
+	if dType != "" && devType != dType {
 		return DeviceManager{}, fmt.Errorf("the value of dType(%s) is inconsistent with the actual chip type(%s)",
 			dType, devType)
 	}
