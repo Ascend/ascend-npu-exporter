@@ -142,9 +142,9 @@ func (d *DeviceManager) GetCardList() (int32, []int32, error) {
 	return d.DcMgr.DcGetCardList()
 }
 
-// GetDeviceList get all device list
+// GetDeviceList get all device logicID list
 func (d *DeviceManager) GetDeviceList() (int32, []int32, error) {
-	return d.DcMgr.DcGetDeviceList()
+	return d.DcMgr.DcGetLogicIDList()
 }
 
 // GetDeviceHealth query npu device health status

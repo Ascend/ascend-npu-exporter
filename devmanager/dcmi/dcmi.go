@@ -262,7 +262,7 @@ type DcDriverInterface interface {
 	DcShutDown() error
 
 	DcGetDeviceCount() (int32, error)
-	DcGetDeviceList() (int32, []int32, error)
+	DcGetLogicIDList() (int32, []int32, error)
 	DcGetDeviceHealth(int32, int32) (int32, error)
 	DcGetDeviceNetWorkHealth(int32, int32) (uint32, error)
 	DcGetDeviceUtilizationRate(int32, int32, common.DeviceType) (int32, error)
@@ -286,7 +286,7 @@ type DcDriverInterface interface {
 	DcGetDeviceVDevResource(int32, int32, uint32) (CgoVDevQueryStru, error)
 	DcGetDeviceTotalResource(int32, int32) (CgoDcmiSocTotalResource, error)
 	DcGetDeviceFreeResource(int32, int32) (CgoDcmiSocFreeResource, error)
-	DcGetDeviceInfo(int32, int32) (CgoVDevInfo, error)
+	DcVGetDeviceInfo(int32, int32) (CgoVDevInfo, error)
 	DcGetCardIDDeviceID(int32) (int32, int32, error)
 	DcCreateVDevice(int32, uint32) (uint32, error)
 	DcGetVDeviceInfo(int32) (CgoVDevInfo, error)
@@ -588,8 +588,8 @@ func (d *DcManager) DcGetDeviceFreeResource(cardID, deviceID int32) (CgoDcmiSocF
 	return convertSocFreeResource(freeResource), nil
 }
 
-// DcGetDeviceInfo get device resource info
-func (d *DcManager) DcGetDeviceInfo(cardID, deviceID int32) (CgoVDevInfo, error) {
+// DcVGetDeviceInfo get vdevice resource info
+func (d *DcManager) DcVGetDeviceInfo(cardID, deviceID int32) (CgoVDevInfo, error) {
 	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
 		return CgoVDevInfo{}, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
 	}
@@ -689,7 +689,7 @@ func (d *DcManager) DcGetVDeviceInfo(logicID int32) (CgoVDevInfo, error) {
 		return CgoVDevInfo{}, fmt.Errorf("get card id and device id failed, error is: %v", err)
 	}
 
-	dcmiVDevInfo, err := d.DcGetDeviceInfo(cardID, deviceID)
+	dcmiVDevInfo, err := d.DcVGetDeviceInfo(cardID, deviceID)
 	if err != nil {
 		return CgoVDevInfo{}, fmt.Errorf("get virtual device info failed, error is: %v", err)
 	}
@@ -844,25 +844,25 @@ func (d *DcManager) DcGetDeviceErrorCode(cardID, deviceID int32) (int32, int64, 
 
 // DcGetDeviceCount get device count
 func (d *DcManager) DcGetDeviceCount() (int32, error) {
-	devNum, _, err := d.DcGetDeviceList()
+	devNum, _, err := d.DcGetLogicIDList()
 	if err != nil {
 		return common.RetError, fmt.Errorf("get device count failed, error: %v", err)
 	}
 	return devNum, nil
 }
 
-// DcGetDeviceList get device logic id list
-func (d *DcManager) DcGetDeviceList() (int32, []int32, error) {
-	var devices []int32
+// DcGetLogicIDList get device logic id list
+func (d *DcManager) DcGetLogicIDList() (int32, []int32, error) {
+	var logicIDs []int32
 	var totalNum int32
 	_, cardList, err := d.DcGetCardList()
 	if err != nil {
-		return common.RetError, devices, fmt.Errorf("get card list failed, error: %v", err)
+		return common.RetError, logicIDs, fmt.Errorf("get card list failed, error: %v", err)
 	}
 	for _, cardID := range cardList {
 		devNumInCard, err := d.DcGetDeviceNumInCard(cardID)
 		if err != nil {
-			return common.RetError, devices, fmt.Errorf("get device num by cardID: %d failed, error: %v",
+			return common.RetError, logicIDs, fmt.Errorf("get device num by cardID: %d failed, error: %v",
 				cardID, err)
 		}
 		totalNum += devNumInCard
@@ -876,10 +876,10 @@ func (d *DcManager) DcGetDeviceList() (int32, []int32, error) {
 				return common.RetError, nil, fmt.Errorf("get device (cardID: %d, deviceID: %d) logic id "+
 					"failed, error: %v", cardID, devID, err)
 			}
-			devices = append(devices, logicID)
+			logicIDs = append(logicIDs, logicID)
 		}
 	}
-	return totalNum, devices, nil
+	return totalNum, logicIDs, nil
 }
 
 // DcGetDeviceHealth get device health
