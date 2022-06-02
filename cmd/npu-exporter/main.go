@@ -90,7 +90,11 @@ func main() {
 	validate()
 	hwlog.RunLog.Infof("npu exporter starting and the version is %s", hwlog.BuildVersion)
 	opts := readCntMonitoringFlags()
-	reg := regPrometheus(opts)
+	reg, err := regPrometheus(opts)
+	if err != nil {
+		hwlog.RunLog.Errorf("register prometheus failed")
+		return
+	}
 
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 	http.Handle("/", http.HandlerFunc(indexHandler))
@@ -159,13 +163,16 @@ func readCntMonitoringFlags() container.CntNpuMonitorOpts {
 	return opts
 }
 
-func regPrometheus(opts container.CntNpuMonitorOpts) *prometheus.Registry {
+func regPrometheus(opts container.CntNpuMonitorOpts) (*prometheus.Registry, error) {
 	deviceParser := container.MakeDevicesParser(opts)
 	reg := prometheus.NewRegistry()
-	reg.MustRegister(
-		collector.NewNpuCollector(context.Background(), cacheTime, time.Duration(updateTime)*time.Second, deviceParser),
-	)
-	return reg
+	c, err := collector.NewNpuCollector(context.Background(), cacheTime, time.Duration(updateTime)*time.Second,
+		deviceParser)
+	if err != nil {
+		return nil, err
+	}
+	reg.MustRegister(c)
+	return reg, nil
 }
 
 func validate() {

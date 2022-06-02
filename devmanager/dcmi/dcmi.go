@@ -167,6 +167,12 @@ package dcmi
    int dcmi_get_card_id_device_id_from_logicid(int *card_id, int *device_id, unsigned int device_logic_id){
     CALL_FUNC(dcmi_get_card_id_device_id_from_logicid,card_id,device_id,device_logic_id)
    }
+
+   int (*dcmi_mcu_get_power_info_func)(int card_id, int *power);
+   int dcmi_mcu_get_power_info_new(int card_id, int *power){
+    CALL_FUNC(dcmi_mcu_get_power_info,card_id,power)
+   }
+
    // load .so files and functions
    int dcmiInit_dl(void){
    	dcmiHandle = dlopen("libdcmi.so",RTLD_LAZY | RTLD_GLOBAL);
@@ -228,6 +234,9 @@ package dcmi
    	dcmi_get_device_errorcode_func = dlsym(dcmiHandle,"dcmi_get_device_errorcode");
 
    	dcmi_get_card_id_device_id_from_logicid_func = dlsym(dcmiHandle,"dcmi_get_card_id_device_id_from_logicid");
+
+   	dcmi_mcu_get_power_info_func = dlsym(dcmiHandle,"dcmi_mcu_get_power_info");
+
    	return SUCCESS;
    }
 
@@ -240,6 +249,7 @@ package dcmi
 */
 import "C"
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -278,6 +288,7 @@ type DcDriverInterface interface {
 	DcGetLogicIDFromPhysicID(int32) (int32, error)
 	DcGetDeviceLogicID(int32, int32) (int32, error)
 	DcGetDeviceIPAddress(int32, int32) (string, error)
+	DcGetMcuPowerInfo(int32) (float32, error)
 
 	DcGetCardList() (int32, []int32, error)
 	DcGetDeviceNumInCard(int32) (int32, error)
@@ -786,16 +797,22 @@ func (d *DcManager) DcGetMemoryInfo(cardID, deviceID int32) (*common.MemoryInfo,
 			"%d) and device_id(%d), error code: %d", cardID, deviceID, int32(retCode))
 	}
 
+	if uint64(cmInfoV3.memory_size) < uint64(cmInfoV3.memory_available) {
+		return nil, errors.New("failed to obtain the memory info by v3 interface based on card_id(" +
+			"%d) and device_id(%d), total memory is less than available memory")
+	}
+
 	return &common.MemoryInfo{
-		MemorySize:  uint64(cmInfoV3.memory_size),
-		Frequency:   uint32(cmInfoV3.freq),
-		Utilization: uint32(cmInfoV3.utiliza),
+		MemorySize:      uint64(cmInfoV3.memory_size),
+		MemoryAvailable: uint64(cmInfoV3.memory_available),
+		Frequency:       uint32(cmInfoV3.freq),
+		Utilization:     uint32(cmInfoV3.utiliza),
 	}, nil
 
 }
 
-// DcGetHbmInfo get HBM information, only for Ascend910
-func (d *DcManager) DcGetHbmInfo(cardID, deviceID int32) (*common.HbmInfo, error) {
+// FuncDcmiGetDeviceHbmInfo dcmi_get_device_hbm_info function for outer invoke, only for Ascend910
+func FuncDcmiGetDeviceHbmInfo(cardID, deviceID int32) (*common.HbmInfo, error) {
 	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
 		return nil, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
 	}
@@ -816,7 +833,16 @@ func (d *DcManager) DcGetHbmInfo(cardID, deviceID int32) (*common.HbmInfo, error
 		Usage:             uint64(cHbmInfo.memory_usage),
 		Temp:              hbmTemp,
 		BandWidthUtilRate: uint32(cHbmInfo.bandwith_util_rate)}, nil
+}
 
+// DcGetHbmInfo get HBM information A310/A310P not support
+func (d *DcManager) DcGetHbmInfo(cardID, deviceID int32) (*common.HbmInfo, error) {
+	return &common.HbmInfo{
+		MemorySize:        0,
+		Frequency:         0,
+		Usage:             0,
+		Temp:              0,
+		BandWidthUtilRate: 0}, nil
 }
 
 // DcGetDeviceErrorCode get the error count and errorcode of the device,only return the first errorcode
@@ -1052,4 +1078,23 @@ func (d *DcManager) DcGetLogicIDFromPhysicID(physicID int32) (int32, error) {
 		return common.RetError, fmt.Errorf("get wrong logicID(%d) from physicID(%d)", uint32(logicID), physicID)
 	}
 	return int32(logicID), nil
+}
+
+// FuncDcmiMcuGetPowerInfo dcmi_mcu_get_power_info_new function for outer invoke
+func FuncDcmiMcuGetPowerInfo(cardID int32) (float32, error) {
+	var power C.int
+	if retCode := C.dcmi_mcu_get_power_info_new(C.int(cardID), &power); int32(retCode) != common.Success {
+		return common.RetError, fmt.Errorf("mcu_get_power_info failed, error code is:%d", int32(retCode))
+	}
+	parsedPower := float32(power)
+	if parsedPower < 0 {
+		return common.RetError, fmt.Errorf("get wrong mcu_get_power_info, cardID: %d, power: %f", cardID,
+			parsedPower)
+	}
+	return parsedPower * common.ReduceTenth, nil
+}
+
+// DcGetMcuPowerInfo this function is only for Ascend310P, A910/A310 not support
+func (d *DcManager) DcGetMcuPowerInfo(cardID int32) (float32, error) {
+	return 0, nil
 }

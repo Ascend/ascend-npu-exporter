@@ -18,7 +18,8 @@ import (
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	"huawei.com/npu-exporter/collector/container"
-	"huawei.com/npu-exporter/devmanager/dsmi"
+	"huawei.com/npu-exporter/devmanager"
+	"huawei.com/npu-exporter/devmanager/common"
 	"huawei.com/npu-exporter/hwlog"
 )
 
@@ -68,14 +69,14 @@ func makeMockDevicesParser() *container.DevicesParser {
 // TestNewNpuCollector test method of NewNpuCollector
 func TestNewNpuCollector(t *testing.T) {
 	tests := []struct {
-		mockFunc func(ctx context.Context, n *npuCollector, dmgr dsmi.DeviceMgrInterface)
+		mockFunc func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface)
 		name     string
 		path     string
 	}{
 		{
 			name: "should return full list metrics when npuInfo not empty",
 			path: "testdata/prometheus_metrics",
-			mockFunc: func(ctx context.Context, n *npuCollector, dmgr dsmi.DeviceMgrInterface) {
+			mockFunc: func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
 				_ = n.devicesParser.Init()
 				npuInfo := mockGetNPUInfo(nil)
 				n.cache.Set(key, npuInfo, n.cacheTime)
@@ -84,7 +85,7 @@ func TestNewNpuCollector(t *testing.T) {
 		{
 			name: "should return full list metrics when npuInfo is empty",
 			path: "testdata/prometheus_metrics2",
-			mockFunc: func(ctx context.Context, n *npuCollector, dmgr dsmi.DeviceMgrInterface) {
+			mockFunc: func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
 				_ = n.devicesParser.Init()
 				var npuInfo []HuaWeiNPUCard
 				n.cache.Set(key, npuInfo, n.cacheTime)
@@ -99,13 +100,20 @@ func TestNewNpuCollector(t *testing.T) {
 }
 
 func excuteTestCollector(t *testing.T, tt struct {
-	mockFunc func(ctx context.Context, n *npuCollector, dmgr dsmi.DeviceMgrInterface)
+	mockFunc func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface)
 	name     string
 	path     string
 }) {
 	startStub := gostub.Stub(&start, tt.mockFunc)
 	defer startStub.Reset()
-	c := NewNpuCollector(context.Background(), cacheTime, time.Second, makeMockDevicesParser())
+	patch := gomonkey.ApplyFunc(devmanager.AutoInit, func(s string) (*devmanager.DeviceManager, error) {
+		return &devmanager.DeviceManager{}, nil
+	})
+	defer patch.Reset()
+	c, err := NewNpuCollector(context.Background(), cacheTime, time.Second, makeMockDevicesParser())
+	if err != nil {
+		t.Fatalf("test failes")
+	}
 	time.Sleep(1 * time.Second)
 	r := prometheus.NewRegistry()
 	r.MustRegister(c)
@@ -124,16 +132,16 @@ func excuteTestCollector(t *testing.T, tt struct {
 func TestGetChipInfo(t *testing.T) {
 	tests := []testCase{
 		newTestCase("should return chip info successfully when dsmi works normally", false,
-			dsmi.NewDeviceManagerMock()),
-		newTestCase("should return nil when dsmi works abnormally", true, dsmi.NewDeviceManagerMockErr()),
+			&devmanager.DeviceManagerMock{}),
+		newTestCase("should return nil when dsmi works abnormally", true, &devmanager.DeviceManagerMockErr{}),
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			chipInfo := packChipInfo(0, tt.mockPart.(dsmi.DeviceMgrInterface))
+			chipInfo := packChipInfo(0, tt.mockPart.(devmanager.DeviceInterface))
 			t.Logf("%v", chipInfo)
 			assert.NotNil(t, chipInfo)
 			if tt.wantErr {
-				assert.Equal(t, "", chipInfo.ChipIfo.ChipName)
+				assert.Equal(t, "", chipInfo.ChipIfo.Name)
 			} else {
 				assert.NotNil(t, chipInfo.ChipIfo)
 			}
@@ -172,12 +180,12 @@ func TestGetHealthCode(t *testing.T) {
 func TestGetNPUInfo(t *testing.T) {
 	tests := []struct {
 		name string
-		args dsmi.DeviceMgrInterface
+		args devmanager.DeviceInterface
 		want []HuaWeiNPUCard
 	}{
 		{
 			name: "should return at lease one NPUInfo",
-			args: dsmi.NewDeviceManagerMock(),
+			args: &devmanager.DeviceManagerMock{},
 			want: []HuaWeiNPUCard{{
 				DeviceList: nil,
 				Timestamp:  time.Time{},
@@ -186,7 +194,7 @@ func TestGetNPUInfo(t *testing.T) {
 		},
 		{
 			name: "should return zero NPU",
-			args: dsmi.NewDeviceManagerMockErr(),
+			args: &devmanager.DeviceManagerMockErr{},
 			want: []HuaWeiNPUCard{},
 		},
 	}
@@ -194,9 +202,6 @@ func TestGetNPUInfo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getNPUInfo(tt.args); len(got) != len(tt.want) {
 				t.Errorf("getNPUInfo() = %v,want %v", got, tt.want)
-			}
-			if got := assembleNPUInfoV1(tt.args); len(got) != len(tt.want) {
-				t.Errorf("assembleNPUInfoV1() = %v,want %v", got, tt.want)
 			}
 		})
 	}
@@ -218,7 +223,7 @@ func newTestCase(name string, wantErr bool, mockPart interface{}) testCase {
 	}
 }
 
-func mockGetNPUInfo(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
+func mockGetNPUInfo(dmgr devmanager.DeviceInterface) []HuaWeiNPUCard {
 	var npuList []HuaWeiNPUCard
 	for devicePhysicID := int32(0); devicePhysicID < npuCount; devicePhysicID++ {
 		chipInfo := &HuaWeiAIChip{
@@ -229,22 +234,22 @@ func mockGetNPUInfo(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 			Power:        0,
 			Voltage:      0,
 			Frequency:    0,
-			Meminf: &dsmi.MemoryInfo{
+			Meminf: &common.MemoryInfo{
 				MemorySize:  0,
 				Frequency:   0,
 				Utilization: 0,
 			},
-			ChipIfo: &dsmi.ChipInfo{
-				ChipType: "Ascend",
-				ChipName: "910Awn",
-				ChipVer:  "V1",
+			ChipIfo: &common.ChipInfo{
+				Type:    "Ascend",
+				Name:    "910Awn",
+				Version: "V1",
 			},
-			HbmInfo: &dsmi.HbmInfo{
-				MemorySize:              0,
-				MemoryFrequency:         0,
-				MemoryUsage:             0,
-				MemoryTemp:              0,
-				MemoryBandWidthUtilRate: 0,
+			HbmInfo: &common.HbmInfo{
+				MemorySize:        0,
+				Frequency:         0,
+				Usage:             0,
+				Temp:              0,
+				BandWidthUtilRate: 0,
 			},
 		}
 		chipInfo.DeviceID = int(devicePhysicID)
@@ -278,7 +283,7 @@ func TestStart(t *testing.T) {
 	gostub.Stub(&getNPUInfo, mockGetNPUInfo)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			go start(context.Background(), tt.collector, dsmi.NewDeviceManagerMock())
+			go start(context.Background(), tt.collector, &devmanager.DeviceManagerMock{})
 			time.Sleep(waitTime)
 			objm, ok := tt.collector.cache.Get(key)
 			assert.NotNil(t, objm)

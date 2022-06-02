@@ -6,7 +6,6 @@ package collector
 import (
 	"context"
 	"fmt"
-	"math"
 	"reflect"
 	"strconv"
 	"sync"
@@ -16,7 +15,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"huawei.com/npu-exporter/collector/container"
-	"huawei.com/npu-exporter/devmanager/dsmi"
+	"huawei.com/npu-exporter/devmanager"
+	"huawei.com/npu-exporter/devmanager/common"
 	"huawei.com/npu-exporter/hwlog"
 )
 
@@ -62,27 +62,32 @@ type npuCollector struct {
 
 // NewNpuCollector new a instance of prometheus Collector
 func NewNpuCollector(ctx context.Context, cacheTime time.Duration, updateTime time.Duration,
-	deviceParser *container.DevicesParser) prometheus.Collector {
+	deviceParser *container.DevicesParser) (prometheus.Collector, error) {
 	npuCollect := &npuCollector{
 		cache:         cache.New(cacheTime, five*time.Minute),
 		cacheTime:     cacheTime,
 		updateTime:    updateTime,
 		devicesParser: deviceParser,
 	}
-	go start(ctx, npuCollect, dsmi.GetDeviceManager())
-	return npuCollect
+	devManager, err := devmanager.AutoInit("")
+	if err != nil {
+		hwlog.RunLog.Errorf("new npu collector failed, error is %v", err)
+		return nil, err
+	}
+	go start(ctx, npuCollect, devManager)
+	return npuCollect, nil
 }
 
-var getNPUInfo = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
+var getNPUInfo = func(dmgr devmanager.DeviceInterface) []HuaWeiNPUCard {
 	var npuList []HuaWeiNPUCard
 	cardNum, cards, err := dmgr.GetCardList()
 	if cardNum == 0 || err != nil {
-		hwlog.RunLog.Warn("Downgrade to user DSMI only,maybe need check ENV of LD_LIBRARY_PATH")
-		return assembleNPUInfoV1(dmgr)
+		hwlog.RunLog.Errorf("failed to get npu info, error is: %v", err)
+		return npuList
 	}
-	var logicID int32 = 0
+
 	for _, cardID := range cards {
-		deviceNum, err := dmgr.GetDeviceNumOnCard(cardID)
+		deviceNum, err := dmgr.GetDeviceNumInCard(cardID)
 		if err != nil {
 			continue
 		}
@@ -90,15 +95,13 @@ var getNPUInfo = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 		for i := int32(0); i < deviceNum; i++ {
 			var chipInfo *HuaWeiAIChip
 			logID, err := dmgr.GetDeviceLogicID(cardID, i)
-			if err == nil {
-				chipInfo = assembleNPUInfoV2(cardID, logID, dmgr)
-			} else {
-				chipInfo = assembleNPUInfoV2(cardID, logicID, dmgr)
+			if err != nil {
+				continue
 			}
+			chipInfo = assembleNPUInfo(cardID, logID, dmgr)
 			if chipInfo != nil {
 				deviceList = append(deviceList, chipInfo)
 			}
-			logicID++
 		}
 		npuCard := HuaWeiNPUCard{
 			CardID:     int(cardID),
@@ -110,18 +113,18 @@ var getNPUInfo = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
 	return npuList
 }
 
-func assembleNPUInfoV2(cardID int32, logicID int32, dmgr dsmi.DeviceMgrInterface) *HuaWeiAIChip {
-	phyID, err := dmgr.GetPhyIDFromLogicID(uint32(logicID))
+func assembleNPUInfo(cardID int32, logicID int32, dmgr devmanager.DeviceInterface) *HuaWeiAIChip {
+	phyID, err := dmgr.GetPhysicIDFromLogicID(logicID)
 	// check cardId, convert it to int type later
-	if phyID > int32(math.MaxInt8) || err != nil {
+	if err != nil {
 		return nil
 	}
 	chipInfo := packChipInfo(logicID, dmgr)
 	chipInfo.DeviceID = int(phyID)
-	if dsmi.GetChipTypeNow() == dsmi.Ascend310P {
-		cardPower, err := dmgr.GetCardPower(cardID)
+	if dmgr.GetDevType() == common.Ascend310P {
+		cardPower, err := dmgr.GetMcuPowerInfo(cardID)
 		if err != nil {
-			cardPower = float32(dsmi.DefaultErrorValue)
+			cardPower = float32(common.RetError)
 		}
 		// Ascend310P use cardPower to replace chipPower
 		chipInfo.Power = cardPower
@@ -129,34 +132,15 @@ func assembleNPUInfoV2(cardID int32, logicID int32, dmgr dsmi.DeviceMgrInterface
 	return chipInfo
 }
 
-var assembleNPUInfoV1 = func(dmgr dsmi.DeviceMgrInterface) []HuaWeiNPUCard {
-	var npuList []HuaWeiNPUCard
-	num, devices, err := dmgr.GetDeviceList()
-	if num == 0 || err != nil {
-		return npuList
-	}
-	for _, logicID := range devices {
-		phyID, err := dmgr.GetPhyIDFromLogicID(uint32(logicID))
-		// check cardId, convert it to int type later
-		if phyID > int32(math.MaxInt8) || err != nil {
-			continue
-		}
-		chipInfo := packChipInfo(logicID, dmgr)
-		chipInfo.DeviceID = int(phyID)
-		npuCard := HuaWeiNPUCard{
-			CardID:     dsmi.DefaultErrorValue,
-			DeviceList: []*HuaWeiAIChip{chipInfo},
-			Timestamp:  time.Now(),
-		}
-		npuList = append(npuList, npuCard)
-	}
-	return npuList
-}
-
-var start = func(ctx context.Context, n *npuCollector, dmgr dsmi.DeviceMgrInterface) {
+var start = func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
 	defer func() {
 		if err := recover(); err != nil {
 			hwlog.RunLog.Errorf("go routine failed with %v", err)
+		}
+	}()
+	defer func() {
+		if err := dmgr.ShutDown(); err != nil {
+			hwlog.RunLog.Error(err)
 		}
 	}()
 
@@ -196,7 +180,6 @@ var start = func(ctx context.Context, n *npuCollector, dmgr dsmi.DeviceMgrInterf
 			}
 			ticker.Stop()
 			hwlog.RunLog.Warn("received the stop signal,STOPPED")
-			dsmi.ShutDown()
 			return
 		}
 	}
@@ -234,7 +217,13 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 	npuChipInfoInit.Do(func() {
 		if !found {
 			hwlog.RunLog.Warn("no cache, start to get npulist and rebuild cache")
-			npuInfo := getNPUInfo(dsmi.GetDeviceManager())
+			devManager, err := devmanager.AutoInit("")
+			if err != nil {
+				hwlog.RunLog.Warnf("get device manager failed, error is: %v ", err)
+				n.cache.Set(key, []HuaWeiNPUCard{}, n.cacheTime)
+				return
+			}
+			npuInfo := getNPUInfo(devManager)
 			n.cache.Set(key, npuInfo, n.cacheTime)
 			hwlog.RunLog.Warn("rebuild cache successfully")
 			obj = npuInfo
@@ -318,7 +307,7 @@ func updateNPUOtherInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *H
 		npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescNpuName, prometheus.GaugeValue, 1,
 			[]string{strconv.FormatInt(int64(chip.DeviceID), base),
-				fmt.Sprintf("%s-%s-%s", chip.ChipIfo.ChipName, chip.ChipIfo.ChipType, chip.ChipIfo.ChipVer)}...))
+				fmt.Sprintf("%s-%s-%s", chip.ChipIfo.Name, chip.ChipIfo.Type, chip.ChipIfo.Version)}...))
 }
 
 func validate(ch chan<- prometheus.Metric, objs ...interface{}) bool {
@@ -345,7 +334,7 @@ func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 	ch <- prometheus.NewMetricWithTimestamp(
 		npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescHbmUsedMemory, prometheus.GaugeValue,
-			float64(chip.HbmInfo.MemoryUsage),
+			float64(chip.HbmInfo.Usage),
 			[]string{strconv.FormatInt(int64(chip.DeviceID), base)}...))
 	ch <- prometheus.NewMetricWithTimestamp(
 		npu.Timestamp,
@@ -356,7 +345,7 @@ func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 	ch <- prometheus.NewMetricWithTimestamp(
 		npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescUsedMemory, prometheus.GaugeValue,
-			float64(chip.Meminf.MemorySize*uint64(chip.Meminf.Utilization)/uint64(dsmi.Percent)),
+			float64(chip.Meminf.MemorySize-chip.Meminf.MemoryAvailable),
 			[]string{strconv.FormatInt(int64(chip.DeviceID), base)}...))
 	ch <- prometheus.NewMetricWithTimestamp(
 		npu.Timestamp,
@@ -389,43 +378,43 @@ func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 			[]string{strconv.FormatInt(int64(chip.DeviceID), base)}...))
 }
 
-var packChipInfo = func(logicID int32, dmgr dsmi.DeviceMgrInterface) *HuaWeiAIChip {
-	freq, err := dmgr.GetDeviceFrequency(logicID, dsmi.AICore)
+var packChipInfo = func(logicID int32, dmgr devmanager.DeviceInterface) *HuaWeiAIChip {
+	freq, err := dmgr.GetDeviceFrequency(logicID, common.AICore)
 	if err != nil {
-		freq = dsmi.DefaultErrorValue
+		freq = common.RetError
 	}
-	power, err := dmgr.GetDevicePower(logicID)
+	power, err := dmgr.GetDevicePowerInfo(logicID)
 	if err != nil {
-		power = dsmi.DefaultErrorValue
+		power = common.RetError
 	}
 	temp, err := dmgr.GetDeviceTemperature(logicID)
 	if err != nil {
-		temp = dsmi.DefaultTemperatureWhenQueryFailed
+		temp = common.DefaultTemperatureWhenQueryFailed
 	}
 	vol, err := dmgr.GetDeviceVoltage(logicID)
 	if err != nil {
-		vol = dsmi.DefaultErrorValue
+		vol = common.RetError
 	}
 	mem, err := dmgr.GetDeviceMemoryInfo(logicID)
 	if err != nil {
-		mem = &dsmi.MemoryInfo{}
+		mem = &common.MemoryInfo{}
 	}
 	chip, err := dmgr.GetChipInfo(logicID)
 	if err != nil {
-		chip = &dsmi.ChipInfo{}
+		chip = &common.ChipInfo{}
 	}
 	hbmInfo, err := dmgr.GetDeviceHbmInfo(logicID)
 	if err != nil {
-		hbmInfo = &dsmi.HbmInfo{}
+		hbmInfo = &common.HbmInfo{}
 	}
-	util, err := dmgr.GetDeviceUtilizationRate(logicID, dsmi.AICore)
+	util, err := dmgr.GetDeviceUtilizationRate(logicID, common.AICore)
 	if err != nil {
-		util = dsmi.DefaultErrorValue // valid data range 0-100
+		util = common.UnRetError // valid data range 0-100
 	}
 
-	_, errCode, err := dmgr.GetDeviceErrCode(logicID)
+	_, errCode, err := dmgr.GetDeviceErrorCode(logicID)
 	if err != nil {
-		errCode = dsmi.DefaultErrorValue // valid data range 0-128
+		errCode = common.RetError // valid data range 0-128
 	}
 	return &HuaWeiAIChip{
 		ErrorCode:    errCode,
@@ -441,8 +430,8 @@ var packChipInfo = func(logicID int32, dmgr dsmi.DeviceMgrInterface) *HuaWeiAICh
 	}
 }
 
-func getHealth(cardID int32, dmgr dsmi.DeviceMgrInterface) HealthEnum {
-	health, err := dmgr.GetDeviceHealth(cardID)
+func getHealth(logicID int32, dmgr devmanager.DeviceInterface) HealthEnum {
+	health, err := dmgr.GetDeviceHealth(logicID)
 	if err != nil || health != 0 {
 		return UnHealthy
 	}
