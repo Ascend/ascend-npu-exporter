@@ -138,7 +138,7 @@ func (d *DeviceManagerMockErr) GetDeviceLogicID(cardID, deviceID int32) (int32, 
 
 // GetDeviceIPAddress get device ip address
 func (d *DeviceManagerMockErr) GetDeviceIPAddress(logicID int32) (string, error) {
-	return "0.0.0.0", errors.New(errorMsg)
+	return "127.0.0.1", errors.New(errorMsg)
 }
 
 // CreateVirtualDevice create virtual device
