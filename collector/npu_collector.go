@@ -74,7 +74,6 @@ func NewNpuCollector(ctx context.Context, cacheTime time.Duration, updateTime ti
 		hwlog.RunLog.Errorf("new npu collector failed, error is %v", err)
 		return nil, err
 	}
-	container.SetDevManager(devManager)
 	go start(ctx, npuCollect, devManager)
 	return npuCollect, nil
 }

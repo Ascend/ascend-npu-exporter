@@ -4,17 +4,11 @@
 package devmanager
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
-	"os"
-	"regexp"
-	"strings"
-
 	"huawei.com/npu-exporter/devmanager/common"
 	"huawei.com/npu-exporter/devmanager/dcmi"
 	"huawei.com/npu-exporter/hwlog"
-	"huawei.com/npu-exporter/utils"
 )
 
 // DeviceInterface for common device interface
@@ -45,8 +39,6 @@ type DeviceInterface interface {
 	CreateVirtualDevice(logicID int32, aiCore uint32) (uint32, error)
 	GetVirtualDeviceInfo(logicID int32) (common.VirtualDevInfo, error)
 	DestroyVirtualDevice(logicID int32, vDevID uint32) error
-	// GetNPUMajorID query the MajorID of NPU devices
-	GetNPUMajorID() ([]string, error)
 	GetDevType() string
 }
 
@@ -434,43 +426,4 @@ func (d *DeviceManager) GetMcuPowerInfo(cardID int32) (float32, error) {
 // GetCardIDDeviceID get cardID and deviceID by logicID
 func (d *DeviceManager) GetCardIDDeviceID(logicID int32) (int32, int32, error) {
 	return d.DcMgr.DcGetCardIDDeviceID(logicID)
-}
-
-// GetNPUMajorID query the MajorID of NPU devices
-func (d *DeviceManager) GetNPUMajorID() ([]string, error) {
-	const (
-		deviceCount   = 2
-		maxSearchLine = 512
-	)
-
-	path, err := utils.CheckPath("/proc/devices")
-	if err != nil {
-		return nil, err
-	}
-	majorID := make([]string, 0, deviceCount)
-	f, err := os.Open(path)
-	if err != nil {
-		return majorID, err
-	}
-	defer f.Close()
-	s := bufio.NewScanner(f)
-	count := 0
-	for s.Scan() {
-		// prevent from searching too many lines
-		if count > maxSearchLine {
-			break
-		}
-		count++
-		text := s.Text()
-		matched, err := regexp.MatchString("^[0-9]{1,3}\\s[v]?devdrv-cdev$", text)
-		if err != nil {
-			return majorID, err
-		}
-		if !matched {
-			continue
-		}
-		fields := strings.Fields(text)
-		majorID = append(majorID, fields[0])
-	}
-	return majorID, nil
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
-	"huawei.com/npu-exporter/devmanager"
 	"huawei.com/npu-exporter/hwlog"
 	"huawei.com/npu-exporter/utils"
 )
@@ -66,7 +66,6 @@ var (
 	parsingNpuDefaultTimeout = 3 * time.Second
 	procMountInfoGet         sync.Once
 	procMountInfo            string
-	devMgr                   devmanager.DeviceInterface
 )
 
 // CntNpuMonitorOpts contains setting options for monitoring containers
@@ -459,15 +458,49 @@ func ScanForAscendDevices(devicesListFile string) ([]int, bool, error) {
 	return minorNumbers, len(minorNumbers) > 0, nil
 }
 
-// SetDevManager set the devMgr
-func SetDevManager(mgr devmanager.DeviceInterface) {
-	devMgr = mgr
+// query the MajorID of NPU devices
+func getNPUMajorID() ([]string, error) {
+	const (
+		deviceCount   = 2
+		maxSearchLine = 512
+	)
+
+	path, err := utils.CheckPath("/proc/devices")
+	if err != nil {
+		return nil, err
+	}
+	majorID := make([]string, 0, deviceCount)
+	f, err := os.Open(path)
+	if err != nil {
+		return majorID, err
+	}
+	defer f.Close()
+	s := bufio.NewScanner(f)
+	count := 0
+	for s.Scan() {
+		// prevent from searching too many lines
+		if count > maxSearchLine {
+			break
+		}
+		count++
+		text := s.Text()
+		matched, err := regexp.MatchString("^[0-9]{1,3}\\s[v]?devdrv-cdev$", text)
+		if err != nil {
+			return majorID, err
+		}
+		if !matched {
+			continue
+		}
+		fields := strings.Fields(text)
+		majorID = append(majorID, fields[0])
+	}
+	return majorID, nil
 }
 
 func npuMajor() []string {
 	npuMajorFetchCtrl.Do(func() {
 		var err error
-		npuMajorID, err = devMgr.GetNPUMajorID()
+		npuMajorID, err = getNPUMajorID()
 		if err != nil {
 			return
 		}

@@ -165,8 +165,3 @@ func (d *DeviceManagerMockErr) GetMcuPowerInfo(cardID int32) (float32, error) {
 func (d *DeviceManagerMockErr) GetCardIDDeviceID(logicID int32) (int32, int32, error) {
 	return 0, 0, errors.New(errorMsg)
 }
-
-// GetNPUMajorID query the MajorID of NPU devices
-func (d *DeviceManagerMockErr) GetNPUMajorID() ([]string, error) {
-	return []string{"239", "238"}, errors.New(errorMsg)
-}
