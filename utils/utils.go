@@ -440,7 +440,7 @@ func ValidateX509PairV2(certBytes []byte, keyBytes []byte, overdueTime int) (*tl
 	}
 	// ED25519 private key length is stable and no need to verify
 	if "RSA" == keyType && keyLen < rsaLength || "ECC" == keyType && keyLen < eccLength {
-		hwlog.RunLog.Warn("the private key length is not enough")
+		return nil, errors.New("the private key length is not enough")
 	}
 	return &c, nil
 }
