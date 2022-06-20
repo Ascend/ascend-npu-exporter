@@ -130,9 +130,11 @@ func importCert(certFile, keyFile string) {
 	if err = utils.OverridePassWdFile(keyStore, pem.EncodeToMemory(encryptedBlock), utils.FileMode); err != nil {
 		hwlog.RunLog.Fatal(err)
 	}
+	hwlog.RunLog.Info("encrypted key file import successfully")
 	if err = ioutil.WriteFile(certStore, certBytes, utils.FileMode); err != nil {
 		hwlog.RunLog.Fatal("write certBytes to config failed ")
 	}
+	hwlog.RunLog.Info("cert file import successfully")
 }
 
 func importCA(caFile string) {
@@ -145,6 +147,7 @@ func importCA(caFile string) {
 		if err = ioutil.WriteFile(caStore, caBytes, utils.FileMode); err != nil {
 			hwlog.RunLog.Fatal("write caBytes to config failed ")
 		}
+		hwlog.RunLog.Info("ca file import successfully")
 	}
 }
 
@@ -158,6 +161,7 @@ func importCRL(crlFile string) {
 		if err = ioutil.WriteFile(crlStore, crlBytes, utils.FileMode); err != nil {
 			hwlog.RunLog.Fatal("write crlBytes to config failed ")
 		}
+		hwlog.RunLog.Info("crl file import successfully")
 	}
 }
 

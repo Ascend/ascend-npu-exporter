@@ -114,8 +114,6 @@ type CertStatus struct {
 	NotAfter          time.Time `json:"not_after"`
 	IsCA              bool      `json:"is_ca"`
 	FingerprintSHA256 string    `json:"fingerprint_sha256,omitempty"`
-	FingerprintSHA1   string    `json:"fingerprint_sha1,omitempty"`
-	FingerprintMD5    string    `json:"fingerprint_md5,omitempty"`
 }
 
 // GetCertStatus return certifcateMap

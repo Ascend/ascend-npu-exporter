@@ -6,6 +6,7 @@ package container
 import (
 	"context"
 	"encoding/json"
+	"syscall"
 
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -59,6 +60,22 @@ type RuntimeOperatorTool struct {
 
 // Init initializes container runtime operator
 func (operator *RuntimeOperatorTool) Init() error {
+	start := syscall.Getuid()
+	hwlog.RunLog.Debugf("the init uid is:%d", start)
+	if start != 0 {
+		err := syscall.Setuid(0)
+		if err != nil {
+			return errors.New("raise uid failed")
+		}
+		hwlog.RunLog.Debugf("raise uid to:%d", 0)
+		defer func() {
+			err = syscall.Setuid(start)
+			if err != nil {
+				hwlog.RunLog.Error("recover uid failed")
+			}
+			hwlog.RunLog.Debugf("recover uid to:%d", start)
+		}()
+	}
 	criConn, err := GetConnection(operator.CriEndpoint)
 	if err != nil || criConn == nil {
 		return errors.New("connecting to CRI server failed")
