@@ -49,6 +49,15 @@ var (
 		"the npu error code", []string{"id"}, nil)
 	npuContainerInfo = prometheus.NewDesc("npu_container_info",
 		"the container name and deviceID relationship", []string{"containerID", "containerName", "npuID"}, nil)
+	npuContainerTotalMemory = prometheus.NewDesc("container_npu_total_memory",
+		"the npu total memory in container, unit is 'MB'", []string{"id",
+			"pod_name"}, nil)
+	npuContainerUsedMemory = prometheus.NewDesc("container_npu_used_memory",
+		"the npu used memory in container, unit is 'MB'", []string{"id",
+			"pod_name"}, nil)
+	npuContainerUtilization = prometheus.NewDesc("container_npu_utilization",
+		"the npu ai core utilization in container, unit is '%'", []string{"id",
+			"pod_name"}, nil)
 	npuContainerInfoInit sync.Once
 	npuChipInfoInit      sync.Once
 )
@@ -205,6 +214,9 @@ func (n *npuCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- npuChipInfoDescErrorCode
 	ch <- npuChipInfoDescNpuName
 	ch <- npuContainerInfo
+	ch <- npuContainerTotalMemory
+	ch <- npuContainerUsedMemory
+	ch <- npuContainerUtilization
 }
 
 // Collect implements prometheus.Collector
@@ -234,6 +246,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 		hwlog.RunLog.Error("Error cache and convert failed")
 		n.cache.Delete(key)
 	}
+	containerMap := updateContainerNPUInfo(ch, n)
 	ch <- prometheus.MustNewConstMetric(versionInfoDesc, prometheus.GaugeValue, 1, []string{hwlog.BuildVersion}...)
 	var totalCount = 0
 	for _, card := range npuList {
@@ -243,21 +256,23 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 		totalCount += deviceCount
 		for _, chip := range card.DeviceList {
-			updateNPUCommonInfo(ch, &card, chip)
-			updateNPUMemoryInfo(ch, &card, chip)
+			containerName, ok := containerMap[chip.DeviceID]
+			if !ok {
+				containerName = ""
+			}
+			updateNPUCommonInfo(ch, &card, chip, containerName)
+			updateNPUMemoryInfo(ch, &card, chip, containerName)
 			updateNPUOtherInfo(ch, &card, chip)
 		}
 	}
 
 	ch <- prometheus.MustNewConstMetric(machineInfoNPUDesc, prometheus.GaugeValue, float64(totalCount))
-
-	updateContainerNPUInfo(ch, n)
 }
 
-func updateContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) {
+func updateContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) map[int]string {
 	if ch == nil {
 		hwlog.RunLog.Error("metric channel is nil")
-		return
+		return nil
 	}
 	obj, found := n.cache.Get(containersDevicesInfoKey)
 	// only run once to prevent wait when container info get failed
@@ -278,16 +293,19 @@ func updateContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) {
 	cntNpuInfos, ok := obj.(container.DevicesInfos)
 	if !ok {
 		hwlog.RunLog.Error("Error cache and convert failed")
-		return
+		return nil
 	}
+	res := make(map[int]string, initSize)
 	for _, v := range cntNpuInfos {
 		for _, deviceID := range v.Devices {
+			res[deviceID] = v.Name
 			ch <- prometheus.MustNewConstMetric(
 				npuContainerInfo,
 				prometheus.GaugeValue, 1,
 				[]string{v.ID, v.Name, strconv.Itoa(deviceID)}...)
 		}
 	}
+	return res
 }
 
 func updateNPUOtherInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
@@ -326,7 +344,7 @@ func validate(ch chan<- prometheus.Metric, objs ...interface{}) bool {
 	return true
 }
 
-func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
+func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip, containerName string) {
 	if !validate(ch, npu, chip, chip.HbmInfo, chip.Meminf) {
 		hwlog.RunLog.Error("Invalid param in function updateNPUMemoryInfo")
 		return
@@ -351,9 +369,21 @@ func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 		npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescTotalMemory, prometheus.GaugeValue, float64(chip.Meminf.MemorySize),
 			[]string{strconv.FormatInt(int64(chip.DeviceID), base)}...))
+	if containerName != "" {
+		ch <- prometheus.NewMetricWithTimestamp(
+			npu.Timestamp,
+			prometheus.MustNewConstMetric(npuContainerTotalMemory, prometheus.GaugeValue,
+				float64(chip.Meminf.MemorySize), []string{strconv.FormatInt(int64(chip.DeviceID),
+					base), containerName}...))
+		ch <- prometheus.NewMetricWithTimestamp(
+			npu.Timestamp,
+			prometheus.MustNewConstMetric(npuContainerUsedMemory, prometheus.GaugeValue,
+				float64(chip.Meminf.MemorySize-chip.Meminf.MemoryAvailable),
+				[]string{strconv.FormatInt(int64(chip.DeviceID), base), containerName}...))
+	}
 }
 
-func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
+func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip, containerName string) {
 	if !validate(ch, npu, chip) {
 		hwlog.RunLog.Error("Invalid param in function updateNpuCommonInfo")
 		return
@@ -376,6 +406,13 @@ func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 		npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescVoltage, prometheus.GaugeValue, float64(chip.Voltage),
 			[]string{strconv.FormatInt(int64(chip.DeviceID), base)}...))
+	if containerName != "" {
+		ch <- prometheus.NewMetricWithTimestamp(
+			npu.Timestamp,
+			prometheus.MustNewConstMetric(npuContainerUtilization, prometheus.GaugeValue,
+				float64(chip.Utilization), []string{strconv.FormatInt(int64(chip.DeviceID),
+					base), containerName}...))
+	}
 }
 
 var packChipInfo = func(logicID int32, dmgr devmanager.DeviceInterface) *HuaWeiAIChip {
