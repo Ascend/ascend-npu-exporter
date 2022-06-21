@@ -61,17 +61,6 @@ const (
 	// NpuType present npu chip
 	NpuType = 0
 
-	// AiCoreNum1 1 ai core
-	AiCoreNum1 = 1
-	// AiCoreNum2 2 ai core
-	AiCoreNum2 = 2
-	// AiCoreNum4 4 ai core
-	AiCoreNum4 = 4
-	// AiCoreNum8 8 ai core
-	AiCoreNum8 = 8
-	// AiCoreNum16 16 ai core
-	AiCoreNum16 = 16
-
 	// ReduceOnePercent for calculation reduce one percent
 	ReduceOnePercent = 0.01
 	// ReduceTenth for calculation reduce one tenth
