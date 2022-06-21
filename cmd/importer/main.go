@@ -99,6 +99,9 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 		hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
 		return
 	}
+	if err := utils.OverridePassWdFile(keyFile, []byte{}, utils.FileMode); err != nil {
+		hwlog.RunLog.Warn("security delete key file failed")
+	}
 	err := os.Remove(keyFile)
 	if err != nil {
 		hwlog.RunLog.Warn("delete private key file automatically failed,please delete it by yourself")
@@ -130,9 +133,11 @@ func importCert(certFile, keyFile string) {
 	if err = utils.OverridePassWdFile(keyStore, pem.EncodeToMemory(encryptedBlock), utils.FileMode); err != nil {
 		hwlog.RunLog.Fatal(err)
 	}
+	hwlog.RunLog.Info("encrypted key file import successfully")
 	if err = ioutil.WriteFile(certStore, certBytes, utils.FileMode); err != nil {
 		hwlog.RunLog.Fatal("write certBytes to config failed ")
 	}
+	hwlog.RunLog.Info("cert file import successfully")
 }
 
 func importCA(caFile string) {
@@ -145,6 +150,7 @@ func importCA(caFile string) {
 		if err = ioutil.WriteFile(caStore, caBytes, utils.FileMode); err != nil {
 			hwlog.RunLog.Fatal("write caBytes to config failed ")
 		}
+		hwlog.RunLog.Info("ca file import successfully")
 	}
 }
 
@@ -158,6 +164,7 @@ func importCRL(crlFile string) {
 		if err = ioutil.WriteFile(crlStore, crlBytes, utils.FileMode); err != nil {
 			hwlog.RunLog.Fatal("write crlBytes to config failed ")
 		}
+		hwlog.RunLog.Info("crl file import successfully")
 	}
 }
 
@@ -276,6 +283,9 @@ func importKubeConfig(kubeConf string) {
 		if notDel {
 			hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
 			return
+		}
+		if err := utils.OverridePassWdFile(conf, []byte{}, utils.FileMode); err != nil {
+			hwlog.RunLog.Warn("security delete config failed")
 		}
 		err = os.Remove(conf)
 		if err != nil {
