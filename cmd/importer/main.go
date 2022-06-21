@@ -99,6 +99,9 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 		hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
 		return
 	}
+	if err := utils.OverridePassWdFile(keyFile, []byte{}, utils.FileMode); err != nil {
+		hwlog.RunLog.Warn("security delete key file failed")
+	}
 	err := os.Remove(keyFile)
 	if err != nil {
 		hwlog.RunLog.Warn("delete private key file automatically failed,please delete it by yourself")
@@ -280,6 +283,9 @@ func importKubeConfig(kubeConf string) {
 		if notDel {
 			hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
 			return
+		}
+		if err := utils.OverridePassWdFile(conf, []byte{}, utils.FileMode); err != nil {
+			hwlog.RunLog.Warn("security delete config failed")
 		}
 		err = os.Remove(conf)
 		if err != nil {
