@@ -16,7 +16,9 @@ import (
 // printHelper helper function for log printing
 func printHelper(f func(string, ...zap.Field), msg string, ctx ...context.Context) {
 	str := getCallerInfo(ctx...)
-	f(str + msg)
+	trimMsg := strings.Replace(msg, "\r", " ", -1)
+	trimMsg = strings.Replace(trimMsg, "\n", " ", -1)
+	f(str + trimMsg)
 }
 
 // getCallerInfo gets the caller's information
