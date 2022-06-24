@@ -4,6 +4,7 @@
 package utils
 
 import (
+	"bufio"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
@@ -16,14 +17,18 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
@@ -94,6 +99,18 @@ const (
 	defaultWarningDays = 100
 	initSize           = 4
 	minCount           = 2
+
+	rootUID         = 0
+	maxPathDepth    = 20
+	maxPathLength   = 1024
+	invalidFileMode = 0022
+
+	ldSplitLen     = 2
+	ldLibNameIndex = 0
+	ldLibPathIndex = 1
+	ldCommand      = "/sbin/ldconfig"
+	ldParam        = "--print-cache"
+	grepCommand    = "/bin/grep"
 )
 
 var (
@@ -1033,4 +1050,152 @@ func ReplacePrefix(source, prefix string) string {
 // MaskPrefix mask string prefix with ***
 func MaskPrefix(source string) string {
 	return ReplacePrefix(source, "")
+}
+
+// group and other user cannot write
+func checkMode(mode os.FileMode) bool {
+	checkMode := uint32(mode) & uint32(invalidFileMode)
+	return checkMode == 0
+}
+
+func checkPathPermission(verifyPath string) (string, bool) {
+	realPath, err := hwlog.CheckPath(verifyPath)
+	if err != nil {
+		return "", false
+	}
+	pathInfo, err := os.Stat(realPath)
+	if err != nil {
+		return "", false
+	}
+	stat, ok := pathInfo.Sys().(*syscall.Stat_t)
+	if !ok || stat.Uid != rootUID || !checkMode(pathInfo.Mode()) {
+		return "", false
+	}
+	return realPath, true
+}
+
+func checkAbsPath(libPath string) (string, bool) {
+	absLibPath, ok := checkPathPermission(libPath)
+	if !ok {
+		return "", false
+	}
+	count := 0
+	fPath := absLibPath
+	for {
+		if count >= maxPathDepth {
+			break
+		}
+		count++
+		if fPath == "/" {
+			return absLibPath, true
+		}
+		fPath = filepath.Dir(fPath)
+		if _, ok := checkPathPermission(fPath); !ok {
+			return "", false
+		}
+	}
+	return "", false
+}
+
+func checkLibsPath(libraryPaths []string, libraryName string) (string, error) {
+	for _, libraryPath := range libraryPaths {
+		libraryAbsName := path.Join(libraryPath, libraryName)
+		if len(libraryAbsName) > maxPathLength {
+			continue
+		}
+		if absLibPath, ok := checkAbsPath(libraryAbsName); ok {
+			return absLibPath, nil
+		}
+	}
+	return "", fmt.Errorf("not found valid lib")
+}
+
+func getLibFromEnv(libraryName string) (string, error) {
+	ldLibraryPath := os.Getenv("LD_LIBRARY_PATH")
+	if len(ldLibraryPath) > maxPathLength {
+		return "", fmt.Errorf("invalid library path env")
+	}
+	libraryPaths := strings.Split(ldLibraryPath, ":")
+	return checkLibsPath(libraryPaths, libraryName)
+}
+
+func trimSpaceTable(data string) string {
+	data = strings.Replace(data, " ", "", -1)
+	data = strings.Replace(data, "\t", "", -1)
+	data = strings.Replace(data, "\n", "", -1)
+	return data
+}
+
+func parserLibPath(line, libraryName string) string {
+	ldInfo := strings.Split(line, "=>")
+	if len(ldInfo) < ldSplitLen {
+		return ""
+	}
+	libNames := strings.Split(ldInfo[ldLibNameIndex], " ")
+	for index, libName := range libNames {
+		if index >= maxPathDepth {
+			break
+		}
+		if len(libName) == 0 {
+			continue
+		}
+		if name := trimSpaceTable(libName); name != libraryName {
+			continue
+		}
+		return trimSpaceTable(ldInfo[ldLibPathIndex])
+	}
+	return ""
+}
+
+func getLibFromLdCmd(libraryName string) (string, error) {
+	ldCmd := exec.Command(ldCommand, ldParam)
+	grepCmd := exec.Command(grepCommand, libraryName)
+	ldCmdStdout, err := ldCmd.StdoutPipe()
+	if err != nil {
+		hwlog.RunLog.Error(err)
+		return "", fmt.Errorf("command exec failed")
+	}
+	grepCmd.Stdin = ldCmdStdout
+	stdout, err := grepCmd.StdoutPipe()
+	if err != nil {
+		hwlog.RunLog.Error(err)
+		return "", fmt.Errorf("command exec failed")
+	}
+	if err := grepCmd.Start(); err != nil {
+		hwlog.RunLog.Error(err)
+		return "", fmt.Errorf("command exec failed")
+	}
+	if err := ldCmd.Run(); err != nil {
+		hwlog.RunLog.Error(err)
+		return "", fmt.Errorf("command exec failed")
+	}
+	defer func() {
+		if err := grepCmd.Wait(); err != nil {
+			hwlog.RunLog.Warnf("command exec failed, %v", err)
+		}
+	}()
+	reader := bufio.NewReader(stdout)
+	for {
+		line, err2 := reader.ReadString('\n')
+		if err2 != nil || io.EOF == err2 {
+			break
+		}
+		if libPath := parserLibPath(line, libraryName); libPath != "" {
+			return libPath, nil
+		}
+	}
+	return "", fmt.Errorf("can't find valid lib")
+}
+
+// GetDriverLibPath get driver lib path from ld config
+func GetDriverLibPath(libraryName string) (string, error) {
+	var libPath string
+	var err error
+	if libPath, err = getLibFromEnv(libraryName); err == nil {
+		return libPath, nil
+	}
+	if libPath, err = getLibFromLdCmd(libraryName); err == nil {
+		return libPath, nil
+	}
+	return "", fmt.Errorf("not found valid lib path, %v", err)
 }

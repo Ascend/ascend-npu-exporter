@@ -174,8 +174,12 @@ package dcmi
    }
 
    // load .so files and functions
-   int dcmiInit_dl(void){
-   	dcmiHandle = dlopen("libdcmi.so",RTLD_LAZY | RTLD_GLOBAL);
+   int dcmiInit_dl(const char* dcmiLibPath){
+   	if (dcmiLibPath == NULL) {
+   	   	fprintf (stderr,"lib path is null\n");
+   	   	return SO_NOT_FOUND;
+   	}
+   	dcmiHandle = dlopen(dcmiLibPath,RTLD_LAZY | RTLD_GLOBAL);
    	if (dcmiHandle == NULL){
    		fprintf (stderr,"%s\n",dlerror());
    		return SO_NOT_FOUND;
@@ -258,6 +262,7 @@ import (
 
 	"huawei.com/npu-exporter/devmanager/common"
 	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/npu-exporter/utils"
 )
 
 // CDcmiMemoryInfoV3 the c struct of memoryInfo for v3
@@ -304,12 +309,22 @@ type DcDriverInterface interface {
 	DcDestroyVDevice(int32, uint32) error
 }
 
+const (
+	dcmiLibraryName = "libdcmi.so"
+)
+
 // DcManager for manager dcmi interface
 type DcManager struct{}
 
 // DcInit load symbol and initialize dcmi
 func (d *DcManager) DcInit() error {
-	if retCode := C.dcmiInit_dl(); retCode != C.SUCCESS {
+	dcmiLibPath, err := utils.GetDriverLibPath(dcmiLibraryName)
+	if err != nil {
+		return err
+	}
+	cDcmiTemplateName := C.CString(dcmiLibPath)
+	defer C.free(unsafe.Pointer(cDcmiTemplateName))
+	if retCode := C.dcmiInit_dl(cDcmiTemplateName); retCode != C.SUCCESS {
 		return fmt.Errorf("dcmi lib load failed, error code: %d", int32(retCode))
 	}
 	if retCode := C.dcmi_init_new(); retCode != C.SUCCESS {
