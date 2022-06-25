@@ -1107,7 +1107,7 @@ func checkLibsPath(libraryPaths []string, libraryName string) (string, error) {
 			return absLibPath, nil
 		}
 	}
-	return "", fmt.Errorf("not found valid lib")
+	return "", fmt.Errorf("driver lib is not exist or it's permission is invalid")
 }
 
 func getLibFromEnv(libraryName string) (string, error) {
@@ -1147,7 +1147,7 @@ func parserLibPath(line, libraryName string) string {
 	return ""
 }
 
-func getLibFromLdCmd(libraryName string) (string, error) {
+func parseLibFromLdCmd(libraryName string) (string, error) {
 	ldCmd := exec.Command(ldCommand, ldParam)
 	grepCmd := exec.Command(grepCommand, libraryName)
 	ldCmdStdout, err := ldCmd.StdoutPipe()
@@ -1187,6 +1187,17 @@ func getLibFromLdCmd(libraryName string) (string, error) {
 	return "", fmt.Errorf("can't find valid lib")
 }
 
+func getLibFromLdCmd(libraryName string) (string, error) {
+	libraryAbsName, err := parseLibFromLdCmd(libraryName)
+	if err != nil {
+		return "", err
+	}
+	if absLibPath, ok := checkAbsPath(libraryAbsName); ok {
+		return absLibPath, nil
+	}
+	return "", fmt.Errorf("driver lib is not exist or it's permission is invalid")
+}
+
 // GetDriverLibPath get driver lib path from ld config
 func GetDriverLibPath(libraryName string) (string, error) {
 	var libPath string
@@ -1197,5 +1208,5 @@ func GetDriverLibPath(libraryName string) (string, error) {
 	if libPath, err = getLibFromLdCmd(libraryName); err == nil {
 		return libPath, nil
 	}
-	return "", fmt.Errorf("not found valid lib path, %v", err)
+	return "", fmt.Errorf("cannot found valid driver lib, %v", err)
 }
