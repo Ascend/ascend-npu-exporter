@@ -253,7 +253,6 @@ package dcmi
 */
 import "C"
 import (
-	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -298,14 +297,14 @@ type DcDriverInterface interface {
 	DcGetCardList() (int32, []int32, error)
 	DcGetDeviceNumInCard(int32) (int32, error)
 	DcSetDestroyVirtualDevice(int32, int32, uint32) error
-	DcCreateVirtualDevice(int32, int32, int32, uint32) (CgoDcmiCreateVDevOut, error)
-	DcGetDeviceVDevResource(int32, int32, uint32) (CgoVDevQueryStru, error)
-	DcGetDeviceTotalResource(int32, int32) (CgoDcmiSocTotalResource, error)
-	DcGetDeviceFreeResource(int32, int32) (CgoDcmiSocFreeResource, error)
-	DcVGetDeviceInfo(int32, int32) (CgoVDevInfo, error)
+	DcCreateVirtualDevice(int32, int32, int32, string) (common.CgoCreateVDevOut, error)
+	DcGetDeviceVDevResource(int32, int32, uint32) (common.CgoVDevQueryStru, error)
+	DcGetDeviceTotalResource(int32, int32) (common.CgoSocTotalResource, error)
+	DcGetDeviceFreeResource(int32, int32) (common.CgoSocFreeResource, error)
+	DcVGetDeviceInfo(int32, int32) (common.VirtualDevInfo, error)
 	DcGetCardIDDeviceID(int32) (int32, int32, error)
-	DcCreateVDevice(int32, uint32) (uint32, error)
-	DcGetVDeviceInfo(int32) (CgoVDevInfo, error)
+	DcCreateVDevice(int32, int32, string) (common.CgoCreateVDevOut, error)
+	DcGetVDeviceInfo(int32) (common.VirtualDevInfo, error)
 	DcDestroyVDevice(int32, uint32) error
 }
 
@@ -414,8 +413,8 @@ func (d *DcManager) DcSetDestroyVirtualDevice(cardID, deviceID int32, vDevID uin
 	return nil
 }
 
-func convertCreateVDevOut(cCreateVDevOut C.struct_dcmi_create_vdev_out) CgoDcmiCreateVDevOut {
-	cgoCreateVDevOut := CgoDcmiCreateVDevOut{
+func convertCreateVDevOut(cCreateVDevOut C.struct_dcmi_create_vdev_out) common.CgoCreateVDevOut {
+	cgoCreateVDevOut := common.CgoCreateVDevOut{
 		VDevID:     uint32(cCreateVDevOut.vdev_id),
 		PcieBus:    uint32(cCreateVDevOut.pcie_bus),
 		PcieDevice: uint32(cCreateVDevOut.pcie_device),
@@ -427,117 +426,111 @@ func convertCreateVDevOut(cCreateVDevOut C.struct_dcmi_create_vdev_out) CgoDcmiC
 
 // DcCreateVirtualDevice create virtual device
 // vDevID is reserved fields by dcmi interface, now is unused
-func (d *DcManager) DcCreateVirtualDevice(cardID, deviceID, vDevID int32, aiCore uint32) (CgoDcmiCreateVDevOut,
-	error) {
+func (d *DcManager) DcCreateVirtualDevice(cardID, deviceID, vDevID int32,
+	templateName string) (common.CgoCreateVDevOut, error) {
 	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
-		return CgoDcmiCreateVDevOut{}, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
+		return common.CgoCreateVDevOut{}, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
 	}
-	switch aiCore {
-	case common.AiCoreNum1, common.AiCoreNum2, common.AiCoreNum4, common.AiCoreNum8, common.AiCoreNum16:
-	default:
-		return CgoDcmiCreateVDevOut{}, fmt.Errorf("input invalid aiCore: %d", aiCore)
-	}
-	// templateName like vir02,vir04,vir08,vir16
-	templateName := fmt.Sprintf("%s%02d", vDeviceCreateTemplateNamePrefix, aiCore)
 	cTemplateName := C.CString(templateName)
 	defer C.free(unsafe.Pointer(cTemplateName))
 
 	var createVDevOut C.struct_dcmi_create_vdev_out
 	if retCode := C.dcmi_create_vdevice(C.int(cardID), C.int(deviceID), C.int(vDevID), cTemplateName,
 		&createVDevOut); int32(retCode) != common.Success {
-		return CgoDcmiCreateVDevOut{}, fmt.Errorf("create vdevice failed, error is: %d", int32(retCode))
+		return common.CgoCreateVDevOut{}, fmt.Errorf("create vdevice failed, error is: %d", int32(retCode))
 	}
 
 	return convertCreateVDevOut(createVDevOut), nil
 }
 
-func convertToCharArr(cgoArr [dcmiVDevResNameLen]C.char) []rune {
+func convertToString(cgoArr [dcmiVDevResNameLen]C.char) string {
 	var charArr []rune
 	for _, v := range cgoArr {
-		if v != 0 {
-			charArr = append(charArr, rune(v))
+		if v == 0 {
+			break
 		}
+		charArr = append(charArr, rune(v))
 	}
-	return charArr
+	return string(charArr)
 }
 
-func convertBaseResource(cBaseResource C.struct_dcmi_base_resource) CgoDcmiBaseResource {
-	baseResource := CgoDcmiBaseResource{
-		token:       uint64(cBaseResource.token),
-		tokenMax:    uint64(cBaseResource.token_max),
-		taskTimeout: uint64(cBaseResource.task_timeout),
-		vfgID:       uint32(cBaseResource.vfg_id),
-		vipMode:     uint8(cBaseResource.vip_mode),
+func convertBaseResource(cBaseResource C.struct_dcmi_base_resource) common.CgoBaseResource {
+	baseResource := common.CgoBaseResource{
+		Token:       uint64(cBaseResource.token),
+		TokenMax:    uint64(cBaseResource.token_max),
+		TaskTimeout: uint64(cBaseResource.task_timeout),
+		VfgID:       uint32(cBaseResource.vfg_id),
+		VipMode:     uint8(cBaseResource.vip_mode),
 	}
 	return baseResource
 }
 
-func convertComputingResource(cComputingResource C.struct_dcmi_computing_resource) CgoDcmiComputingResource {
-	computingResource := CgoDcmiComputingResource{
-		aic:                float32(cComputingResource.aic),
-		aiv:                float32(cComputingResource.aiv),
-		dsa:                uint16(cComputingResource.dsa),
-		rtsq:               uint16(cComputingResource.rtsq),
-		acsq:               uint16(cComputingResource.acsq),
-		cdqm:               uint16(cComputingResource.cdqm),
-		cCore:              uint16(cComputingResource.c_core),
-		ffts:               uint16(cComputingResource.ffts),
-		sdma:               uint16(cComputingResource.sdma),
-		pcieDma:            uint16(cComputingResource.pcie_dma),
-		memorySize:         uint64(cComputingResource.memory_size),
-		eventID:            uint32(cComputingResource.event_id),
-		notifyID:           uint32(cComputingResource.notify_id),
-		streamID:           uint32(cComputingResource.stream_id),
-		modelID:            uint32(cComputingResource.model_id),
-		topicScheduleAicpu: uint16(cComputingResource.topic_schedule_aicpu),
-		hostCtrlCPU:        uint16(cComputingResource.host_ctrl_cpu),
-		hostAicpu:          uint16(cComputingResource.host_aicpu),
-		deviceAicpu:        uint16(cComputingResource.device_aicpu),
-		topicCtrlCPUSlot:   uint16(cComputingResource.topic_ctrl_cpu_slot),
+func convertComputingResource(cComputingResource C.struct_dcmi_computing_resource) common.CgoComputingResource {
+	computingResource := common.CgoComputingResource{
+		Aic:                float32(cComputingResource.aic),
+		Aiv:                float32(cComputingResource.aiv),
+		Dsa:                uint16(cComputingResource.dsa),
+		Rtsq:               uint16(cComputingResource.rtsq),
+		Acsq:               uint16(cComputingResource.acsq),
+		Cdqm:               uint16(cComputingResource.cdqm),
+		CCore:              uint16(cComputingResource.c_core),
+		Ffts:               uint16(cComputingResource.ffts),
+		Sdma:               uint16(cComputingResource.sdma),
+		PcieDma:            uint16(cComputingResource.pcie_dma),
+		MemorySize:         uint64(cComputingResource.memory_size),
+		EventID:            uint32(cComputingResource.event_id),
+		NotifyID:           uint32(cComputingResource.notify_id),
+		StreamID:           uint32(cComputingResource.stream_id),
+		ModelID:            uint32(cComputingResource.model_id),
+		TopicScheduleAicpu: uint16(cComputingResource.topic_schedule_aicpu),
+		HostCtrlCPU:        uint16(cComputingResource.host_ctrl_cpu),
+		HostAicpu:          uint16(cComputingResource.host_aicpu),
+		DeviceAicpu:        uint16(cComputingResource.device_aicpu),
+		TopicCtrlCPUSlot:   uint16(cComputingResource.topic_ctrl_cpu_slot),
 	}
 	return computingResource
 }
 
-func convertMediaResource(cMediaResource C.struct_dcmi_media_resource) CgoDcmiMediaResource {
-	mediaResource := CgoDcmiMediaResource{
-		jpegd: float32(cMediaResource.jpegd),
-		jpege: float32(cMediaResource.jpege),
-		vpc:   float32(cMediaResource.vpc),
-		vdec:  float32(cMediaResource.vdec),
-		pngd:  float32(cMediaResource.pngd),
-		venc:  float32(cMediaResource.venc),
+func convertMediaResource(cMediaResource C.struct_dcmi_media_resource) common.CgoMediaResource {
+	mediaResource := common.CgoMediaResource{
+		Jpegd: float32(cMediaResource.jpegd),
+		Jpege: float32(cMediaResource.jpege),
+		Vpc:   float32(cMediaResource.vpc),
+		Vdec:  float32(cMediaResource.vdec),
+		Pngd:  float32(cMediaResource.pngd),
+		Venc:  float32(cMediaResource.venc),
 	}
 	return mediaResource
 }
 
-func convertVDevQueryInfo(cVDevQueryInfo C.struct_dcmi_vdev_query_info) CgoVDevQueryInfo {
-	name := convertToCharArr(cVDevQueryInfo.name)
-	vDevQueryInfo := CgoVDevQueryInfo{
-		name:            string(name),
-		status:          uint32(cVDevQueryInfo.status),
-		isContainerUsed: uint32(cVDevQueryInfo.is_container_used),
-		vfid:            uint32(cVDevQueryInfo.vfid),
-		vfgID:           uint32(cVDevQueryInfo.vfg_id),
-		containerID:     uint64(cVDevQueryInfo.container_id),
-		base:            convertBaseResource(cVDevQueryInfo.base),
-		computing:       convertComputingResource(cVDevQueryInfo.computing),
-		media:           convertMediaResource(cVDevQueryInfo.media),
+func convertVDevQueryInfo(cVDevQueryInfo C.struct_dcmi_vdev_query_info) common.CgoVDevQueryInfo {
+	name := convertToString(cVDevQueryInfo.name)
+	vDevQueryInfo := common.CgoVDevQueryInfo{
+		Name:            string(name),
+		Status:          uint32(cVDevQueryInfo.status),
+		IsContainerUsed: uint32(cVDevQueryInfo.is_container_used),
+		Vfid:            uint32(cVDevQueryInfo.vfid),
+		VfgID:           uint32(cVDevQueryInfo.vfg_id),
+		ContainerID:     uint64(cVDevQueryInfo.container_id),
+		Base:            convertBaseResource(cVDevQueryInfo.base),
+		Computing:       convertComputingResource(cVDevQueryInfo.computing),
+		Media:           convertMediaResource(cVDevQueryInfo.media),
 	}
 	return vDevQueryInfo
 }
 
-func convertVDevQueryStru(cVDevQueryStru C.struct_dcmi_vdev_query_stru) CgoVDevQueryStru {
-	vDevQueryStru := CgoVDevQueryStru{
-		vDevID:    uint32(cVDevQueryStru.vdev_id),
-		queryInfo: convertVDevQueryInfo(cVDevQueryStru.query_info),
+func convertVDevQueryStru(cVDevQueryStru C.struct_dcmi_vdev_query_stru) common.CgoVDevQueryStru {
+	vDevQueryStru := common.CgoVDevQueryStru{
+		VDevID:    uint32(cVDevQueryStru.vdev_id),
+		QueryInfo: convertVDevQueryInfo(cVDevQueryStru.query_info),
 	}
 	return vDevQueryStru
 }
 
 // DcGetDeviceVDevResource get virtual device resource info
-func (d *DcManager) DcGetDeviceVDevResource(cardID, deviceID int32, vDevID uint32) (CgoVDevQueryStru, error) {
+func (d *DcManager) DcGetDeviceVDevResource(cardID, deviceID int32, vDevID uint32) (common.CgoVDevQueryStru, error) {
 	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
-		return CgoVDevQueryStru{}, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
+		return common.CgoVDevQueryStru{}, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
 	}
 	var cMainCmd = C.enum_dcmi_main_cmd(MainCmdVDevMng)
 	subCmd := VmngSubCmdGetVDevResource
@@ -546,30 +539,30 @@ func (d *DcManager) DcGetDeviceVDevResource(cardID, deviceID int32, vDevID uint3
 	vDevResource.vdev_id = C.uint(vDevID)
 	if retCode := C.dcmi_get_device_info(C.int(cardID), C.int(deviceID), cMainCmd, C.uint(subCmd),
 		unsafe.Pointer(&vDevResource), &size); int32(retCode) != common.Success {
-		return CgoVDevQueryStru{}, fmt.Errorf("get device info failed, error is: %d", int32(retCode))
+		return common.CgoVDevQueryStru{}, fmt.Errorf("get device info failed, error is: %d", int32(retCode))
 	}
 	return convertVDevQueryStru(vDevResource), nil
 }
 
-func convertSocTotalResource(cSocTotalResource C.struct_dcmi_soc_total_resource) CgoDcmiSocTotalResource {
-	socTotalResource := CgoDcmiSocTotalResource{
-		vDevNum:   uint32(cSocTotalResource.vdev_num),
-		vfgNum:    uint32(cSocTotalResource.vfg_num),
-		vfgBitmap: uint32(cSocTotalResource.vfg_bitmap),
-		base:      convertBaseResource(cSocTotalResource.base),
-		computing: convertComputingResource(cSocTotalResource.computing),
-		media:     convertMediaResource(cSocTotalResource.media),
+func convertSocTotalResource(cSocTotalResource C.struct_dcmi_soc_total_resource) common.CgoSocTotalResource {
+	socTotalResource := common.CgoSocTotalResource{
+		VDevNum:   uint32(cSocTotalResource.vdev_num),
+		VfgNum:    uint32(cSocTotalResource.vfg_num),
+		VfgBitmap: uint32(cSocTotalResource.vfg_bitmap),
+		Base:      convertBaseResource(cSocTotalResource.base),
+		Computing: convertComputingResource(cSocTotalResource.computing),
+		Media:     convertMediaResource(cSocTotalResource.media),
 	}
 	for i := uint32(0); i < uint32(cSocTotalResource.vdev_num) && i < dcmiMaxVdevNum; i++ {
-		socTotalResource.vDevID = append(socTotalResource.vDevID, uint32(cSocTotalResource.vdev_id[i]))
+		socTotalResource.VDevID = append(socTotalResource.VDevID, uint32(cSocTotalResource.vdev_id[i]))
 	}
 	return socTotalResource
 }
 
 // DcGetDeviceTotalResource get device total resource info
-func (d *DcManager) DcGetDeviceTotalResource(cardID, deviceID int32) (CgoDcmiSocTotalResource, error) {
+func (d *DcManager) DcGetDeviceTotalResource(cardID, deviceID int32) (common.CgoSocTotalResource, error) {
 	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
-		return CgoDcmiSocTotalResource{}, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
+		return common.CgoSocTotalResource{}, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
 	}
 	var cMainCmd = C.enum_dcmi_main_cmd(MainCmdVDevMng)
 	subCmd := VmngSubCmdGetTotalResource
@@ -577,31 +570,31 @@ func (d *DcManager) DcGetDeviceTotalResource(cardID, deviceID int32) (CgoDcmiSoc
 	size := C.uint(unsafe.Sizeof(totalResource))
 	if retCode := C.dcmi_get_device_info(C.int(cardID), C.int(deviceID), cMainCmd, C.uint(subCmd),
 		unsafe.Pointer(&totalResource), &size); int32(retCode) != common.Success {
-		return CgoDcmiSocTotalResource{}, fmt.Errorf("get device info failed, error is: %d", int32(retCode))
+		return common.CgoSocTotalResource{}, fmt.Errorf("get device info failed, error is: %d", int32(retCode))
 	}
 	if uint32(totalResource.vdev_num) > dcmiMaxVdevNum {
-		return CgoDcmiSocTotalResource{}, fmt.Errorf("get error virtual quantity: %d",
+		return common.CgoSocTotalResource{}, fmt.Errorf("get error virtual quantity: %d",
 			uint32(totalResource.vdev_num))
 	}
 
 	return convertSocTotalResource(totalResource), nil
 }
 
-func convertSocFreeResource(cSocFreeResource C.struct_dcmi_soc_free_resource) CgoDcmiSocFreeResource {
-	socFreeResource := CgoDcmiSocFreeResource{
-		vfgNum:    uint32(cSocFreeResource.vfg_num),
-		vfgBitmap: uint32(cSocFreeResource.vfg_bitmap),
-		base:      convertBaseResource(cSocFreeResource.base),
-		computing: convertComputingResource(cSocFreeResource.computing),
-		media:     convertMediaResource(cSocFreeResource.media),
+func convertSocFreeResource(cSocFreeResource C.struct_dcmi_soc_free_resource) common.CgoSocFreeResource {
+	socFreeResource := common.CgoSocFreeResource{
+		VfgNum:    uint32(cSocFreeResource.vfg_num),
+		VfgBitmap: uint32(cSocFreeResource.vfg_bitmap),
+		Base:      convertBaseResource(cSocFreeResource.base),
+		Computing: convertComputingResource(cSocFreeResource.computing),
+		Media:     convertMediaResource(cSocFreeResource.media),
 	}
 	return socFreeResource
 }
 
 // DcGetDeviceFreeResource get device free resource info
-func (d *DcManager) DcGetDeviceFreeResource(cardID, deviceID int32) (CgoDcmiSocFreeResource, error) {
+func (d *DcManager) DcGetDeviceFreeResource(cardID, deviceID int32) (common.CgoSocFreeResource, error) {
 	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
-		return CgoDcmiSocFreeResource{}, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
+		return common.CgoSocFreeResource{}, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
 	}
 	var cMainCmd = C.enum_dcmi_main_cmd(MainCmdVDevMng)
 	subCmd := VmngSubCmdGetFreeResource
@@ -609,50 +602,44 @@ func (d *DcManager) DcGetDeviceFreeResource(cardID, deviceID int32) (CgoDcmiSocF
 	size := C.uint(unsafe.Sizeof(freeResource))
 	if retCode := C.dcmi_get_device_info(C.int(cardID), C.int(deviceID), cMainCmd, C.uint(subCmd),
 		unsafe.Pointer(&freeResource), &size); int32(retCode) != common.Success {
-		return CgoDcmiSocFreeResource{}, fmt.Errorf("get device info failed, error is: %d", int32(retCode))
+		return common.CgoSocFreeResource{}, fmt.Errorf("get device info failed, error is: %d", int32(retCode))
 	}
 	return convertSocFreeResource(freeResource), nil
 }
 
 // DcVGetDeviceInfo get vdevice resource info
-func (d *DcManager) DcVGetDeviceInfo(cardID, deviceID int32) (CgoVDevInfo, error) {
+func (d *DcManager) DcVGetDeviceInfo(cardID, deviceID int32) (common.VirtualDevInfo, error) {
 	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
-		return CgoVDevInfo{}, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
+		return common.VirtualDevInfo{}, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
 	}
 	var unitType C.enum_dcmi_unit_type
 	if retCode := C.dcmi_get_device_type(C.int(cardID), C.int(deviceID), &unitType); int32(retCode) != 0 {
-		return CgoVDevInfo{}, fmt.Errorf("get device type failed, error is: %d", int32(retCode))
+		return common.VirtualDevInfo{}, fmt.Errorf("get device type failed, error is: %d", int32(retCode))
 	}
 	if int32(unitType) != common.NpuType {
-		return CgoVDevInfo{}, fmt.Errorf("not support unit type: %d", int32(unitType))
+		return common.VirtualDevInfo{}, fmt.Errorf("not support unit type: %d", int32(unitType))
 	}
 
 	cgoDcmiSocTotalResource, err := d.DcGetDeviceTotalResource(cardID, deviceID)
 	if err != nil {
-		return CgoVDevInfo{}, fmt.Errorf("get device total resource failed, error is: %v", err)
+		return common.VirtualDevInfo{}, fmt.Errorf("get device total resource failed, error is: %v", err)
 	}
 
 	cgoDcmiSocFreeResource, err := d.DcGetDeviceFreeResource(cardID, deviceID)
 	if err != nil {
-		return CgoVDevInfo{}, fmt.Errorf("get device free resource failed, error is: %v", err)
+		return common.VirtualDevInfo{}, fmt.Errorf("get device free resource failed, error is: %v", err)
 	}
 
-	dcmiVDevInfo := CgoVDevInfo{
-		VDevNum:       cgoDcmiSocTotalResource.vDevNum,
-		CoreNumUnused: cgoDcmiSocFreeResource.computing.aic,
+	dcmiVDevInfo := common.VirtualDevInfo{
+		TotalResource: cgoDcmiSocTotalResource,
+		FreeResource:  cgoDcmiSocFreeResource,
 	}
-	for i := 0; i < len(cgoDcmiSocTotalResource.vDevID); i++ {
-		dcmiVDevInfo.VDevID = append(dcmiVDevInfo.VDevID, cgoDcmiSocTotalResource.vDevID[i])
-	}
-	for _, vDevID := range cgoDcmiSocTotalResource.vDevID {
+	for _, vDevID := range cgoDcmiSocTotalResource.VDevID {
 		cgoVDevQueryStru, err := d.DcGetDeviceVDevResource(cardID, deviceID, vDevID)
 		if err != nil {
-			return CgoVDevInfo{}, fmt.Errorf("get device virtual resource failed, error is: %v", err)
+			return common.VirtualDevInfo{}, fmt.Errorf("get device virtual resource failed, error is: %v", err)
 		}
-		dcmiVDevInfo.Status = append(dcmiVDevInfo.Status, cgoVDevQueryStru.queryInfo.status)
-		dcmiVDevInfo.VfID = append(dcmiVDevInfo.VfID, cgoVDevQueryStru.queryInfo.vfid)
-		dcmiVDevInfo.CID = append(dcmiVDevInfo.CID, cgoVDevQueryStru.queryInfo.containerID)
-		dcmiVDevInfo.CoreNum = append(dcmiVDevInfo.CoreNum, cgoVDevQueryStru.queryInfo.computing.aic)
+		dcmiVDevInfo.VDevInfo = append(dcmiVDevInfo.VDevInfo, cgoVDevQueryStru)
 	}
 	return dcmiVDevInfo, nil
 }
@@ -678,46 +665,35 @@ func (d *DcManager) DcGetCardIDDeviceID(logicID int32) (int32, int32, error) {
 }
 
 // DcCreateVDevice create virtual device by logic id
-func (d *DcManager) DcCreateVDevice(logicID int32, aiCore uint32) (uint32, error) {
+func (d *DcManager) DcCreateVDevice(logicID, vDevID int32, templateName string) (common.CgoCreateVDevOut, error) {
 	if !common.IsValidLogicIDOrPhyID(logicID) {
-		return common.UnRetError, fmt.Errorf("input invalid logicID: %d", logicID)
+		return common.CgoCreateVDevOut{}, fmt.Errorf("input invalid logicID: %d", logicID)
 	}
 	cardID, deviceID, err := d.DcGetCardIDDeviceID(logicID)
 	if err != nil {
-		return common.UnRetError, fmt.Errorf("get card id and device id failed, error is: %v", err)
+		return common.CgoCreateVDevOut{}, fmt.Errorf("get card id and device id failed, error is: %v", err)
 	}
 
-	cgoDcmiSocFreeResource, err := d.DcGetDeviceFreeResource(cardID, deviceID)
+	createVDevOut, err := d.DcCreateVirtualDevice(cardID, deviceID, vDevID, templateName)
 	if err != nil {
-		return common.UnRetError, fmt.Errorf("get virtual device info failed, error is: %v", err)
+		return common.CgoCreateVDevOut{}, fmt.Errorf("create virtual device failed, error is: %v", err)
 	}
-
-	if cgoDcmiSocFreeResource.computing.aic < float32(aiCore) {
-		return common.UnRetError, fmt.Errorf("the remaining core resource is insufficient, free core: %f",
-			cgoDcmiSocFreeResource.computing.aic)
-	}
-
-	var vDevID int32
-	createVDevOut, err := d.DcCreateVirtualDevice(cardID, deviceID, vDevID, aiCore)
-	if err != nil {
-		return common.UnRetError, fmt.Errorf("create virtual device failed, error is: %v", err)
-	}
-	return createVDevOut.VDevID, nil
+	return createVDevOut, nil
 }
 
 // DcGetVDeviceInfo get virtual device info by logic id
-func (d *DcManager) DcGetVDeviceInfo(logicID int32) (CgoVDevInfo, error) {
+func (d *DcManager) DcGetVDeviceInfo(logicID int32) (common.VirtualDevInfo, error) {
 	if !common.IsValidLogicIDOrPhyID(logicID) {
-		return CgoVDevInfo{}, fmt.Errorf("input invalid logicID: %d", logicID)
+		return common.VirtualDevInfo{}, fmt.Errorf("input invalid logicID: %d", logicID)
 	}
 	cardID, deviceID, err := d.DcGetCardIDDeviceID(logicID)
 	if err != nil {
-		return CgoVDevInfo{}, fmt.Errorf("get card id and device id failed, error is: %v", err)
+		return common.VirtualDevInfo{}, fmt.Errorf("get card id and device id failed, error is: %v", err)
 	}
 
 	dcmiVDevInfo, err := d.DcVGetDeviceInfo(cardID, deviceID)
 	if err != nil {
-		return CgoVDevInfo{}, fmt.Errorf("get virtual device info failed, error is: %v", err)
+		return common.VirtualDevInfo{}, fmt.Errorf("get virtual device info failed, error is: %v", err)
 	}
 	return dcmiVDevInfo, nil
 }
@@ -813,8 +789,8 @@ func (d *DcManager) DcGetMemoryInfo(cardID, deviceID int32) (*common.MemoryInfo,
 	}
 
 	if uint64(cmInfoV3.memory_size) < uint64(cmInfoV3.memory_available) {
-		return nil, errors.New("failed to obtain the memory info by v3 interface based on card_id(" +
-			"%d) and device_id(%d), total memory is less than available memory")
+		return nil, fmt.Errorf("failed to obtain the memory info by v3 interface based on card_id("+
+			"%d) and device_id(%d), total memory is less than available memory", cardID, deviceID)
 	}
 
 	return &common.MemoryInfo{

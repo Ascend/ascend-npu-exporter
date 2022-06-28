@@ -138,8 +138,9 @@ func (d *DeviceManagerMock) GetDeviceIPAddress(logicID int32) (string, error) {
 }
 
 // CreateVirtualDevice create virtual device
-func (d *DeviceManagerMock) CreateVirtualDevice(logicID int32, aiCore uint32) (uint32, error) {
-	return 1, nil
+func (d *DeviceManagerMock) CreateVirtualDevice(logicID, vDevID int32,
+	templateName string) (common.CgoCreateVDevOut, error) {
+	return common.CgoCreateVDevOut{}, nil
 }
 
 // GetVirtualDeviceInfo get virtual device info

@@ -27,25 +27,112 @@ type ChipInfo struct {
 	Version string `json:"chip_version"`
 }
 
-// CgoDsmiSubVDevInfo single VDevInfo info
-type CgoDsmiSubVDevInfo struct {
-	Status uint32
-	VDevID uint32
-	VfID   uint32
-	CID    uint64
-	Spec   CgoDsmiVdevSpecInfo
+// CgoCreateVDevOut create virtual device info
+type CgoCreateVDevOut struct {
+	VDevID     uint32
+	PcieBus    uint32
+	PcieDevice uint32
+	PcieFunc   uint32
+	VfgID      uint32
+	Reserved   []uint8
 }
 
-// CgoDsmiVdevSpecInfo is special info
-type CgoDsmiVdevSpecInfo struct {
-	CoreNum  string
-	Reserved string
+// CgoBaseResource base resource info
+type CgoBaseResource struct {
+	Token       uint64
+	TokenMax    uint64
+	TaskTimeout uint64
+	VfgID       uint32
+	VipMode     uint8
+	Reserved    []uint8
+}
+
+// CgoComputingResource compute resource info
+type CgoComputingResource struct {
+	// accelator resource
+	Aic     float32
+	Aiv     float32
+	Dsa     uint16
+	Rtsq    uint16
+	Acsq    uint16
+	Cdqm    uint16
+	CCore   uint16
+	Ffts    uint16
+	Sdma    uint16
+	PcieDma uint16
+
+	// memory resource, MB as unit
+	MemorySize uint64
+
+	// id resource
+	EventID  uint32
+	NotifyID uint32
+	StreamID uint32
+	ModelID  uint32
+
+	// cpu resource
+	TopicScheduleAicpu uint16
+	HostCtrlCPU        uint16
+	HostAicpu          uint16
+	DeviceAicpu        uint16
+	TopicCtrlCPUSlot   uint16
+
+	Reserved []uint8
+}
+
+// CgoMediaResource media resource info
+type CgoMediaResource struct {
+	Jpegd    float32
+	Jpege    float32
+	Vpc      float32
+	Vdec     float32
+	Pngd     float32
+	Venc     float32
+	Reserved []uint8
+}
+
+// CgoVDevQueryInfo virtual resource special info
+type CgoVDevQueryInfo struct {
+	Name            string
+	Status          uint32
+	IsContainerUsed uint32
+	Vfid            uint32
+	VfgID           uint32
+	ContainerID     uint64
+	Base            CgoBaseResource
+	Computing       CgoComputingResource
+	Media           CgoMediaResource
+}
+
+// CgoVDevQueryStru virtual resource info
+type CgoVDevQueryStru struct {
+	VDevID    uint32
+	QueryInfo CgoVDevQueryInfo
+}
+
+// CgoSocFreeResource soc free resource info
+type CgoSocFreeResource struct {
+	VfgNum    uint32
+	VfgBitmap uint32
+	Base      CgoBaseResource
+	Computing CgoComputingResource
+	Media     CgoMediaResource
+}
+
+// CgoSocTotalResource soc total resource info
+type CgoSocTotalResource struct {
+	VDevNum   uint32
+	VDevID    []uint32
+	VfgNum    uint32
+	VfgBitmap uint32
+	Base      CgoBaseResource
+	Computing CgoComputingResource
+	Media     CgoMediaResource
 }
 
 // VirtualDevInfo virtual device infos
 type VirtualDevInfo struct {
-	VDevNum             uint32
-	CoreNumUnused       uint32
-	CoreCount           uint32
-	CgoDsmiSubVDevInfos []CgoDsmiSubVDevInfo
+	TotalResource CgoSocTotalResource
+	FreeResource  CgoSocFreeResource
+	VDevInfo      []CgoVDevQueryStru
 }

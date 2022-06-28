@@ -36,7 +36,7 @@ type DeviceInterface interface {
 	GetDeviceLogicID(cardID, deviceID int32) (int32, error)
 	GetCardIDDeviceID(logicID int32) (int32, int32, error)
 	GetDeviceIPAddress(logicID int32) (string, error)
-	CreateVirtualDevice(logicID int32, aiCore uint32) (uint32, error)
+	CreateVirtualDevice(logicID, vDevID int32, templateName string) (common.CgoCreateVDevOut, error)
 	GetVirtualDeviceInfo(logicID int32) (common.VirtualDevInfo, error)
 	DestroyVirtualDevice(logicID int32, vDevID uint32) error
 	GetDevType() string
@@ -380,37 +380,29 @@ func (d *DeviceManager) GetDeviceIPAddress(logicID int32) (string, error) {
 }
 
 // CreateVirtualDevice create virtual device
-func (d *DeviceManager) CreateVirtualDevice(logicID int32, aiCore uint32) (uint32, error) {
-	return d.DcMgr.DcCreateVDevice(logicID, aiCore)
+func (d *DeviceManager) CreateVirtualDevice(logicID, vDevID int32, templateName string) (common.CgoCreateVDevOut,
+	error) {
+	if !common.IsValidTemplateName(d.DevType, templateName) {
+		return common.CgoCreateVDevOut{}, fmt.Errorf("input invalid template name: %s", templateName)
+	}
+	return d.DcMgr.DcCreateVDevice(logicID, vDevID, templateName)
 }
 
 // GetVirtualDeviceInfo get virtual device info
 func (d *DeviceManager) GetVirtualDeviceInfo(logicID int32) (common.VirtualDevInfo, error) {
-	dcmiVDevInfo, err := d.DcMgr.DcGetVDeviceInfo(logicID)
+	cgoVDevInfo, err := d.DcMgr.DcGetVDeviceInfo(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return common.VirtualDevInfo{}, fmt.Errorf("get virtual device info failed, error is: %v "+
-			"and vdev num is: %d", err, int32(dcmiVDevInfo.VDevNum))
+			"and vdev num is: %d", err, int32(cgoVDevInfo.TotalResource.VDevNum))
 	}
-	cgoVDevInfos := common.VirtualDevInfo{
-		VDevNum:       dcmiVDevInfo.VDevNum,
-		CoreNumUnused: uint32(dcmiVDevInfo.CoreNumUnused),
+	for _, vDevInfo := range cgoVDevInfo.VDevInfo {
+		if !common.IsValidTemplateName(d.DevType, vDevInfo.QueryInfo.Name) {
+			return common.VirtualDevInfo{}, fmt.Errorf("vdevice id %d, it's template name is invalid: %s",
+				vDevInfo.VDevID, vDevInfo.QueryInfo.Name)
+		}
 	}
-	usedCoreCount := uint32(0)
-	for i := uint32(0); i < cgoVDevInfos.VDevNum; i++ {
-		usedCoreCount += uint32(dcmiVDevInfo.CoreNum[i])
-		cgoVDevInfos.CgoDsmiSubVDevInfos = append(cgoVDevInfos.CgoDsmiSubVDevInfos, common.CgoDsmiSubVDevInfo{
-			Status: dcmiVDevInfo.Status[i],
-			VDevID: dcmiVDevInfo.VDevID[i],
-			VfID:   dcmiVDevInfo.VfID[i],
-			CID:    dcmiVDevInfo.CID[i],
-			Spec: common.CgoDsmiVdevSpecInfo{
-				CoreNum: fmt.Sprintf("%v", dcmiVDevInfo.CoreNum[i]),
-			},
-		})
-	}
-	cgoVDevInfos.CoreCount = cgoVDevInfos.CoreNumUnused + usedCoreCount
-	return cgoVDevInfos, nil
+	return cgoVDevInfo, nil
 }
 
 // DestroyVirtualDevice destroy virtual device

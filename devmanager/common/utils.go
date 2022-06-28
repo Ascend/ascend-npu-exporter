@@ -73,3 +73,24 @@ func GetDeviceTypeByChipName(chipName string) string {
 	}
 	return ""
 }
+
+func get910TemplateNameList() map[string]struct{} {
+	return map[string]struct{}{"vir16": {}, "vir08": {}, "vir04": {}, "vir02": {}, "vir01": {}}
+}
+
+func get310PTemplateNameList() map[string]struct{} {
+	return map[string]struct{}{"vir04": {}, "vir02": {}, "vir01": {}, "vir04_3c": {}, "vir02_1c": {}}
+}
+
+// IsValidTemplateName check template name meet the requirement
+func IsValidTemplateName(devType, templateName string) bool {
+	isTemplateNameValid := false
+	switch devType {
+	case Ascend310P:
+		_, isTemplateNameValid = get310PTemplateNameList()[templateName]
+	case Ascend910:
+		_, isTemplateNameValid = get910TemplateNameList()[templateName]
+	default:
+	}
+	return isTemplateNameValid
+}
