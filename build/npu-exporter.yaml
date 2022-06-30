@@ -85,7 +85,11 @@ spec:
             mountPath: /usr/local/dcmi
             readOnly: true
           - name: kmckeystore
-            mountPath: /etc/mindx-dl
+            mountPath: /etc/mindx-dl/kmc_primary_store
+          - name: kmckeybak
+            mountPath: /etc/mindx-dl/.config
+          - name: kmc-exporter
+            mountPath: /etc/mindx-dl/npu-exporter
           - name: sys
             mountPath: /sys
             readOnly: true
@@ -116,7 +120,13 @@ spec:
             path: /usr/local/dcmi
         - name: kmckeystore
           hostPath:
-            path: /etc/mindx-dl
+            path: /etc/mindx-dl/kmc_primary_store
+        - name: kmckeybak
+          hostPath:
+            path: /etc/mindx-dl/.config
+        - name: kmc-exporter
+          hostPath:
+            path: /etc/mindx-dl/npu-exporter
         - name: sys
           hostPath:
             path: /sys
