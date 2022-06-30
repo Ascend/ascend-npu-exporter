@@ -23,5 +23,6 @@ const (
 	// UserID used for context value key of "ID"
 	UserID ContextKey = "UserID"
 	// ReqID used for context value key of "requestID"
-	ReqID ContextKey = "RequestID"
+	ReqID        ContextKey = "RequestID"
+	maxLogLength            = 256
 )
