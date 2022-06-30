@@ -18,6 +18,10 @@ func printHelper(f func(string, ...zap.Field), msg string, ctx ...context.Contex
 	str := getCallerInfo(ctx...)
 	trimMsg := strings.Replace(msg, "\r", " ", -1)
 	trimMsg = strings.Replace(trimMsg, "\n", " ", -1)
+	runeArr := []rune(trimMsg)
+	if length := len(runeArr); length > maxLogLength {
+		trimMsg = string(runeArr[:maxLogLength])
+	}
 	f(str + trimMsg)
 }
 
