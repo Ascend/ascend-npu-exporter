@@ -236,7 +236,7 @@ func (dp *DevicesParser) doParse(resultOut chan<- DevicesInfos) {
 	}
 
 	l := len(containers)
-	if l == 0 {
+	if l == 0 || l > maxContainers {
 		return
 	}
 

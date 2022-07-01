@@ -27,7 +27,9 @@ const (
 	// MinLenDNS configName min len
 	MinLenDNS = 2
 	// DNSRe DNS regex string
-	DNSRe = `^[a-z0-9]+[a-z0-9-]*[a-z0-9]+$`
+	DNSRe         = `^[a-z0-9]+[a-z0-9-]*[a-z0-9]+$`
+	maxContainers = 1024
+	maxCgroupPath = 2028
 )
 
 // GetConnection return the grpc connection
