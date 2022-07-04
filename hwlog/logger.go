@@ -45,6 +45,7 @@ type LogConfig struct {
 	LogFileName string
 	// only write to std out, default value: false
 	OnlyToStdout bool
+	OnlyToFile   bool
 	// log level, -1-debug, 0-info, 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal, default value: 0
 	LogLevel int
 	// log file mode, default value: 0640
@@ -95,7 +96,11 @@ func create(config LogConfig) *zap.Logger {
 		writeSyncer = zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout))
 	} else {
 		logWriter := getLogWriter(config)
-		writeSyncer = zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), logWriter)
+		if config.OnlyToFile {
+			writeSyncer = zapcore.NewMultiWriteSyncer(logWriter)
+		} else {
+			writeSyncer = zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), logWriter)
+		}
 	}
 	core := zapcore.NewCore(logEncoder, writeSyncer, zapcore.Level(config.LogLevel))
 	return zap.New(core, zap.AddCaller())
