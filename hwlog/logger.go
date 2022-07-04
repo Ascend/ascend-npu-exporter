@@ -45,7 +45,8 @@ type LogConfig struct {
 	LogFileName string
 	// only write to std out, default value: false
 	OnlyToStdout bool
-	OnlyToFile   bool
+	// only write to file, default value: false
+	OnlyToFile bool
 	// log level, -1-debug, 0-info, 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal, default value: 0
 	LogLevel int
 	// log file mode, default value: 0640
