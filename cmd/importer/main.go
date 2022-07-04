@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"huawei.com/npu-exporter/hwlog"
@@ -56,7 +57,7 @@ var hwLogConfig = &hwlog.LogConfig{FileMaxSize: hwlog.DefaultFileMaxSize,
 func main() {
 	flag.Parse()
 	if version {
-		fmt.Printf("cert-importer version: %s \n", hwlog.BuildVersion)
+		fmt.Printf("[OP]cert-importer version: %s \n", hwlog.BuildVersion)
 		return
 	}
 	stopCH := make(chan struct{})
@@ -66,6 +67,11 @@ func main() {
 		fmt.Printf("hwlog init failed, error is %#v", err)
 		return
 	}
+	name, err := os.Hostname()
+	if err != nil {
+		hwlog.RunLog.Warn("get hostName failed")
+	}
+	hwlog.RunLog.Infof("[OP]current userID is %d,hostName is %s,127.0.0.1", syscall.Getuid(), name)
 	importKubeConfig(kubeConfig)
 	importCertFiles(certFile, keyFile, caFile, crlFile)
 }
@@ -91,12 +97,12 @@ func init() {
 
 func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 	valid(certFile, keyFile, caFile, crlFile)
-	hwlog.RunLog.Infof("start to import certificate and the program version is %s", hwlog.BuildVersion)
+	hwlog.RunLog.Infof("[OP]start to import certificate and the program version is %s", hwlog.BuildVersion)
 	importCert(certFile, keyFile)
 	importCA(caFile)
 	importCRL(crlFile)
 	adjustOwner()
-	hwlog.RunLog.Info("import certificate successfully")
+	hwlog.RunLog.Info("[OP]import certificate successfully")
 	if notDel {
 		hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
 		return
@@ -114,11 +120,12 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) {
 }
 
 func importCert(certFile, keyFile string) {
+	hwlog.RunLog.Info("[OP]start to import the key file")
 	keyBlock, err := utils.DecryptPrivateKeyWithPd(keyFile, nil)
 	if err != nil {
 		hwlog.RunLog.Fatal(err)
 	}
-	// start to import the  certificate file
+	hwlog.RunLog.Info("[OP]start to import the cert file")
 	certBytes, err := utils.ReadLimitBytes(certFile, utils.Size10M)
 	if err != nil {
 		hwlog.RunLog.Fatal("read certFile failed")
@@ -130,20 +137,20 @@ func importCert(certFile, keyFile string) {
 	if err = utils.MakeSureDir(keyStore); err != nil {
 		hwlog.RunLog.Fatal(err)
 	}
-	// encrypt private key again with passwd
+	hwlog.RunLog.Info("encrypt private key again with passwd")
 	encryptedBlock, err := utils.EncryptPrivateKeyAgain(keyBlock, passFile, passFileBackUp, encryptAlgorithm)
 	if err = utils.OverridePassWdFile(keyStore, pem.EncodeToMemory(encryptedBlock), utils.FileMode); err != nil {
 		hwlog.RunLog.Fatal(err)
 	}
-	hwlog.RunLog.Info("encrypted key file import successfully")
+	hwlog.RunLog.Info("[OP]encrypted key file import successfully")
 	if err = ioutil.WriteFile(certStore, certBytes, utils.FileMode); err != nil {
 		hwlog.RunLog.Fatal("write certBytes to config failed ")
 	}
-	hwlog.RunLog.Info("cert file import successfully")
+	hwlog.RunLog.Info("[OP]cert file import successfully")
 }
 
 func importCA(caFile string) {
-	// start to import the ca certificate file
+	hwlog.RunLog.Info("[OP]start to import the ca file")
 	caBytes, err := utils.CheckCaCert(caFile)
 	if err != nil {
 		hwlog.RunLog.Fatal(err)
@@ -152,12 +159,13 @@ func importCA(caFile string) {
 		if err = ioutil.WriteFile(caStore, caBytes, utils.FileMode); err != nil {
 			hwlog.RunLog.Fatal("write caBytes to config failed ")
 		}
-		hwlog.RunLog.Info("ca file import successfully")
+		hwlog.RunLog.Info("[OP]ca file import successfully")
 	}
 }
 
 func importCRL(crlFile string) {
 	// start to import the crl file
+	hwlog.RunLog.Info("[OP]start to import the crl file")
 	crlBytes, err := utils.CheckCRL(crlFile)
 	if err != nil {
 		hwlog.RunLog.Fatal(err)
@@ -166,7 +174,7 @@ func importCRL(crlFile string) {
 		if err = ioutil.WriteFile(crlStore, crlBytes, utils.FileMode); err != nil {
 			hwlog.RunLog.Fatal("write crlBytes to config failed ")
 		}
-		hwlog.RunLog.Info("crl file import successfully")
+		hwlog.RunLog.Info("[OP]crl file import successfully")
 	}
 }
 
@@ -261,6 +269,7 @@ func importKubeConfig(kubeConf string) {
 	if kubeConf == "" {
 		return
 	}
+	hwlog.RunLog.Infof("[OP]start to import kubeConfig and the program version is %s", hwlog.BuildVersion)
 	conf, err := utils.CheckPath(kubeConf)
 	if err != nil {
 		hwlog.RunLog.Fatal(err)
@@ -281,11 +290,11 @@ func importKubeConfig(kubeConf string) {
 	if err = utils.MakeSureDir(keyStore); err != nil {
 		hwlog.RunLog.Fatal(err)
 	}
-	hwlog.RunLog.Info("encrypt kubeConfig successfully")
+	hwlog.RunLog.Info("[OP]encrypt kubeConfig successfully")
 	if err := utils.OverridePassWdFile(kubeConfStore, encryptedConf, utils.FileMode); err != nil {
 		hwlog.RunLog.Fatal("write encrypted kubeConfig to file failed")
 	}
-	hwlog.RunLog.Info("import kubeConfig successfully")
+	hwlog.RunLog.Info("[OP]import kubeConfig successfully")
 	if certFile == "" || keyFile == "" {
 		adjustOwner()
 		utils.KmcShutDown()
@@ -308,11 +317,12 @@ func importKubeConfig(kubeConf string) {
 }
 
 func adjustOwner() {
-	path, err := utils.CheckPath(dirPrefix)
+	hwlog.RunLog.Info("start to change config file owner")
+	filePath, err := utils.CheckPath(dirPrefix)
 	if err != nil {
 		hwlog.RunLog.Fatal("config file directory is not safe")
 	}
-	if err := chownR(path, hwMindX, hwMindX); err != nil {
+	if err := chownR(filePath, hwMindX, hwMindX); err != nil {
 		hwlog.RunLog.Warn("change file owner failed, please chown to hwMindX manually")
 	}
 	hwlog.RunLog.Info("change owner successfully")

@@ -7,6 +7,7 @@ import (
 	"context"
 	"math"
 	"net/http"
+	"syscall"
 	"time"
 
 	"huawei.com/npu-exporter/hwlog"
@@ -18,7 +19,6 @@ const (
 	defaultDataLimit      = 1024 * 1024 * 10
 	defaultMaxConcurrency = 1024
 	second5               = 5
-	second4               = 4
 )
 
 type limitHandler struct {
@@ -64,18 +64,18 @@ func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		go returnToken(cancelCtx, h.concurrency)
 		h.httpHandler.ServeHTTP(w, req)
 		stop := time.Since(start)
-		if stop < second4*time.Second {
-			cancelFunc()
+		cancelFunc()
+		if stop < second5*time.Second {
 			h.concurrency <- struct{}{}
 		}
 		latency := int(math.Ceil(float64(stop.Nanoseconds()) / kilo / kilo))
 		if h.log {
-			hwlog.RunLog.InfofWithCtx(ctx, "%s %s: %s <%3d> (%dms) |%15s |%s ", req.Proto, req.Method, path,
-				http.StatusOK, latency, clientIP, clientUserAgent)
+			hwlog.RunLog.InfofWithCtx(ctx, "%s %s: %s <%3d> (%dms) |%15s |%s |%d", req.Proto, req.Method, path,
+				http.StatusOK, latency, clientIP, clientUserAgent, syscall.Getuid())
 		}
 	default:
-		hwlog.RunLog.WarnfWithCtx(ctx, "Reject Request:%s: %s <%3d> |%15s |%s ", req.Method, path,
-			http.StatusServiceUnavailable, clientIP, clientUserAgent)
+		hwlog.RunLog.WarnfWithCtx(ctx, "Reject Request:%s: %s <%3d> |%15s |%s |%d ", req.Method, path,
+			http.StatusServiceUnavailable, clientIP, clientUserAgent, syscall.Getuid())
 		http.Error(w, "503 too busy", http.StatusServiceUnavailable)
 	}
 }
