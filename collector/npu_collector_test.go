@@ -138,7 +138,7 @@ func TestGetChipInfo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			chipInfo := packChipInfo(0, tt.mockPart.(devmanager.DeviceInterface))
-			t.Logf("%v", chipInfo)
+			t.Logf("%#v", chipInfo)
 			assert.NotNil(t, chipInfo)
 			if tt.wantErr {
 				assert.Equal(t, "", chipInfo.ChipIfo.Name)
@@ -170,7 +170,7 @@ func TestGetHealthCode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getHealthCode(tt.health); got != tt.want {
-				t.Errorf("getHealthCode() = %v, want %v", got, tt.want)
+				t.Errorf("getHealthCode() = %#v, want %#v", got, tt.want)
 			}
 		})
 	}
@@ -201,7 +201,7 @@ func TestGetNPUInfo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getNPUInfo(tt.args); len(got) != len(tt.want) {
-				t.Errorf("getNPUInfo() = %v,want %v", got, tt.want)
+				t.Errorf("getNPUInfo() = %#v,want %#v", got, tt.want)
 			}
 		})
 	}

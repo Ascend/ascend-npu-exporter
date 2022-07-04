@@ -471,11 +471,11 @@ func TestGetTLSConfigForClient(t *testing.T) {
 func TestCertStatus(t *testing.T) {
 	t1, err := time.Parse(time.RFC3339, "2022-03-18T00:00:00Z")
 	if err != nil {
-		fmt.Printf("Parse time failed %v\n", err)
+		fmt.Printf("Parse time failed %#v\n", err)
 	}
 	t2, err := time.Parse(time.RFC3339, "2022-03-20T00:00:00Z")
 	if err != nil {
-		fmt.Printf("Parse time failed %v\n", err)
+		fmt.Printf("Parse time failed %#v\n", err)
 	}
 	cs := &CertStatus{
 		NotBefore: t1,
@@ -485,7 +485,7 @@ func TestCertStatus(t *testing.T) {
 	Convey("overdue 1day", t, func() {
 		x, err := time.Parse(time.RFC3339, "2022-03-19T00:00:00Z")
 		if err != nil {
-			fmt.Printf("Parse time failed %v\n", err)
+			fmt.Printf("Parse time failed %#v\n", err)
 		}
 		checkCertStatus(x, cs)
 	})
@@ -494,7 +494,7 @@ func TestCertStatus(t *testing.T) {
 func createGetPrivateKeyLengthTestData(curve elliptic.Curve) (*x509.Certificate, *tls.Certificate) {
 	priv, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {
-		fmt.Printf("create ecdsa private key failed: %v\n", err)
+		fmt.Printf("create ecdsa private key failed: %#v\n", err)
 	}
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(1),
@@ -536,9 +536,9 @@ func TestGetPrivateKeyLength(t *testing.T) {
 		cert, keypair := createGetPrivateKeyLengthTestData(elliptic.P384())
 		keyLen, keyType, err := GetPrivateKeyLength(cert, keypair)
 		if err != nil {
-			fmt.Printf("GetPrivateKeyLength failed %v\n", err)
+			fmt.Printf("GetPrivateKeyLength failed %#v\n", err)
 		}
-		fmt.Printf("private key length is %v, key type is %v\n", keyLen, keyType)
+		fmt.Printf("private key length is %#v, key type is %#v\n", keyLen, keyType)
 		So(keyLen, ShouldEqual, bitLengthP384)
 	})
 	Convey("get key length of Curve 256", t, func() {
@@ -547,9 +547,9 @@ func TestGetPrivateKeyLength(t *testing.T) {
 		cert, keypair := createGetPrivateKeyLengthTestData(elliptic.P256())
 		keyLen, keyType, err := GetPrivateKeyLength(cert, keypair)
 		if err != nil {
-			fmt.Printf("GetPrivateKeyLength failed %v\n", err)
+			fmt.Printf("GetPrivateKeyLength failed %#v\n", err)
 		}
-		fmt.Printf("private key length is %v, key type is %v\n", keyLen, keyType)
+		fmt.Printf("private key length is %#v, key type is %#v\n", keyLen, keyType)
 		So(keyLen, ShouldEqual, bitLengthP256)
 	})
 }
@@ -595,7 +595,7 @@ func TestKmcInit(t *testing.T) {
 		defer mock.Reset()
 		defer func() {
 			if r := recover(); r != nil {
-				So(fmt.Sprintf("%v", r), ShouldContainSubstring, "invalid memory address")
+				So(fmt.Sprintf("%#v", r), ShouldContainSubstring, "invalid memory address")
 			}
 		}()
 		KmcInit(0, "./primary.key", "standby.key")

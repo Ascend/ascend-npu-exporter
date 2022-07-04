@@ -80,7 +80,7 @@ func NewNpuCollector(ctx context.Context, cacheTime time.Duration, updateTime ti
 	}
 	devManager, err := devmanager.AutoInit("")
 	if err != nil {
-		hwlog.RunLog.Errorf("new npu collector failed, error is %v", err)
+		hwlog.RunLog.Errorf("new npu collector failed, error is %#v", err)
 		return nil, err
 	}
 	go start(ctx, npuCollect, devManager)
@@ -91,7 +91,7 @@ var getNPUInfo = func(dmgr devmanager.DeviceInterface) []HuaWeiNPUCard {
 	var npuList []HuaWeiNPUCard
 	cardNum, cards, err := dmgr.GetCardList()
 	if cardNum == 0 || err != nil {
-		hwlog.RunLog.Errorf("failed to get npu info, error is: %v", err)
+		hwlog.RunLog.Errorf("failed to get npu info, error is: %#v", err)
 		return npuList
 	}
 
@@ -144,7 +144,7 @@ func assembleNPUInfo(cardID int32, logicID int32, dmgr devmanager.DeviceInterfac
 var start = func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
 	defer func() {
 		if err := recover(); err != nil {
-			hwlog.RunLog.Errorf("go routine failed with %v", err)
+			hwlog.RunLog.Errorf("go routine failed with %#v", err)
 		}
 	}()
 	defer func() {
@@ -159,7 +159,7 @@ var start = func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInt
 	}
 
 	if err := n.devicesParser.Init(); err != nil {
-		hwlog.RunLog.Errorf("failed to init devices parser: %v", err)
+		hwlog.RunLog.Errorf("failed to init devices parser: %#v", err)
 	}
 	defer n.devicesParser.Close()
 	n.devicesParser.Timeout = n.updateTime
@@ -181,7 +181,7 @@ var start = func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInt
 			n.cache.Set(containersDevicesInfoKey, result, n.cacheTime)
 			hwlog.RunLog.Infof("update cache,key is %s", containersDevicesInfoKey)
 		case err := <-n.devicesParser.RecvErr():
-			hwlog.RunLog.Errorf("received error from device parser: %v", err)
+			hwlog.RunLog.Errorf("received error from device parser: %#v", err)
 		case _, ok := <-ctx.Done():
 			if !ok {
 				hwlog.RunLog.Error("closed")
@@ -231,7 +231,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 			hwlog.RunLog.Warn("no cache, start to get npulist and rebuild cache")
 			devManager, err := devmanager.AutoInit("")
 			if err != nil {
-				hwlog.RunLog.Warnf("get device manager failed, error is: %v ", err)
+				hwlog.RunLog.Warnf("get device manager failed, error is: %#v ", err)
 				n.cache.Set(key, []HuaWeiNPUCard{}, n.cacheTime)
 				return
 			}
