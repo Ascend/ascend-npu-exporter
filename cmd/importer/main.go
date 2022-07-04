@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -62,6 +63,7 @@ func main() {
 	defer close(stopCH)
 	err := initHwLogger(stopCH)
 	if err != nil {
+		fmt.Printf("hwlog init failed, error is %#v", err)
 		return
 	}
 	importKubeConfig(kubeConfig)
@@ -219,26 +221,30 @@ func checkPathIsExist(paths []string) {
 
 func initHwLogger(stopCh <-chan struct{}) error {
 	if utils.IsExists(hwLogConfig.LogFileName) {
+		_, err := utils.CheckPath(hwLogConfig.LogFileName)
+		if err != nil {
+			return err
+		}
 		fi, err := os.Stat(hwLogConfig.LogFileName)
 		if err != nil {
-			fmt.Println("check log file status failed")
+			return err
 		}
 		if fi.Size() > int64(hwLogConfig.FileMaxSize*onekilo*onekilo) {
 			newFile := backupName(hwLogConfig.LogFileName)
 			if err := os.Rename(hwLogConfig.LogFileName, newFile); err != nil {
-				hwlog.RunLog.Fatal("rotate failed")
+				return err
 			}
 			err = os.Chmod(newFile, hwlog.BackupLogFileMode)
 			if err != nil {
-				hwlog.RunLog.Warn("change mode failed")
+				return err
 			}
 		}
 	}
 	if err := hwlog.InitRunLogger(hwLogConfig, stopCh); err != nil {
-		fmt.Printf("hwlog init failed, error is %v", err)
 		return err
 	}
 	return nil
+
 }
 
 func backupName(name string) string {
@@ -258,6 +264,9 @@ func importKubeConfig(kubeConf string) {
 	conf, err := utils.CheckPath(kubeConf)
 	if err != nil {
 		hwlog.RunLog.Fatal(err)
+	}
+	if suffix := path.Ext(kubeConf); suffix != ".conf" {
+		hwlog.RunLog.Fatal("invalid kubeConfig file")
 	}
 	btes, err := utils.ReadLimitBytes(conf, utils.Size10M)
 	if err != nil {

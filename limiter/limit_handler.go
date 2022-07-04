@@ -83,7 +83,7 @@ func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func returnToken(ctx context.Context, concurrency chan struct{}) {
 	defer func() {
 		if err := recover(); err != nil {
-			hwlog.RunLog.Errorf("go routine failed with %v", err)
+			hwlog.RunLog.Errorf("go routine failed with %#v", err)
 		}
 	}()
 	timeAfterTrigger := time.After(time.Second * second5)

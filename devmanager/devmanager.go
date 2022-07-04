@@ -80,7 +80,7 @@ func AutoInit(dType string) (*DeviceManager, error) {
 	}
 	devManager.DevType = devType
 	if err = devManager.Init(); err != nil {
-		return nil, fmt.Errorf("deviceManager init failed, err: %v", err)
+		return nil, fmt.Errorf("deviceManager init failed, err: %#v", err)
 	}
 	return devManager, nil
 }
@@ -88,7 +88,7 @@ func AutoInit(dType string) (*DeviceManager, error) {
 func getChipInfoForInit() (common.ChipInfo, error) {
 	dcMgr := dcmi.DcManager{}
 	if err := dcMgr.DcInit(); err != nil {
-		return common.ChipInfo{}, fmt.Errorf("dc init failed, err: %v", err)
+		return common.ChipInfo{}, fmt.Errorf("dc init failed, err: %#v", err)
 	}
 	defer func() {
 		if err := dcMgr.DcShutDown(); err != nil {
@@ -108,18 +108,18 @@ func getChipInfoForInit() (common.ChipInfo, error) {
 	for _, cardID := range cardList {
 		devNum, err := dcMgr.DcGetDeviceNumInCard(cardID)
 		if err != nil || devNum == 0 {
-			hwlog.RunLog.Debugf("get device num by cardID(%d) failed, error: %v", cardID, err)
+			hwlog.RunLog.Debugf("get device num by cardID(%d) failed, error: %#v", cardID, err)
 			continue
 		}
 		for devID := int32(0); devID < devNum; devID++ {
 			chipInfo, err := dcMgr.DcGetChipInfo(cardID, devID)
 			if err != nil {
-				hwlog.RunLog.Debugf("get chip info failed by cardID(%d), deviceID(%d), error: %v", cardID, devID,
+				hwlog.RunLog.Debugf("get chip info failed by cardID(%d), deviceID(%d), error: %#v", cardID, devID,
 					err)
 				continue
 			}
 			if !common.IsValidChipInfo(chipInfo) {
-				hwlog.RunLog.Debugf("invalid chip info by cardID(%d), deviceID(%d), error: %v", cardID, devID,
+				hwlog.RunLog.Debugf("invalid chip info by cardID(%d), deviceID(%d), error: %#v", cardID, devID,
 					err)
 				continue
 			}
@@ -393,7 +393,7 @@ func (d *DeviceManager) GetVirtualDeviceInfo(logicID int32) (common.VirtualDevIn
 	cgoVDevInfo, err := d.DcMgr.DcGetVDeviceInfo(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
-		return common.VirtualDevInfo{}, fmt.Errorf("get virtual device info failed, error is: %v "+
+		return common.VirtualDevInfo{}, fmt.Errorf("get virtual device info failed, error is: %#v "+
 			"and vdev num is: %d", err, int32(cgoVDevInfo.TotalResource.VDevNum))
 	}
 	for _, vDevInfo := range cgoVDevInfo.VDevInfo {

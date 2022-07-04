@@ -298,7 +298,7 @@ func CheckValidityPeriodWithError(cert *x509.Certificate, overdueTime int) error
 		return err
 	}
 	if overdueDays <= float64(overdueTime) {
-		return fmt.Errorf("overdueDayes is (%v) need to update certification", overdueDays)
+		return fmt.Errorf("overdueDayes is (%#v) need to update certification", overdueDays)
 	}
 
 	return nil
@@ -1171,7 +1171,7 @@ func parseLibFromLdCmd(libraryName string) (string, error) {
 	}
 	defer func() {
 		if err := grepCmd.Wait(); err != nil {
-			hwlog.RunLog.Warnf("command exec failed, %v", err)
+			hwlog.RunLog.Warnf("command exec failed, %#v", err)
 		}
 	}()
 	reader := bufio.NewReader(stdout)
@@ -1208,5 +1208,5 @@ func GetDriverLibPath(libraryName string) (string, error) {
 	if libPath, err = getLibFromLdCmd(libraryName); err == nil {
 		return libPath, nil
 	}
-	return "", fmt.Errorf("cannot found valid driver lib, %v", err)
+	return "", fmt.Errorf("cannot found valid driver lib, %#v", err)
 }

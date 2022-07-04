@@ -330,7 +330,7 @@ func loadCRL() {
 
 func initHwLogger(stopCh <-chan struct{}) error {
 	if err := hwlog.InitRunLogger(hwLogConfig, stopCh); err != nil {
-		fmt.Printf("hwlog init failed, error is %v", err)
+		fmt.Printf("hwlog init failed, error is %#v", err)
 		return err
 	}
 	return nil

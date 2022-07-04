@@ -149,6 +149,10 @@ func (operator *RuntimeOperatorTool) CgroupsPath(ctx context.Context, id string)
 		hwlog.RunLog.Error("unmarshal OCI response failed")
 		return "", err
 	}
+	if len(s.Linux.CgroupsPath) > maxCgroupPath {
+		hwlog.RunLog.Error("cgroupPath too long")
+		return "", err
+	}
 	return s.Linux.CgroupsPath, nil
 }
 
