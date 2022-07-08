@@ -1028,6 +1028,7 @@ func LoadFile(filePath string) ([]byte, error) {
 func Interceptor(h http.Handler, crlCertList *pkix.CertificateList) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if crlCertList != nil && CheckRevokedCert(r, crlCertList) {
+			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000")

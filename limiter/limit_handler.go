@@ -29,6 +29,18 @@ type limitHandler struct {
 	limitBytes  int64
 }
 
+// StatusResponseWriter the writer record the http status
+type StatusResponseWriter struct {
+	http.ResponseWriter
+	Status int
+}
+
+// WriteHeader override the WriteHeader method
+func (w *StatusResponseWriter) WriteHeader(status int) {
+	w.ResponseWriter.WriteHeader(status)
+	w.Status = status
+}
+
 // ServeHTTP implement http.Handler
 func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	req.Body = http.MaxBytesReader(w, req.Body, h.limitBytes)
@@ -62,7 +74,11 @@ func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		cancelCtx, cancelFunc := context.WithCancel(ctx)
 		start := time.Now()
 		go returnToken(cancelCtx, h.concurrency)
-		h.httpHandler.ServeHTTP(w, req)
+		statusRes := &StatusResponseWriter{
+			ResponseWriter: w,
+			Status:         http.StatusOK,
+		}
+		h.httpHandler.ServeHTTP(statusRes, req)
 		stop := time.Since(start)
 		cancelFunc()
 		if stop < second5*time.Second {
@@ -71,7 +87,7 @@ func (h *limitHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		latency := int(math.Ceil(float64(stop.Nanoseconds()) / kilo / kilo))
 		if h.log {
 			hwlog.RunLog.InfofWithCtx(ctx, "%s %s: %s <%3d> (%dms) |%15s |%s |%d", req.Proto, req.Method, path,
-				http.StatusOK, latency, clientIP, clientUserAgent, syscall.Getuid())
+				statusRes.Status, latency, clientIP, clientUserAgent, syscall.Getuid())
 		}
 	default:
 		hwlog.RunLog.WarnfWithCtx(ctx, "Reject Request:%s: %s <%3d> |%15s |%s |%d ", req.Method, path,
