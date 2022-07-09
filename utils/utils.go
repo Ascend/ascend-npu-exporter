@@ -1059,19 +1059,44 @@ func checkMode(mode os.FileMode) bool {
 }
 
 func checkPathPermission(verifyPath string) (string, bool) {
-	realPath, err := hwlog.CheckPath(verifyPath)
+	if verifyPath == "" {
+		hwlog.RunLog.Debug("empty path")
+		return verifyPath, false
+	}
+	absPath, err := filepath.Abs(verifyPath)
 	if err != nil {
+		hwlog.RunLog.Debugf("Abs failed %#v", err)
 		return "", false
 	}
-	pathInfo, err := os.Stat(realPath)
+	resoledPath, err := filepath.EvalSymlinks(absPath)
 	if err != nil {
+		hwlog.RunLog.Debugf("EvalSymlinks failed %#v", err)
+		return "", false
+	}
+	// if symlinks
+	if absPath != resoledPath {
+		// check symlinks its self owner
+		pathInfo, err := os.Lstat(absPath)
+		if err != nil {
+			hwlog.RunLog.Debugf("lstat failed, %#v", err)
+			return "", false
+		}
+		stat, ok := pathInfo.Sys().(*syscall.Stat_t)
+		if !ok || stat.Uid != rootUID {
+			hwlog.RunLog.Debug("symlinks owner may not root")
+			return "", false
+		}
+	}
+	pathInfo, err := os.Stat(resoledPath)
+	if err != nil {
+		hwlog.RunLog.Debugf("Stat failed %#v", err)
 		return "", false
 	}
 	stat, ok := pathInfo.Sys().(*syscall.Stat_t)
 	if !ok || stat.Uid != rootUID || !checkMode(pathInfo.Mode()) {
 		return "", false
 	}
-	return realPath, true
+	return resoledPath, true
 }
 
 func checkAbsPath(libPath string) (string, bool) {
