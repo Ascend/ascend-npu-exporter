@@ -62,7 +62,7 @@ func IsValidDevNumInCard(num int32) bool {
 
 // GetDeviceTypeByChipName get device type by chipName
 func GetDeviceTypeByChipName(chipName string) string {
-	if strings.Contains(chipName, "310P") || strings.Contains(chipName, "710") {
+	if strings.Contains(chipName, "310P") {
 		return Ascend310P
 	}
 	if strings.Contains(chipName, "310") {
