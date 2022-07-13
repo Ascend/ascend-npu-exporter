@@ -949,6 +949,7 @@ func GetTLSConfigForClient(componentType string, encryptAlgorithm int) (*tls.Con
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{*tlsCert},
 		RootCAs:      pool,
+		MinVersion:   tls.VersionTLS12,
 	}
 	return tlsConfig, nil
 }
