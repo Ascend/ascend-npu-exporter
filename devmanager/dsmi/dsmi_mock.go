@@ -58,38 +58,10 @@ func (d *DeviceManagerMock) GetDeviceFrequency(logicID int32, subType DeviceType
 	return int32(1), nil
 }
 
-// createMemoryInfoObj create Memory information object
-func (d *DeviceManagerMock) createMemoryInfoObj(cmInfo *CStructDsmiMemoryInfo) *MemoryInfo {
-	return NewMemInfo(uint64(1), uint32(1), uint32(1))
-}
-
-// GetDeviceMemoryInfo get memory information
-func (d *DeviceManagerMock) GetDeviceMemoryInfo(logicID int32) (*MemoryInfo, error) {
-	dmgr := GetDeviceManager()
-	hbmInfo := dmgr.createMemoryInfoObj(&CStructDsmiMemoryInfo{})
-	return hbmInfo, nil
-}
-
-// GetDeviceHbmInfo get HBM information , only for Ascend910
-func (d *DeviceManagerMock) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
-	hbmInfo := NewHbmInfo(uint64(1), uint32(1), uint64(1), 1, 1)
-	return hbmInfo, nil
-}
-
 // GetDeviceErrCode get the error count and errorcode of the device
 func (d *DeviceManagerMock) GetDeviceErrCode(logicID int32) (int32, int64, error) {
 
 	return int32(0), int64(0), nil
-}
-
-// GetChipInfo get chip info
-func (d *DeviceManagerMock) GetChipInfo(logicID int32) (*ChipInfo, error) {
-	chip := &ChipInfo{
-		ChipType: "ascend",
-		ChipName: "910own",
-		ChipVer:  "v1",
-	}
-	return chip, nil
 }
 
 // GetPhyIDFromLogicID convert the device physicalID to logicID
