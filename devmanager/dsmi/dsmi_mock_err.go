@@ -65,30 +65,9 @@ func (d *DeviceManagerMockErr) GetDeviceFrequency(logicID int32, subType DeviceT
 	return int32(0), fmt.Errorf(errorMsg)
 }
 
-// createMemoryInfoObj create Memory information object
-func (d *DeviceManagerMockErr) createMemoryInfoObj(cmInfo *CStructDsmiMemoryInfo) *MemoryInfo {
-	return nil
-}
-
-// GetDeviceMemoryInfo get memory information
-func (d *DeviceManagerMockErr) GetDeviceMemoryInfo(logicID int32) (*MemoryInfo, error) {
-
-	return nil, fmt.Errorf(errorMsg)
-}
-
-// GetDeviceHbmInfo get HBM information , only for Ascend910
-func (d *DeviceManagerMockErr) GetDeviceHbmInfo(logicID int32) (*HbmInfo, error) {
-	return nil, fmt.Errorf(errorMsg)
-}
-
 // GetDeviceErrCode get the error count and errorcode of the device
 func (d *DeviceManagerMockErr) GetDeviceErrCode(logicID int32) (int32, int64, error) {
 	return int32(0), int64(0), fmt.Errorf(errorMsg)
-}
-
-// GetChipInfo get chip info
-func (d *DeviceManagerMockErr) GetChipInfo(logicID int32) (*ChipInfo, error) {
-	return nil, fmt.Errorf(errorMsg)
 }
 
 // GetPhyIDFromLogicID convert the device physicalID to logicID
