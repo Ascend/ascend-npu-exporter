@@ -18,7 +18,6 @@ arch=$(arch 2>&1)
 echo "Build Architecture is" "${arch}"
 
 OUTPUT_NAME="npu-exporter"
-DOCKER_FILE_NAME="Dockerfile"
 
 
 function clean() {
@@ -42,11 +41,8 @@ function build() {
 
 function mv_file() {
   mv "${TOP_DIR}"/cmd/npu-exporter/${OUTPUT_NAME} "${TOP_DIR}"/output
-  cp "${TOP_DIR}"/build/npu-exporter.yaml "${TOP_DIR}"/output/npu-exporter-"${build_version}".yaml
-  sed -i "s/npu-exporter:.*/npu-exporter:${build_version}/" "${TOP_DIR}"/output/npu-exporter-"${build_version}".yaml
   # need CI prepare so lib before excute build.sh
   cp -r "${TOP_DIR}"/lib "${TOP_DIR}"/output/ || true
-  cp "${TOP_DIR}"/build/${DOCKER_FILE_NAME} "${TOP_DIR}"/output
   chmod 400 "${TOP_DIR}"/output/*
   chmod 550 "${TOP_DIR}"/output/lib
   chmod 500 "${TOP_DIR}"/output/lib/*
