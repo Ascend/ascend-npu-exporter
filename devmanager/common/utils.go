@@ -33,7 +33,7 @@ func IsValidChipInfo(chip *ChipInfo) bool {
 
 // IsValidCardID valid card id
 func IsValidCardID(cardID int32) bool {
-	return cardID >= 0 && cardID < HiAIMaxCardNum
+	return cardID >= 0 && cardID < HiAIMaxCardID
 }
 
 // IsValidDeviceID valid device id

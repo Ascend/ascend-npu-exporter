@@ -52,6 +52,9 @@ const (
 	// DeviceIPLength length of device ip address
 	DeviceIPLength = 4
 
+	// HiAIMaxCardID max card id for Ascend chip
+	HiAIMaxCardID = 4096
+
 	// HiAIMaxCardNum max card number
 	HiAIMaxCardNum = 64
 
