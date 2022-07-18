@@ -36,7 +36,7 @@ type DeviceInterface interface {
 	GetDeviceLogicID(cardID, deviceID int32) (int32, error)
 	GetCardIDDeviceID(logicID int32) (int32, int32, error)
 	GetDeviceIPAddress(logicID int32) (string, error)
-	CreateVirtualDevice(logicID, vDevID int32, templateName string) (common.CgoCreateVDevOut, error)
+	CreateVirtualDevice(logicID int32, vDevInfo common.CgoCreateVDevRes) (common.CgoCreateVDevOut, error)
 	GetVirtualDeviceInfo(logicID int32) (common.VirtualDevInfo, error)
 	DestroyVirtualDevice(logicID int32, vDevID uint32) error
 	GetDevType() string
@@ -380,12 +380,12 @@ func (d *DeviceManager) GetDeviceIPAddress(logicID int32) (string, error) {
 }
 
 // CreateVirtualDevice create virtual device
-func (d *DeviceManager) CreateVirtualDevice(logicID, vDevID int32, templateName string) (common.CgoCreateVDevOut,
-	error) {
-	if !common.IsValidTemplateName(d.DevType, templateName) {
-		return common.CgoCreateVDevOut{}, fmt.Errorf("input invalid template name: %s", templateName)
+func (d *DeviceManager) CreateVirtualDevice(logicID int32, vDevInfo common.CgoCreateVDevRes) (common.
+	CgoCreateVDevOut, error) {
+	if !common.IsValidTemplateName(d.DevType, vDevInfo.TemplateName) {
+		return common.CgoCreateVDevOut{}, fmt.Errorf("input invalid template name: %s", vDevInfo.TemplateName)
 	}
-	return d.DcMgr.DcCreateVDevice(logicID, vDevID, templateName)
+	return d.DcMgr.DcCreateVDevice(logicID, vDevInfo)
 }
 
 // GetVirtualDeviceInfo get virtual device info

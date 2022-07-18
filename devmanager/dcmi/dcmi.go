@@ -40,11 +40,11 @@ package dcmi
    	CALL_FUNC(dcmi_get_device_logic_id,device_logic_id,card_id,device_id)
    }
 
-   int (*dcmi_create_vdevice_func)(int card_id, int device_id, int vdev_id, const char *template_name,
+   int (*dcmi_create_vdevice_func)(int card_id, int device_id, struct dcmi_create_vdev_res_stru *vdev,
    	struct dcmi_create_vdev_out *out);
-   int dcmi_create_vdevice(int card_id, int device_id, int vdev_id, const char *template_name,
+   int dcmi_create_vdevice(int card_id, int device_id, struct dcmi_create_vdev_res_stru *vdev,
    	struct dcmi_create_vdev_out *out){
-   	CALL_FUNC(dcmi_create_vdevice,card_id,device_id,vdev_id,template_name,out)
+   	CALL_FUNC(dcmi_create_vdevice,card_id,device_id,vdev,out)
    }
 
    int (*dcmi_get_device_info_func)(int card_id, int device_id, enum dcmi_main_cmd main_cmd, unsigned int sub_cmd,
@@ -297,19 +297,20 @@ type DcDriverInterface interface {
 	DcGetCardList() (int32, []int32, error)
 	DcGetDeviceNumInCard(int32) (int32, error)
 	DcSetDestroyVirtualDevice(int32, int32, uint32) error
-	DcCreateVirtualDevice(int32, int32, int32, string) (common.CgoCreateVDevOut, error)
+	DcCreateVirtualDevice(int32, int32, common.CgoCreateVDevRes) (common.CgoCreateVDevOut, error)
 	DcGetDeviceVDevResource(int32, int32, uint32) (common.CgoVDevQueryStru, error)
 	DcGetDeviceTotalResource(int32, int32) (common.CgoSocTotalResource, error)
 	DcGetDeviceFreeResource(int32, int32) (common.CgoSocFreeResource, error)
 	DcVGetDeviceInfo(int32, int32) (common.VirtualDevInfo, error)
 	DcGetCardIDDeviceID(int32) (int32, int32, error)
-	DcCreateVDevice(int32, int32, string) (common.CgoCreateVDevOut, error)
+	DcCreateVDevice(int32, common.CgoCreateVDevRes) (common.CgoCreateVDevOut, error)
 	DcGetVDeviceInfo(int32) (common.VirtualDevInfo, error)
 	DcDestroyVDevice(int32, uint32) error
 }
 
 const (
 	dcmiLibraryName = "libdcmi.so"
+	templateNameLen = 32
 )
 
 // DcManager for manager dcmi interface
@@ -425,17 +426,26 @@ func convertCreateVDevOut(cCreateVDevOut C.struct_dcmi_create_vdev_out) common.C
 }
 
 // DcCreateVirtualDevice create virtual device
-// vDevID is reserved fields by dcmi interface, now is unused
-func (d *DcManager) DcCreateVirtualDevice(cardID, deviceID, vDevID int32,
-	templateName string) (common.CgoCreateVDevOut, error) {
+func (d *DcManager) DcCreateVirtualDevice(cardID, deviceID int32, vDevInfo common.CgoCreateVDevRes) (common.
+	CgoCreateVDevOut, error) {
 	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
 		return common.CgoCreateVDevOut{}, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
 	}
-	cTemplateName := C.CString(templateName)
-	defer C.free(unsafe.Pointer(cTemplateName))
+	if len(vDevInfo.TemplateName) > templateNameLen {
+		return common.CgoCreateVDevOut{}, fmt.Errorf("the length of template name exceeds the upper limit")
+	}
+	cTemplateName := [templateNameLen]C.char{0}
+	for i := 0; i < len(vDevInfo.TemplateName); i++ {
+		cTemplateName[i] = C.char(vDevInfo.TemplateName[i])
+	}
+	deviceCreateStr := C.struct_dcmi_create_vdev_res_stru{
+		vdev_id:       C.uint(vDevInfo.VDevID),
+		vfg_id:        C.uint(vDevInfo.VfgID),
+		template_name: cTemplateName,
+	}
 
 	var createVDevOut C.struct_dcmi_create_vdev_out
-	if retCode := C.dcmi_create_vdevice(C.int(cardID), C.int(deviceID), C.int(vDevID), cTemplateName,
+	if retCode := C.dcmi_create_vdevice(C.int(cardID), C.int(deviceID), &deviceCreateStr,
 		&createVDevOut); int32(retCode) != common.Success {
 		return common.CgoCreateVDevOut{}, fmt.Errorf("create vdevice failed, error is: %d", int32(retCode))
 	}
@@ -665,7 +675,8 @@ func (d *DcManager) DcGetCardIDDeviceID(logicID int32) (int32, int32, error) {
 }
 
 // DcCreateVDevice create virtual device by logic id
-func (d *DcManager) DcCreateVDevice(logicID, vDevID int32, templateName string) (common.CgoCreateVDevOut, error) {
+func (d *DcManager) DcCreateVDevice(logicID int32, vDevInfo common.CgoCreateVDevRes) (common.
+	CgoCreateVDevOut, error) {
 	if !common.IsValidLogicIDOrPhyID(logicID) {
 		return common.CgoCreateVDevOut{}, fmt.Errorf("input invalid logicID: %d", logicID)
 	}
@@ -674,7 +685,7 @@ func (d *DcManager) DcCreateVDevice(logicID, vDevID int32, templateName string) 
 		return common.CgoCreateVDevOut{}, fmt.Errorf("get card id and device id failed, error is: %#v", err)
 	}
 
-	createVDevOut, err := d.DcCreateVirtualDevice(cardID, deviceID, vDevID, templateName)
+	createVDevOut, err := d.DcCreateVirtualDevice(cardID, deviceID, vDevInfo)
 	if err != nil {
 		return common.CgoCreateVDevOut{}, fmt.Errorf("create virtual device failed, error is: %#v", err)
 	}

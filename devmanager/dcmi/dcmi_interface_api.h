@@ -12,6 +12,7 @@ extern "C" {
 #define DCMIDLLEXPORT
 
 #define MAX_CHIP_NAME_LEN 32  // Maximum length of chip name
+#define TEMPLATE_NAME_LEN 32
 
 /*----------------------------------------------*
  * Structure description                        *
@@ -171,6 +172,13 @@ struct dcmi_create_vdev_out {
     unsigned char reserved[DCMI_VDEV_FOR_RESERVE];
 };
 
+struct dcmi_create_vdev_res_stru {
+    unsigned int vdev_id;
+    unsigned int vfg_id;
+    char template_name[TEMPLATE_NAME_LEN];
+    unsigned char reserved[64];
+};
+
 struct dcmi_vdev_query_info {
     char name[DCMI_VDEV_RES_NAME_LEN];
     unsigned int status;
@@ -256,7 +264,7 @@ DCMIDLLEXPORT int dcmi_get_device_network_health(int card_id, int device_id, enu
 
 DCMIDLLEXPORT int dcmi_get_device_logic_id(int *device_logic_id, int card_id, int device_id);
 
-DCMIDLLEXPORT int dcmi_create_vdevice(int card_id, int device_id, int vdev_id, const char *template_name,
+DCMIDLLEXPORT int dcmi_create_vdevice(int card_id, int device_id, struct dcmi_create_vdev_res_stru *vdev,
     struct dcmi_create_vdev_out *out);
 
 DCMIDLLEXPORT int dcmi_set_destroy_vdevice(int card_id, int device_id, unsigned int vdevid);
