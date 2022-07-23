@@ -6,6 +6,7 @@ package container
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,7 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	"huawei.com/npu-exporter/hwlog"
@@ -123,7 +123,7 @@ type DevicesParser struct {
 // Init initializes connection to containerd daemon and to CRI server or dockerd daemon based on name fetcher setting
 func (dp *DevicesParser) Init() error {
 	if err := dp.RuntimeOperator.Init(); err != nil {
-		return errors.Wrapf(err, "connecting to container runtime failed")
+		return contactError(err, "connecting to container runtime failed")
 	}
 	dp.result = make(chan DevicesInfos, 1)
 	dp.err = make(chan error, 1)
@@ -157,18 +157,18 @@ func (dp *DevicesParser) parseDevices(ctx context.Context, c *v1alpha2.Container
 
 	p, err := dp.RuntimeOperator.CgroupsPath(ctx, c.Id)
 	if err != nil {
-		return errors.Wrapf(err, "getting cgroup path of container fail")
+		return contactError(err, "getting cgroup path of container fail")
 	}
 
 	p, err = GetCgroupPath(cgroupControllerDevices, p)
 	if err != nil {
-		return errors.Wrapf(err, "parsing cgroup path from spec fail")
+		return contactError(err, "parsing cgroup path from spec fail")
 	}
 	devicesIDs, hasAscend, err := ScanForAscendDevices(filepath.Join(p, devicesList))
 	if err == ErrNoCgroupHierarchy {
 		return nil
 	} else if err != nil {
-		return errors.Wrapf(err, "parsing Ascend devices of container %s fail", c.Id)
+		return contactError(err, fmt.Sprintf("parsing Ascend devices of container %s fail", c.Id))
 	}
 	ns := c.Labels[labelK8sPodNamespace]
 	err = validDNSRe(ns)
@@ -275,12 +275,12 @@ func withDefault(v time.Duration, d time.Duration) time.Duration {
 func GetCgroupPath(controller, specCgroupsPath string) (string, error) {
 	devicesController, err := getCgroupControllerPath(controller)
 	if err != nil {
-		return "", errors.Wrapf(err, "getting mount point of cgroup devices subsystem fail")
+		return "", contactError(err, "getting mount point of cgroup devices subsystem fail")
 	}
 
 	hierarchy, err := toCgroupHierarchy(specCgroupsPath)
 	if err != nil {
-		return "", errors.Wrapf(err, "parsing cgroups path of spec to cgroup hierarchy fail")
+		return "", contactError(err, "parsing cgroups path of spec to cgroup hierarchy fail")
 	}
 
 	return filepath.Join(devicesController, hierarchy), nil
@@ -299,7 +299,12 @@ func getCgroupControllerPath(controller string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() {
+		err = f.Close()
+		if err != nil {
+			hwlog.RunLog.Error(err)
+		}
+	}()
 
 	// parsing the /proc/self/mountinfo file content to find the mount point of specified
 	// cgroup subsystem.
@@ -309,8 +314,8 @@ func getCgroupControllerPath(controller string) (string, error) {
 		split := strings.Split(scanner.Text(), procMountInfoColSep)
 		l := len(split)
 		if l < expectProcMountInfoColNum {
-			return "", errors.Wrapf(ErrParseFail,
-				"mount info record has less than %d columns", expectProcMountInfoColNum)
+			return "", contactError(ErrParseFail,
+				fmt.Sprintf("mount info record has less than %d columns", expectProcMountInfoColNum))
 		}
 
 		// finding cgroup mount point, ignore others
@@ -346,7 +351,7 @@ func toCgroupHierarchy(cgroupsPath string) (string, error) {
 		return "", ErrUnknownCgroupsPathType
 	}
 	if hierarchy == "" {
-		return "", errors.Wrapf(ErrParseFail, "failed to parse cgroupsPath value %s", cgroupsPath)
+		return "", contactError(ErrParseFail, fmt.Sprintf("failed to parse cgroupsPath value %s", cgroupsPath))
 	}
 	return hierarchy, nil
 }
@@ -424,10 +429,15 @@ func ScanForAscendDevices(devicesListFile string) ([]int, bool, error) {
 		if os.IsNotExist(err) {
 			return nil, false, ErrNoCgroupHierarchy
 		}
-		return nil, false, errors.Wrapf(err, "error while opening devices cgroup file %q",
-			utils.MaskPrefix(strings.TrimPrefix(devicesListFile, unixProtocol+"://")))
+		return nil, false, contactError(err, fmt.Sprintf("error while opening devices cgroup file %q",
+			utils.MaskPrefix(strings.TrimPrefix(devicesListFile, unixProtocol+"://"))))
 	}
-	defer f.Close()
+	defer func() {
+		err = f.Close()
+		if err != nil {
+			hwlog.RunLog.Error(err)
+		}
+	}()
 
 	s := bufio.NewScanner(f)
 	for s.Scan() {
@@ -443,6 +453,9 @@ func ScanForAscendDevices(devicesListFile string) ([]int, bool, error) {
 		}
 
 		if fields[0] == "c" && contains(majorID, majorMinor[0]) {
+			if majorMinor[1] == "*" {
+				return nil, false, nil
+			}
 			minorNumber, err := strconv.Atoi(majorMinor[1])
 			if err != nil {
 				return nil, false, fmt.Errorf("cgroup entry %q: minor number is not integer", text)
@@ -474,7 +487,12 @@ func getNPUMajorID() ([]string, error) {
 	if err != nil {
 		return majorID, err
 	}
-	defer f.Close()
+	defer func() {
+		err = f.Close()
+		if err != nil {
+			hwlog.RunLog.Error(err)
+		}
+	}()
 	s := bufio.NewScanner(f)
 	count := 0
 	for s.Scan() {
@@ -515,4 +533,8 @@ func contains(slice []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func contactError(err error, msg string) error {
+	return fmt.Errorf("%s->%s", err.Error(), msg)
 }

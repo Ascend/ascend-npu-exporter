@@ -87,7 +87,7 @@ func NewNpuCollector(ctx context.Context, cacheTime time.Duration, updateTime ti
 	return npuCollect, nil
 }
 
-var getNPUInfo = func(dmgr devmanager.DeviceInterface) []HuaWeiNPUCard {
+func getNPUInfo(dmgr devmanager.DeviceInterface) []HuaWeiNPUCard {
 	var npuList []HuaWeiNPUCard
 	cardNum, cards, err := dmgr.GetCardList()
 	if cardNum == 0 || err != nil {
@@ -141,7 +141,7 @@ func assembleNPUInfo(cardID int32, logicID int32, dmgr devmanager.DeviceInterfac
 	return chipInfo
 }
 
-var start = func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
+func start(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
 	defer func() {
 		if err := recover(); err != nil {
 			hwlog.RunLog.Errorf("go routine failed with %#v", err)

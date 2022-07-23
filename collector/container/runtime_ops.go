@@ -6,9 +6,9 @@ package container
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"syscall"
 
-	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
@@ -27,11 +27,6 @@ const (
 	// DefaultDockerAddr default docker containerd sock address
 	DefaultDockerAddr = "unix:///var/run/docker/containerd/docker-containerd.sock"
 	grpcHeader        = "containerd-namespace"
-)
-
-var (
-	// ErrNoContainers means no containers are discovered
-	ErrNoContainers = errors.New("no containers")
 )
 
 // RuntimeOperator wraps operations against container runtime

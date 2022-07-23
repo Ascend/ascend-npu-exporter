@@ -11,7 +11,6 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/patrickmn/go-cache"
-	"github.com/prashantv/gostub"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
@@ -104,7 +103,7 @@ func excuteTestCollector(t *testing.T, tt struct {
 	name     string
 	path     string
 }) {
-	startStub := gostub.Stub(&start, tt.mockFunc)
+	startStub := gomonkey.ApplyFunc(start, tt.mockFunc)
 	defer startStub.Reset()
 	patch := gomonkey.ApplyFunc(devmanager.AutoInit, func(s string) (*devmanager.DeviceManager, error) {
 		return &devmanager.DeviceManager{}, nil
@@ -280,7 +279,8 @@ func TestStart(t *testing.T) {
 			},
 		},
 	}
-	gostub.Stub(&getNPUInfo, mockGetNPUInfo)
+	mk := gomonkey.ApplyFunc(getNPUInfo, mockGetNPUInfo)
+	defer mk.Reset()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			go start(context.Background(), tt.collector, &devmanager.DeviceManagerMock{})
