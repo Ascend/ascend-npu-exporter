@@ -39,8 +39,8 @@ import (
 	"huawei.com/kmc/pkg/application/gateway"
 	"huawei.com/kmc/pkg/application/gateway/loglevel"
 	"huawei.com/mindx/common/hwlog"
+	"huawei.com/mindx/common/rand"
 	"huawei.com/npu-exporter/kmclog"
-	"huawei.com/npu-exporter/rand"
 )
 
 const (

@@ -27,7 +27,7 @@ import (
 	"huawei.com/kmc/pkg/application/gateway"
 	"huawei.com/kmc/pkg/application/gateway/loglevel"
 	"huawei.com/mindx/common/hwlog"
-	"huawei.com/npu-exporter/rand"
+	"huawei.com/mindx/common/rand"
 )
 
 const testMode = 0660
