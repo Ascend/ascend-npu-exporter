@@ -6,6 +6,7 @@ package collector
 import (
 	"context"
 	"fmt"
+	"huawei.com/npu-exporter/versions"
 	"reflect"
 	"strconv"
 	"sync"
@@ -14,10 +15,10 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"huawei.com/mindx/common/hwlog"
 	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/devmanager"
 	"huawei.com/npu-exporter/devmanager/common"
-	"huawei.com/npu-exporter/hwlog"
 )
 
 var (
@@ -247,7 +248,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 		n.cache.Delete(key)
 	}
 	containerMap := updateContainerNPUInfo(ch, n)
-	ch <- prometheus.MustNewConstMetric(versionInfoDesc, prometheus.GaugeValue, 1, []string{hwlog.BuildVersion}...)
+	ch <- prometheus.MustNewConstMetric(versionInfoDesc, prometheus.GaugeValue, 1, []string{versions.BuildVersion}...)
 	var totalCount = 0
 	for _, card := range npuList {
 		deviceCount := len(card.DeviceList)

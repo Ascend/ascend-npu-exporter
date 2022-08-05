@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -20,11 +21,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"huawei.com/mindx/common/hwlog"
+	"huawei.com/mindx/common/limiter"
 	"huawei.com/npu-exporter/collector"
 	"huawei.com/npu-exporter/collector/container"
-	"huawei.com/npu-exporter/hwlog"
-	"huawei.com/npu-exporter/limiter"
 	"huawei.com/npu-exporter/utils"
+	"huawei.com/npu-exporter/versions"
 )
 
 var (
@@ -77,64 +79,78 @@ var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
 func main() {
 	flag.Parse()
 	if version {
-		fmt.Printf("NPU-exporter version: %s \n", hwlog.BuildVersion)
+		fmt.Printf("NPU-exporter version: %s \n", versions.BuildVersion)
 		return
 	}
-	stopCH := make(chan struct{})
-	defer close(stopCH)
-	// init hwlog
-	err := initHwLogger(stopCH)
-	if err != nil {
+	if err := initHwLogger(); err != nil {
 		return
 	}
-	validate()
-	hwlog.RunLog.Infof("npu exporter starting and the version is %s", hwlog.BuildVersion)
+	if err := validate(); err != nil {
+		hwlog.RunLog.Error(err)
+		return
+	}
+	hwlog.RunLog.Infof("npu exporter starting and the version is %s", versions.BuildVersion)
 	opts := readCntMonitoringFlags()
 	reg, err := regPrometheus(opts)
 	if err != nil {
 		hwlog.RunLog.Errorf("register prometheus failed")
 		return
 	}
-
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 	http.Handle("/", http.HandlerFunc(indexHandler))
 	http.Handle("/v1/certstatus", http.HandlerFunc(getCertStatus))
 	s, limitLs := newServerAndListener()
+	if s == nil || limitLs == nil {
+		return
+	}
 	if certificate != nil {
 		tlsConf, err := utils.NewTLSConfig(caBytes, *certificate, cipherSuites)
 		if err != nil {
-			hwlog.RunLog.Fatal(err)
+			hwlog.RunLog.Error(err)
+			return
 		}
 		s.TLSConfig = tlsConf
-		s.Handler = limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency,
+		s.Handler, err = limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency,
 			utils.Interceptor(http.DefaultServeMux, crlcerList), true, http.MethodGet)
+		if err != nil {
+			hwlog.RunLog.Error(err)
+			return
+		}
 		hwlog.RunLog.Info("start https server now...")
-		if err := s.ServeTLS(limitLs, "", ""); err != nil {
-			hwlog.RunLog.Fatal("Https server error and stopped")
+		if err = s.ServeTLS(limitLs, "", ""); err != nil {
+			hwlog.RunLog.Error("Https server error and stopped")
+			return
 		}
 	}
 	hwlog.RunLog.Warn("enable unsafe http server")
 	if err := s.Serve(limitLs); err != nil {
-		hwlog.RunLog.Fatal("Http server error and stopped")
+		hwlog.RunLog.Error("Http server error and stopped")
 	}
 }
 
 func newServerAndListener() (*http.Server, net.Listener) {
+	handler, err := limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency, http.DefaultServeMux, true,
+		http.MethodGet)
+	if err != nil {
+		hwlog.RunLog.Error(err)
+		return nil, nil
+	}
 	s := &http.Server{
-		Addr: ip + ":" + strconv.Itoa(port),
-		Handler: limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency, http.DefaultServeMux, true,
-			http.MethodGet),
+		Addr:           ip + ":" + strconv.Itoa(port),
+		Handler:        handler,
 		ReadTimeout:    timeout * time.Second,
 		WriteTimeout:   timeout * time.Second,
 		MaxHeaderBytes: maxHeaderBytes,
 	}
 	ln, err := net.Listen("tcp", s.Addr)
 	if err != nil {
-		hwlog.RunLog.Fatal(err)
+		hwlog.RunLog.Error(err)
+		return nil, nil
 	}
 	limitLs, err := limiter.LimitListener(ln, maxConnection)
 	if err != nil {
-		hwlog.RunLog.Fatal(err)
+		hwlog.RunLog.Error(err)
+		return nil, nil
 	}
 	return s, limitLs
 }
@@ -151,7 +167,10 @@ func readCntMonitoringFlags() container.CntNpuMonitorOpts {
 		opts.OciEndpoint = container.DefaultContainerdAddr
 		opts.CriEndpoint = container.DefaultContainerdAddr
 	default:
-		hwlog.RunLog.Fatal("invalid container mode setting")
+		hwlog.RunLog.Error("invalid container mode setting,reset to docker")
+		opts.EndpointType = container.EndpointTypeDockerd
+		opts.OciEndpoint = container.DefaultDockerAddr
+		opts.CriEndpoint = container.DefaultDockerShim
 	}
 	if containerd != "" {
 		opts.OciEndpoint = containerd
@@ -175,61 +194,63 @@ func regPrometheus(opts container.CntNpuMonitorOpts) (*prometheus.Registry, erro
 	return reg, nil
 }
 
-func validate() {
-	baseParamValid()
+func validate() error {
+	if err := baseParamValid(); err != nil {
+		return err
+	}
 	if enableHTTP {
-		return
+		return nil
 	}
 	if checkInterval < 1 || checkInterval > utils.WeekDays {
-		hwlog.RunLog.Fatal("certificate check interval time invalidate")
+		return errors.New("certificate check interval time invalidate")
 	}
 	if warningDays < utils.TenDays || warningDays > utils.YearDays {
-		hwlog.RunLog.Fatal("certificate warning time invalidate")
+		return errors.New("certificate warning time invalidate")
 	}
 	utils.SetPeriodCheckParam(warningDays, checkInterval)
 	// key file exist and need init kmc
 	hwlog.RunLog.Info("start load imported certificate files")
 	tlsCert, err := utils.LoadCertPair(certStore, keyStore, passFile, passFileBackUp, utils.Aes256gcm)
 	if err != nil {
-		hwlog.RunLog.Fatal(err)
+		return err
 	}
 	certificate = tlsCert
-	loadCRL()
-	caBytes, err = utils.CheckCaCert(caStore)
-	if err != nil {
-		hwlog.RunLog.Fatal(err)
+	if err = loadCRL(); err != nil {
+		return err
 	}
+	caBytes, err = utils.CheckCaCert(caStore)
+	return err
 }
 
-func baseParamValid() {
+func baseParamValid() error {
 	if port < portLeft || port > portRight {
-		hwlog.RunLog.Fatalf("the port is invalid")
+		return errors.New("the port is invalid")
 	}
 	parsedIP := net.ParseIP(ip)
 	if parsedIP == nil {
-		hwlog.RunLog.Fatalf("the listen ip is invalid")
+		return errors.New("the listen ip is invalid")
 	}
 	ip = parsedIP.String()
 	hwlog.RunLog.Infof("listen on: %s", ip)
 	if updateTime > oneMinute || updateTime < 1 {
-		hwlog.RunLog.Fatalf("the updateTime is invalid")
+		return errors.New("the updateTime is invalid")
 	}
 	if endpoint != "" {
 		ep, err := utils.CheckPath(strings.TrimPrefix(endpoint, unixPre))
 		if err != nil {
-			hwlog.RunLog.Fatal(err)
+			return err
 		}
 		endpoint = unixPre + ep
 	}
 	if containerd != "" {
 		cnd, err := utils.CheckPath(strings.TrimPrefix(containerd, unixPre))
 		if err != nil {
-			hwlog.RunLog.Fatal(err)
+			return err
 		}
 		containerd = unixPre + cnd
 	}
 	if enableHTTP {
-		return
+		return nil
 	}
 	if tlsSuites != 0 && tlsSuites != 1 {
 		hwlog.RunLog.Warn("reset invalid tlsSuites = 1 ")
@@ -240,6 +261,7 @@ func baseParamValid() {
 	} else {
 		cipherSuites = tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
 	}
+	return nil
 }
 
 func init() {
@@ -279,7 +301,7 @@ func init() {
 		"the Ahead days of warning for certificate overdue, range is [10, 365]")
 }
 
-func indexHandler(w http.ResponseWriter, r *http.Request) {
+func indexHandler(w http.ResponseWriter, _ *http.Request) {
 	var proposal = "http"
 	if certificate != nil {
 		proposal = "https"
@@ -309,27 +331,28 @@ func getCertStatus(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func loadCRL() {
+func loadCRL() error {
 	crlBytes, err := utils.CheckCRL(crlStore)
 	if err != nil {
-		hwlog.RunLog.Fatal(err)
+		return err
 	}
 	if len(crlBytes) == 0 {
-		return
+		return nil
 	}
 	crlList, err := x509.ParseCRL(crlBytes)
 	if err != nil {
-		hwlog.RunLog.Fatal("parse crlFile failed")
+		return errors.New("parse crlFile failed")
 	}
 	// skip check CRL update time when load it,only check when import CRL file
 	if crlList != nil {
 		crlcerList = crlList
 		hwlog.RunLog.Infof("load CRL success")
 	}
+	return nil
 }
 
-func initHwLogger(stopCh <-chan struct{}) error {
-	if err := hwlog.InitRunLogger(hwLogConfig, stopCh); err != nil {
+func initHwLogger() error {
+	if err := hwlog.InitRunLogger(hwLogConfig, context.Background()); err != nil {
 		fmt.Printf("hwlog init failed, error is %#v", err)
 		return err
 	}

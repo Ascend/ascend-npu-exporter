@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 
-	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/mindx/common/hwlog"
 )
 
 const (
@@ -101,7 +101,9 @@ func LoadFromFile(filename string) (*api.Config, error) {
 	if bytes.Contains(kubeconfigBytes, []byte(configPrefix)) {
 		return nil, errors.New("do not support non-encrypted kubeConfig")
 	}
-	KmcInit(Aes256gcm, "", "")
+	if err = KmcInit(Aes256gcm, "", ""); err != nil {
+		return nil, err
+	}
 	hwlog.RunLog.Info("start to decrypt cfg")
 	kubeconfigBytes, err = Decrypt(0, kubeconfigBytes)
 	if err != nil {

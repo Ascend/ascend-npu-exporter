@@ -16,10 +16,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
+	"huawei.com/mindx/common/hwlog"
 	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/devmanager"
 	"huawei.com/npu-exporter/devmanager/common"
-	"huawei.com/npu-exporter/hwlog"
 )
 
 const (
@@ -300,8 +300,7 @@ func init() {
 	config := hwlog.LogConfig{
 		OnlyToStdout: true,
 	}
-	stopCh := make(chan struct{})
-	hwlog.InitRunLogger(&config, stopCh)
+	hwlog.InitRunLogger(&config, nil)
 	gomonkey.ApplyFunc(container.ScanForAscendDevices, mockScan4AscendDevices)
 	gomonkey.ApplyFunc(container.GetCgroupPath, mockGetCgroupPath)
 }

@@ -259,8 +259,8 @@ import (
 	"strings"
 	"unsafe"
 
+	"huawei.com/mindx/common/hwlog"
 	"huawei.com/npu-exporter/devmanager/common"
-	"huawei.com/npu-exporter/hwlog"
 	"huawei.com/npu-exporter/utils"
 )
 

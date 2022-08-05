@@ -6,9 +6,9 @@ package devmanager
 import (
 	"errors"
 	"fmt"
+	"huawei.com/mindx/common/hwlog"
 	"huawei.com/npu-exporter/devmanager/common"
 	"huawei.com/npu-exporter/devmanager/dcmi"
-	"huawei.com/npu-exporter/hwlog"
 )
 
 // DeviceInterface for common device interface
