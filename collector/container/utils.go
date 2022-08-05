@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc"
 
 	"huawei.com/mindx/common/hwlog"
-	"huawei.com/npu-exporter/utils"
+	"huawei.com/mindx/common/utils"
 )
 
 const (
