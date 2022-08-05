@@ -31,8 +31,6 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/crypto/ssh/terminal"
-
 	"huawei.com/kmc/pkg/adaptor/inbound/api"
 	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc"
 	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc/vo"
@@ -40,6 +38,7 @@ import (
 	"huawei.com/kmc/pkg/application/gateway/loglevel"
 	"huawei.com/mindx/common/hwlog"
 	"huawei.com/mindx/common/rand"
+	"huawei.com/mindx/common/terminal"
 	"huawei.com/npu-exporter/kmclog"
 )
 
@@ -195,7 +194,7 @@ func IsExists(file string) bool {
 // ReadPassWd scan the screen and input the password info
 func ReadPassWd() ([]byte, error) {
 	fmt.Print("Enter Private Key Password: ")
-	bytePassword, err := terminal.ReadPassword(0)
+	bytePassword, err := terminal.ReadPassword(0, maxPathLength)
 	if err != nil {
 		return nil, errors.New("program error")
 	}
