@@ -26,7 +26,7 @@ import (
 	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc/vo"
 	"huawei.com/kmc/pkg/application/gateway"
 	"huawei.com/kmc/pkg/application/gateway/loglevel"
-	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/mindx/common/hwlog"
 	"huawei.com/npu-exporter/rand"
 )
 
@@ -36,8 +36,7 @@ func init() {
 	config := hwlog.LogConfig{
 		OnlyToStdout: true,
 	}
-	stopCh := make(chan struct{})
-	hwlog.InitRunLogger(&config, stopCh)
+	hwlog.InitRunLogger(&config, nil)
 }
 
 // TestCheckCRL test CheckCRL
@@ -127,7 +126,9 @@ func TestEncryptPrivateKeyAgain(t *testing.T) {
 	var backupks = "./testdata/backupPd"
 	Convey("test for EncryptPrivateKey", t, func() {
 		// mock kmcInit
-		initStub := gomonkey.ApplyFunc(KmcInit, func(sdpAlgID int, primaryKey, standbyKey string) {})
+		initStub := gomonkey.ApplyFunc(KmcInit, func(sdpAlgID int, primaryKey, standbyKey string) error {
+			return nil
+		})
 		defer initStub.Reset()
 		encryptStub := gomonkey.ApplyFunc(Encrypt, func(domainID int, data []byte) ([]byte, error) {
 			return []byte("test"), nil
@@ -316,7 +317,9 @@ func TestLoadEncryptedCertPair(t *testing.T) {
 		var mainks = "./testdata/mainks"
 		var backupks = "./testdata/mainks"
 		// mock kmcInit
-		initStub := gomonkey.ApplyFunc(KmcInit, func(sdpAlgID int, primaryKey, standbyKey string) {})
+		initStub := gomonkey.ApplyFunc(KmcInit, func(sdpAlgID int, primaryKey, standbyKey string) error {
+			return nil
+		})
 		defer initStub.Reset()
 		Convey("normal cert", func() {
 			encryptStub := gomonkey.ApplyFunc(Decrypt, func(domainID int, data []byte) ([]byte, error) {

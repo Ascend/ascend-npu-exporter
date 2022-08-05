@@ -18,7 +18,7 @@ import (
 
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
-	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/mindx/common/hwlog"
 	"huawei.com/npu-exporter/utils"
 )
 
@@ -147,7 +147,7 @@ func (dp *DevicesParser) Close() {
 
 func (dp *DevicesParser) parseDevices(ctx context.Context, c *v1alpha2.Container, rs chan<- DevicesInfo) error {
 	if rs == nil {
-		hwlog.RunLog.Fatal("empty result channel")
+		return errors.New("empty result channel")
 	}
 
 	deviceInfo := DevicesInfo{}
@@ -188,12 +188,12 @@ func (dp *DevicesParser) parseDevices(ctx context.Context, c *v1alpha2.Container
 	return nil
 }
 
-func (dp *DevicesParser) collect(ctx context.Context, r <-chan DevicesInfo, ct int32) DevicesInfos {
+func (dp *DevicesParser) collect(ctx context.Context, r <-chan DevicesInfo, ct int32) (DevicesInfos, error) {
 	if r == nil {
-		hwlog.RunLog.Fatal("receiving channel is empty")
+		return nil, errors.New("receiving channel is empty")
 	}
 	if ct < 0 {
-		return nil
+		return nil, nil
 	}
 
 	results := make(map[string]DevicesInfo, ct)
@@ -201,20 +201,20 @@ func (dp *DevicesParser) collect(ctx context.Context, r <-chan DevicesInfo, ct i
 		select {
 		case info, ok := <-r:
 			if !ok {
-				return nil
+				return nil, nil
 			}
 			if info.ID != "" {
 				results[info.ID] = info
 			}
 			if ct -= 1; ct <= 0 {
-				return results
+				return results, nil
 			}
 		case _, ok := <-ctx.Done():
 			if !ok {
-				return nil
+				return nil, nil
 			}
 			dp.err <- ErrFromContext
-			return nil
+			return nil, nil
 		}
 	}
 }
@@ -252,7 +252,7 @@ func (dp *DevicesParser) doParse(resultOut chan<- DevicesInfos) {
 		}(container)
 	}
 
-	if result = dp.collect(ctx, r, int32(l)); result != nil {
+	if result, err = dp.collect(ctx, r, int32(l)); result != nil && err == nil {
 		dp.result <- result
 	}
 }

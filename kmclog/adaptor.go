@@ -4,7 +4,7 @@
 package kmclog
 
 import (
-	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/mindx/common/hwlog"
 )
 
 // LoggerAdaptor is used to adapt to the log module of the KMC.

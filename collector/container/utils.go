@@ -15,7 +15,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/mindx/common/hwlog"
 	"huawei.com/npu-exporter/utils"
 )
 

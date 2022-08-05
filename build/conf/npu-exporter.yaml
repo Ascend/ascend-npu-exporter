@@ -33,7 +33,7 @@ compile:
     parameters: [
     [ "mod", "mod" ],
     [ "buildmode", "pie" ],
-    [ "ldflags", '-s -extldflags=-Wl,-z,now  -X "huawei.com/npu-exporter/hwlog.BuildName=npu-exporter" -X "huawei.com/npu-exporter/hwlog.BuildVersion={{version}}_linux-{{systemEnv.processor}}"' ],
+    [ "ldflags", '-s -extldflags=-Wl,-z,now  -X "huawei.com/npu-exporter/versions.BuildName=npu-exporter" -X "huawei.com/npu-exporter/versions.BuildVersion={{version}}_linux-{{systemEnv.processor}}"' ],
     [ "o", "{{component}}" ],
     ]
   output:

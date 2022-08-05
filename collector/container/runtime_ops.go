@@ -13,8 +13,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
+	"huawei.com/mindx/common/hwlog"
 	"huawei.com/npu-exporter/collector/container/v1"
-	"huawei.com/npu-exporter/hwlog"
 )
 
 const (

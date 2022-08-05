@@ -38,7 +38,7 @@ import (
 	"huawei.com/kmc/pkg/adaptor/inbound/api/kmc/vo"
 	"huawei.com/kmc/pkg/application/gateway"
 	"huawei.com/kmc/pkg/application/gateway/loglevel"
-	"huawei.com/npu-exporter/hwlog"
+	"huawei.com/mindx/common/hwlog"
 	"huawei.com/npu-exporter/kmclog"
 	"huawei.com/npu-exporter/rand"
 )
@@ -193,16 +193,16 @@ func IsExists(file string) bool {
 }
 
 // ReadPassWd scan the screen and input the password info
-func ReadPassWd() []byte {
+func ReadPassWd() ([]byte, error) {
 	fmt.Print("Enter Private Key Password: ")
 	bytePassword, err := terminal.ReadPassword(0)
 	if err != nil {
-		hwlog.RunLog.Fatal("program error")
+		return nil, errors.New("program error")
 	}
 	if len(bytePassword) > maxLen {
-		hwlog.RunLog.Fatal("input too long")
+		return nil, errors.New("input too long")
 	}
-	return bytePassword
+	return bytePassword, nil
 }
 
 // ParsePrivateKeyWithPassword  decode the private key
@@ -211,10 +211,13 @@ func ParsePrivateKeyWithPassword(keyBytes []byte, pd []byte) (*pem.Block, error)
 	if block == nil {
 		return nil, errors.New("decode key file failed")
 	}
+	var err error
 	buf := block.Bytes
 	if x509.IsEncryptedPEMBlock(block) {
 		if len(pd) == 0 {
-			pd = ReadPassWd()
+			if pd, err = ReadPassWd(); err != nil {
+				return nil, err
+			}
 		}
 		var err error
 		buf, err = x509.DecryptPEMBlock(block, pd)
@@ -535,7 +538,7 @@ func ReadOrUpdatePd(mainPath, backPath string, mode os.FileMode) []byte {
 }
 
 // KmcInit init kmc component
-func KmcInit(sdpAlgID int, primaryKey, standbyKey string) {
+func KmcInit(sdpAlgID int, primaryKey, standbyKey string) error {
 	if bootstrap == nil {
 		defaultLogLevel := loglevel.Info
 		var defaultLogger gateway.CryptoLogger = &kmclog.LoggerAdaptor{}
@@ -546,8 +549,12 @@ func KmcInit(sdpAlgID int, primaryKey, standbyKey string) {
 		if standbyKey == "" {
 			standbyKey = "/etc/mindx-dl/.config/backup.ks"
 		}
-		checkRootMaterial(primaryKey)
-		checkRootMaterial(standbyKey)
+		if err := checkRootMaterial(primaryKey); err != nil {
+			return err
+		}
+		if err := checkRootMaterial(standbyKey); err != nil {
+			return err
+		}
 		defaultInitConfig.PrimaryKeyStoreFile = primaryKey
 		defaultInitConfig.StandbyKeyStoreFile = standbyKey
 		if sdpAlgID == 0 {
@@ -559,27 +566,32 @@ func KmcInit(sdpAlgID int, primaryKey, standbyKey string) {
 	var err error
 	cryptoAPI, err = bootstrap.Start()
 	if err != nil {
-		hwlog.RunLog.Fatal("initial kmc failed,please make sure the LD_LIBRARY_PATH include the kmc-ext.so ")
+		return errors.New("initial kmc failed,please make sure the LD_LIBRARY_PATH include the kmc-ext.so ")
 	}
 	if updateErr := cryptoAPI.UpdateLifetimeDays(TenDays * TenDays); updateErr != nil {
 		hwlog.RunLog.Warn("update crypto lifetime failed ")
 	}
+	return nil
 }
 
 // KmcShutDown shutdown kmc init
 func KmcShutDown() {
 	if bootstrap != nil {
-		bootstrap.Shutdown()
+		err := bootstrap.Shutdown()
+		if err != nil {
+			hwlog.RunLog.Error(err)
+		}
 	}
 }
 
-func checkRootMaterial(primaryKey string) {
+func checkRootMaterial(primaryKey string) error {
 	if IsExists(primaryKey) {
 		_, err := CheckPath(primaryKey)
 		if err != nil {
-			hwlog.RunLog.Fatal("kmc root material file is symlinks")
+			return errors.New("kmc root material file is symlinks")
 		}
 	}
+	return nil
 }
 
 // Encrypt encrypt the data
@@ -603,32 +615,37 @@ func EncryptPrivateKeyAgainWithMode(key *pem.Block, psFile, psBkFile string, enc
 	// generate new passwd for private key
 	pd, err := GetRandomPass()
 	if err != nil {
-		hwlog.RunLog.Fatal("generate passwd failed")
+		return nil, errors.New("generate passwd failed")
 	}
-	KmcInit(encrypt, "", "")
+	if err = KmcInit(encrypt, "", ""); err != nil {
+		return nil, err
+	}
 	encryptedPd, err := Encrypt(0, pd)
 	if err != nil {
-		hwlog.RunLog.Fatal("encrypt passwd failed")
+		return nil, errors.New("encrypt passwd failed")
 	}
 	hwlog.RunLog.Info("encrypt new passwd successfully")
 	if err := OverridePassWdFile(psFile, encryptedPd, mode); err != nil {
-		hwlog.RunLog.Fatal("write encrypted passwd to file failed")
+		return nil, errors.New("write encrypted passwd to file failed")
 	}
 	hwlog.RunLog.Info("create or update  passwd file successfully")
 	if err = OverridePassWdFile(psBkFile, encryptedPd, mode); err != nil {
-		hwlog.RunLog.Fatal("write encrypted passwd to back file failed")
+		return nil, errors.New("write encrypted passwd to back file failed")
 	}
 	hwlog.RunLog.Info("create or update  passwd backup file successfully")
 	encryptedBlock, err := x509.EncryptPEMBlock(rand.Reader, key.Type, key.Bytes, pd, x509.PEMCipherAES256)
 	if err != nil {
-		hwlog.RunLog.Fatal("encrypted private key failed")
+		return nil, errors.New("encrypted private key failed")
 	}
 	hwlog.RunLog.Info("encrypt private key by new passwd successfully")
 	// clean password
 	PaddingAndCleanSlice(pd)
 	// wait certificate verify passed and then write key to file together
 	if bootstrap != nil {
-		bootstrap.Shutdown()
+		err = bootstrap.Shutdown()
+		if err != nil {
+			hwlog.RunLog.Error(err)
+		}
 	}
 	return encryptedBlock, nil
 }
@@ -736,7 +753,7 @@ func CheckCaCertV2(caFile string, overdueTime int) ([]byte, error) {
 		return nil, errors.New("check ca certificate signature failed")
 	}
 	if err = AddToCertStatusTrace(caCrt); err != nil {
-		hwlog.RunLog.Fatal(err)
+		return nil, err
 	}
 	hwlog.RunLog.Infof("ca certificate signature check pass")
 	return caBytes, nil
@@ -816,7 +833,9 @@ func LoadCertPairByte(pathMap map[string]string, encryptAlgorithm int, mode os.F
 		return nil, nil, errors.New("there is no certFile provided")
 	}
 	encodedPd := ReadOrUpdatePd(psFile, psFileBk, mode)
-	KmcInit(encryptAlgorithm, "", "")
+	if err = KmcInit(encryptAlgorithm, "", ""); err != nil {
+		return nil, nil, err
+	}
 	pd, err := Decrypt(0, encodedPd)
 	if err != nil {
 		return nil, nil, errors.New("decrypt passwd failed")
@@ -835,7 +854,10 @@ func LoadCertPairByte(pathMap map[string]string, encryptAlgorithm int, mode os.F
 	}
 	hwlog.RunLog.Info("decrypt success")
 	if bootstrap != nil {
-		bootstrap.Shutdown()
+		err = bootstrap.Shutdown()
+		if err != nil {
+			hwlog.RunLog.Error(err)
+		}
 	}
 	PaddingAndCleanSlice(pd)
 	return certBytes, pem.EncodeToMemory(keyBlock), nil
@@ -979,7 +1001,24 @@ func AddToCertStatusTrace(cert *x509.Certificate) error {
 
 // CheckPath  validate path
 func CheckPath(path string) (string, error) {
-	return hwlog.CheckPath(path)
+	if path == "" {
+		return path, nil
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", errors.New("get the absolute path failed")
+	}
+	resoledPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		if strings.Contains(err.Error(), "no such file or directory") {
+			return "", os.ErrNotExist
+		}
+		return "", errors.New("get the symlinks path failed")
+	}
+	if absPath != resoledPath {
+		return "", errors.New("can't support symlinks")
+	}
+	return resoledPath, nil
 }
 
 // ClientIP try to get the clientIP
