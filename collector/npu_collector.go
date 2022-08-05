@@ -6,7 +6,6 @@ package collector
 import (
 	"context"
 	"fmt"
-	"huawei.com/npu-exporter/versions"
 	"reflect"
 	"strconv"
 	"sync"
@@ -19,6 +18,7 @@ import (
 	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/devmanager"
 	"huawei.com/npu-exporter/devmanager/common"
+	"huawei.com/npu-exporter/versions"
 )
 
 var (
