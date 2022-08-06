@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
-	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
+	"huawei.com/mindx/common/cache"
 	"huawei.com/mindx/common/hwlog"
 	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/devmanager"
@@ -78,7 +78,9 @@ func TestNewNpuCollector(t *testing.T) {
 			mockFunc: func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
 				_ = n.devicesParser.Init()
 				npuInfo := mockGetNPUInfo(nil)
-				n.cache.Set(key, npuInfo, n.cacheTime)
+				if err := n.cache.Set(key, npuInfo, n.cacheTime); err != nil {
+					t.Fatal(err)
+				}
 			},
 		},
 		{
@@ -87,7 +89,9 @@ func TestNewNpuCollector(t *testing.T) {
 			mockFunc: func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
 				_ = n.devicesParser.Init()
 				var npuInfo []HuaWeiNPUCard
-				n.cache.Set(key, npuInfo, n.cacheTime)
+				if err := n.cache.Set(key, npuInfo, n.cacheTime); err != nil {
+					t.Fatal(err)
+				}
 			},
 		},
 	}
@@ -272,7 +276,7 @@ func TestStart(t *testing.T) {
 		{
 			name: "should set cache successfully",
 			collector: &npuCollector{
-				cache:         cache.New(cacheTime, five*time.Minute),
+				cache:         cache.New(cacheSize),
 				cacheTime:     cacheTime,
 				updateTime:    time.Second,
 				devicesParser: makeMockDevicesParser(),
@@ -285,9 +289,9 @@ func TestStart(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			go start(context.Background(), tt.collector, &devmanager.DeviceManagerMock{})
 			time.Sleep(waitTime)
-			objm, ok := tt.collector.cache.Get(key)
+			objm, err := tt.collector.cache.Get(key)
 			assert.NotNil(t, objm)
-			assert.Equal(t, true, ok)
+			assert.Nil(t, err)
 			go func() {
 				ch <- os.Interrupt
 				close(ch)
