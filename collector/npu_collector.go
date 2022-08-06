@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"huawei.com/mindx/common/cache"
 	"huawei.com/mindx/common/hwlog"
 	"huawei.com/npu-exporter/collector/container"
 	"huawei.com/npu-exporter/devmanager"
@@ -63,8 +63,10 @@ var (
 	npuChipInfoInit      sync.Once
 )
 
+const cacheSize = 128
+
 type npuCollector struct {
-	cache         *cache.Cache
+	cache         *cache.ConcurrencyLRUCache
 	devicesParser *container.DevicesParser
 	updateTime    time.Duration
 	cacheTime     time.Duration
@@ -74,7 +76,7 @@ type npuCollector struct {
 func NewNpuCollector(ctx context.Context, cacheTime time.Duration, updateTime time.Duration,
 	deviceParser *container.DevicesParser) (prometheus.Collector, error) {
 	npuCollect := &npuCollector{
-		cache:         cache.New(cacheTime, five*time.Minute),
+		cache:         cache.New(cacheSize),
 		cacheTime:     cacheTime,
 		updateTime:    updateTime,
 		devicesParser: deviceParser,
@@ -144,30 +146,24 @@ func assembleNPUInfo(cardID int32, logicID int32, dmgr devmanager.DeviceInterfac
 
 func start(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
 	defer func() {
+		if err := dmgr.ShutDown(); err != nil {
+			hwlog.RunLog.Error(err)
+		}
 		if err := recover(); err != nil {
 			hwlog.RunLog.Errorf("go routine failed with %#v", err)
 		}
 	}()
-	defer func() {
-		if err := dmgr.ShutDown(); err != nil {
-			hwlog.RunLog.Error(err)
-		}
-	}()
-
 	if n == nil {
 		hwlog.RunLog.Error("Invalid param in function start")
 		return
 	}
-
 	if err := n.devicesParser.Init(); err != nil {
 		hwlog.RunLog.Errorf("failed to init devices parser: %#v", err)
 	}
 	defer n.devicesParser.Close()
 	n.devicesParser.Timeout = n.updateTime
-
 	ticker := time.NewTicker(n.updateTime)
 	hwlog.RunLog.Infof("Starting update cache every %d seconds", n.updateTime/time.Second)
-
 	for {
 		select {
 		case _, ok := <-ticker.C:
@@ -176,17 +172,20 @@ func start(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface
 			}
 			n.devicesParser.FetchAndParse(nil)
 			npuInfo := getNPUInfo(dmgr)
-			n.cache.Set(key, npuInfo, n.cacheTime)
+			if err := n.cache.Set(key, npuInfo, n.cacheTime); err != nil {
+				hwlog.RunLog.Error(err)
+			}
 			hwlog.RunLog.Infof("update cache,key is %s", key)
 		case result := <-n.devicesParser.RecvResult():
-			n.cache.Set(containersDevicesInfoKey, result, n.cacheTime)
+			if err := n.cache.Set(containersDevicesInfoKey, result, n.cacheTime); err != nil {
+				hwlog.RunLog.Error(err)
+			}
 			hwlog.RunLog.Infof("update cache,key is %s", containersDevicesInfoKey)
 		case err := <-n.devicesParser.RecvErr():
 			hwlog.RunLog.Errorf("received error from device parser: %#v", err)
 		case _, ok := <-ctx.Done():
 			if !ok {
 				hwlog.RunLog.Error("closed")
-				return
 			}
 			ticker.Stop()
 			hwlog.RunLog.Warn("received the stop signal,STOPPED")
@@ -226,18 +225,20 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 		hwlog.RunLog.Error("Invalid param in function Collect")
 		return
 	}
-	obj, found := n.cache.Get(key)
+	obj, err := n.cache.Get(key)
 	npuChipInfoInit.Do(func() {
-		if !found {
+		if err != nil {
 			hwlog.RunLog.Warn("no cache, start to get npulist and rebuild cache")
 			devManager, err := devmanager.AutoInit("")
 			if err != nil {
 				hwlog.RunLog.Warnf("get device manager failed, error is: %#v ", err)
-				n.cache.Set(key, []HuaWeiNPUCard{}, n.cacheTime)
 				return
 			}
 			npuInfo := getNPUInfo(devManager)
-			n.cache.Set(key, npuInfo, n.cacheTime)
+			if err = n.cache.Set(key, npuInfo, n.cacheTime); err != nil {
+				hwlog.RunLog.Error(err)
+				return
+			}
 			hwlog.RunLog.Warn("rebuild cache successfully")
 			obj = npuInfo
 		}
@@ -275,10 +276,10 @@ func updateContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) map[in
 		hwlog.RunLog.Error("metric channel is nil")
 		return nil
 	}
-	obj, found := n.cache.Get(containersDevicesInfoKey)
+	obj, err := n.cache.Get(containersDevicesInfoKey)
 	// only run once to prevent wait when container info get failed
 	npuContainerInfoInit.Do(func() {
-		if !found {
+		if err != nil {
 			hwlog.RunLog.Warn("containers' devices info not found in cache, rebuilding")
 			resultChan := make(chan container.DevicesInfos, 1)
 			n.devicesParser.FetchAndParse(resultChan)
