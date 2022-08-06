@@ -14,7 +14,6 @@ import (
 	"math/big"
 	"net/http"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
@@ -38,148 +37,18 @@ func init() {
 	hwlog.InitRunLogger(&config, nil)
 }
 
-// TestCheckCRL test CheckCRL
-func TestCheckCRL(t *testing.T) {
-	Convey("CheckCRL test", t, func() {
-		Convey("crl update time not match,return error", func() {
-			_, err := CheckCRL("./testdata/cert/client.crl")
-			So(err, ShouldNotBeEmpty)
-		})
-		Convey("directory no exist,no err returned", func() {
-			_, err := CheckCRL("./testdata/cert/xxx.crl")
-			So(err, ShouldEqual, nil)
-		})
-		Convey("crl file content wrong,err returned", func() {
-			_, err := CheckCRL("./testdata/cert/client_err.crl")
-			So(err, ShouldNotBeEmpty)
-		})
-
-	})
-}
-
-// TestMakeSureDir test MakeSureDir
-func TestMakeSureDir(t *testing.T) {
-	Convey("MakeSureDir test", t, func() {
-		Convey("normal situation, no err returned", func() {
-			err := MakeSureDir("./testdata/tmp/test")
-			So(err, ShouldEqual, nil)
-		})
-		Convey("abnormal situation,err returned", func() {
-			mock := gomonkey.ApplyFunc(os.MkdirAll, func(name string, perm os.FileMode) error {
-				return fmt.Errorf("error")
-			})
-			defer mock.Reset()
-			err := MakeSureDir("./xxxx/xxx")
-			So(err.Error(), ShouldEqual, "create config directory failed")
-		})
-	})
-}
-
-// TestOverridePassWdFile test OverridePassWdFile
-func TestOverridePassWdFile(t *testing.T) {
-	Convey("override padding test", t, func() {
-		var path = "./testdata/test.key"
-		data, err := ReadBytes("./testdata/cert/client.key")
-		So(err, ShouldBeEmpty)
-		err = OverridePassWdFile(path, data, testMode)
-		So(err, ShouldBeEmpty)
-		data2, err := ReadBytes(path)
-		So(err, ShouldBeEmpty)
-		So(reflect.DeepEqual(data, data2), ShouldBeTrue)
-	})
-}
-
-// TestReadOrUpdatePd test ReadOrUpdatePd
-func TestReadOrUpdatePd(t *testing.T) {
-	var mainks = "./testdata/mainks"
-	var backupks = "./testdata/backupks"
-
-	Convey("read from main file", t, func() {
-		data := ReadOrUpdatePd(mainks, backupks, testMode)
-		So(string(data), ShouldEqual, "111111")
-		back, err := ReadBytes(backupks)
-		So(err, ShouldEqual, nil)
-		So(reflect.DeepEqual(back, data), ShouldBeTrue)
-	})
-	Convey("read from back file", t, func() {
-		err := os.Remove(mainks)
-		if err != nil {
-			fmt.Println("clean source failed")
-		}
-		data := ReadOrUpdatePd(mainks, backupks, testMode)
-		So(string(data), ShouldEqual, "111111")
-		back, err := ReadBytes(mainks)
-		So(err, ShouldEqual, nil)
-		So(reflect.DeepEqual(back, data), ShouldBeTrue)
-		// recover status before testing
-		err = os.Remove(backupks)
-		if err != nil {
-			fmt.Println("clean source failed")
-		}
-	})
-}
-
-// TestEncryptPrivateKeyAgain test EncryptPrivateKeyAgain
-func TestEncryptPrivateKeyAgain(t *testing.T) {
-	var mainks = "./testdata/mainPd"
-	var backupks = "./testdata/backupPd"
-	Convey("test for EncryptPrivateKey", t, func() {
-		// mock kmcInit
-		initStub := gomonkey.ApplyFunc(KmcInit, func(sdpAlgID int, primaryKey, standbyKey string) error {
-			return nil
-		})
-		defer initStub.Reset()
-		encryptStub := gomonkey.ApplyFunc(Encrypt, func(domainID int, data []byte) ([]byte, error) {
-			return []byte("test"), nil
-		})
-		defer encryptStub.Reset()
-		keyBytes, err := ReadBytes("./testdata/cert/client.key")
-		So(err, ShouldEqual, nil)
-		block, _ := pem.Decode(keyBytes)
-		Convey("read from main file", func() {
-			encryptedBlock, err := EncryptPrivateKeyAgain(block, mainks, backupks, 0)
-			So(err, ShouldEqual, nil)
-			_, ok := encryptedBlock.Headers["DEK-Info"]
-			So(ok, ShouldBeTrue)
-			pd, err := ReadBytes(mainks)
-			So(err, ShouldEqual, nil)
-			So(pd, ShouldNotBeEmpty)
-		})
-
-	})
-
-}
-
-// TestDecryptPrivateKeyWithPd test DecryptPrivateKeyWithPd
-func TestDecryptPrivateKeyWithPd(t *testing.T) {
-	Convey("test for DecryptPrivateKey", t, func() {
-		Convey("private key is not encrypt", func() {
-			block, err := DecryptPrivateKeyWithPd("./testdata/cert/client.key", nil)
-			So(err, ShouldEqual, nil)
-			_, ok := block.Headers["DEK-Info"]
-			So(ok, ShouldBeFalse)
-		})
-		Convey("private key is  encrypted", func() {
-			block, err := DecryptPrivateKeyWithPd("./testdata/cert/server-aes.key", []byte("111111"))
-			So(err, ShouldEqual, nil)
-			_, ok := block.Headers["DEK-Info"]
-			So(ok, ShouldBeFalse)
-		})
-	})
-}
-
 // TestLoadCertsFromPEM test LoadCertsFromPEM
 func TestLoadCertsFromPEM(t *testing.T) {
 	Convey("test for DecryptPrivateKey", t, func() {
 		Convey("normal cert", func() {
-			caByte, err := ReadBytes("./testdata/cert/ca.crt")
+			caByte, err := ReadLimitBytes("./testdata/cert/ca.crt", Size10M)
 			So(err, ShouldEqual, nil)
 			ca, err := LoadCertsFromPEM(caByte)
 			So(err, ShouldEqual, nil)
 			So(ca.IsCA, ShouldBeTrue)
 		})
 		Convey("abnormal cert", func() {
-			caByte, err := ReadBytes("./testdata/cert/ca_err.crt")
+			caByte, err := ReadLimitBytes("./testdata/cert/ca_err.crt", Size10M)
 			So(err, ShouldEqual, nil)
 			ca, err := LoadCertsFromPEM(caByte)
 			So(ca, ShouldEqual, nil)
@@ -193,7 +62,7 @@ func TestCheckSignatureAlgorithm(t *testing.T) {
 
 	Convey("test for CheckSignatureAlgorithm", t, func() {
 		Convey("normal cert", func() {
-			caByte, err := ReadBytes("./testdata/cert/ca.crt")
+			caByte, err := ReadLimitBytes("./testdata/cert/ca.crt", Size10M)
 			So(err, ShouldEqual, nil)
 			ca, err := LoadCertsFromPEM(caByte)
 			err = CheckSignatureAlgorithm(ca)
@@ -202,49 +71,14 @@ func TestCheckSignatureAlgorithm(t *testing.T) {
 	})
 }
 
-// TestValidateX509Pair test ValidateX509Pair
-func TestValidateX509Pair(t *testing.T) {
-	Convey("test for ValidateX509Pair", t, func() {
-		Convey("normal v1 cert", func() {
-			certByte, err := ReadBytes("./testdata/cert/client-v1.crt")
-			So(err, ShouldEqual, nil)
-			keyByte, err := ReadBytes("./testdata/cert/client.key")
-			So(err, ShouldEqual, nil)
-			// validate period is 10 years, after that this case maybe failed
-			c, err := ValidateX509Pair(certByte, keyByte)
-			So(err, ShouldNotBeEmpty)
-			So(c, ShouldEqual, nil)
-		})
-		Convey("normal cert", func() {
-			certByte, err := ReadBytes("./testdata/cert/client-v3.crt")
-			So(err, ShouldEqual, nil)
-			keyByte, err := ReadBytes("./testdata/cert/client.key")
-			So(err, ShouldEqual, nil)
-			// validate period is 10 years, after that this case maybe failed
-			c, err := ValidateX509Pair(certByte, keyByte)
-			So(err, ShouldEqual, nil)
-			So(c, ShouldNotBeEmpty)
-		})
-		Convey("not match cert", func() {
-			certByte, err := ReadBytes("./testdata/cert/server.crt")
-			So(err, ShouldEqual, nil)
-			keyByte, err := ReadBytes("./testdata/cert/client.key")
-			So(err, ShouldEqual, nil)
-			c, err := ValidateX509Pair(certByte, keyByte)
-			So(err, ShouldNotBeEmpty)
-			So(c, ShouldEqual, nil)
-		})
-	})
-}
-
 // TestCheckRevokedCert test RevokedCert
 func TestCheckRevokedCert(t *testing.T) {
 	Convey("test for CheckRevokedCert", t, func() {
 		Convey("cert revoked", func() {
-			certByte, err := ReadBytes("./testdata/checkcrl_testdata/certificate.crt")
+			certByte, err := ReadLimitBytes("./testdata/checkcrl_testdata/certificate.crt", Size10M)
 			So(err, ShouldEqual, nil)
 			cert, _ := LoadCertsFromPEM(certByte)
-			cacert, err := ReadBytes("./testdata/checkcrl_testdata/ca.crt")
+			cacert, err := ReadLimitBytes("./testdata/checkcrl_testdata/ca.crt", Size10M)
 			So(err, ShouldEqual, nil)
 			ca, _ := LoadCertsFromPEM(cacert)
 			r := &http.Request{
@@ -254,7 +88,7 @@ func TestCheckRevokedCert(t *testing.T) {
 						{SerialNumber: big.NewInt(1)}, cert},
 				},
 			}
-			crlByte, err := ReadBytes("./testdata/checkcrl_testdata/certificate_revokelist.crl")
+			crlByte, err := ReadLimitBytes("./testdata/checkcrl_testdata/certificate_revokelist.crl", Size10M)
 			So(err, ShouldEqual, nil)
 			crl, err := x509.ParseCRL(crlByte)
 			if err == nil {
@@ -280,32 +114,6 @@ func TestCheckRevokedCert(t *testing.T) {
 			So(res, ShouldBeFalse)
 			res = CheckRevokedCert(r, crlcerList)
 			So(res, ShouldBeFalse)
-		})
-	})
-}
-
-// TestCheckCaCert test for CheckCaCert
-func TestCheckCaCert(t *testing.T) {
-	Convey("test for CheckCaCert", t, func() {
-		Convey("normal situation,no err returned", func() {
-			_, err := CheckCaCert("./testdata/cert/ca.crt")
-			So(err, ShouldEqual, nil)
-		})
-		Convey("cert is nil", func() {
-			_, err := CheckCaCert("")
-			So(err, ShouldEqual, nil)
-		})
-		Convey("cert file is not exsit", func() {
-			_, err := CheckCaCert("/djdsk.../dsd")
-			So(err, ShouldEqual, nil)
-		})
-		Convey("ca file not right", func() {
-			_, err := CheckCaCert("./testdata/cert/ca_err.crt")
-			So(err, ShouldNotBeEmpty)
-		})
-		Convey("cert file is not ca", func() {
-			_, err := CheckCaCert("./testdata/cert/server.crt")
-			So(err, ShouldNotBeEmpty)
 		})
 	})
 }
@@ -463,31 +271,5 @@ func TestKmcInit(t *testing.T) {
 			}
 		}()
 		KmcInit(0, "./primary.key", "standby.key")
-	})
-}
-
-func TestGetRandomPass(t *testing.T) {
-	Convey("normal situation", t, func() {
-		r1 := gomonkey.ApplyFunc(rand.Read, func(b []byte) (int, error) {
-			for i := range b {
-				b[i] = byte(i)
-			}
-			return len(b), nil
-		})
-		defer r1.Reset()
-		res, err := GetRandomPass()
-		So(err, ShouldEqual, nil)
-		So(len(res), ShouldNotEqual, 0)
-	})
-	Convey("simple passwd situation", t, func() {
-		r2 := gomonkey.ApplyFunc(rand.Read, func(b []byte) (int, error) {
-			for i := range b {
-				b[i] = 1
-			}
-			return len(b), nil
-		})
-		defer r2.Reset()
-		_, err := GetRandomPass()
-		So(err.Error(), ShouldEqual, "the password is to simple,please retry")
 	})
 }
