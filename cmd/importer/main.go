@@ -17,7 +17,10 @@ import (
 	"time"
 
 	"huawei.com/mindx/common/hwlog"
-	"huawei.com/npu-exporter/utils"
+	"huawei.com/mindx/common/kmc"
+	"huawei.com/mindx/common/tls"
+	"huawei.com/mindx/common/utils"
+	"huawei.com/mindx/common/x509"
 	"huawei.com/npu-exporter/versions"
 )
 
@@ -26,6 +29,10 @@ const (
 	timeFormat = "2006-01-02T15-04-05.000"
 	onekilo    = 1000
 	hwMindX    = 9000
+	// aes128gcm AES128-GCM
+	aes128gcm = 8
+	// aes256gcm AES256-GCM
+	aes256gcm = 9
 )
 
 var (
@@ -88,7 +95,7 @@ func init() {
 	flag.StringVar(&keyFile, "keyFile", "",
 		"The key file path,If both the certificate and key file exist,system will enable https")
 	flag.StringVar(&crlFile, "crlFile", "", "The offline CRL file path")
-	flag.IntVar(&encryptAlgorithm, "encryptAlgorithm", utils.Aes256gcm,
+	flag.IntVar(&encryptAlgorithm, "encryptAlgorithm", aes256gcm,
 		"Use 8 for aes128gcm,9 for aes256gcm,not recommended config it in general")
 	flag.StringVar(&component, "cpt", "ne", "The component name such as ne (npu-exporter),"+
 		"am (access-manager),lm(license-manager),la(license agent),hc(hccl-controller),"+
@@ -123,7 +130,7 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) error {
 		hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
 		return nil
 	}
-	if err := utils.OverridePassWdFile(keyFile, []byte{}, utils.FileMode); err != nil {
+	if err := x509.OverridePassWdFile(keyFile, []byte{}, utils.FileMode); err != nil {
 		hwlog.RunLog.Warn("security delete key file failed")
 	}
 	err := os.Remove(keyFile)
@@ -137,7 +144,7 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) error {
 
 func importCert(certFile, keyFile string) error {
 	hwlog.RunLog.Info("[OP]start to import the key file")
-	keyBlock, err := utils.DecryptPrivateKeyWithPd(keyFile, nil)
+	keyBlock, err := x509.DecryptPrivateKeyWithPd(keyFile, nil)
 	if err != nil {
 		return err
 	}
@@ -147,15 +154,18 @@ func importCert(certFile, keyFile string) error {
 		return errors.New("read certFile failed")
 	}
 	// validate certification and private key, if not pass, program will exit
-	if _, err = utils.ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock)); err != nil {
+	if _, err = tls.ValidateX509Pair(certBytes, pem.EncodeToMemory(keyBlock), x509.InvalidNum); err != nil {
 		return err
 	}
 	if err = utils.MakeSureDir(keyStore); err != nil {
 		return err
 	}
 	hwlog.RunLog.Info("encrypt private key again with passwd")
-	encryptedBlock, err := utils.EncryptPrivateKeyAgain(keyBlock, passFile, passFileBackUp, encryptAlgorithm)
-	if err = utils.OverridePassWdFile(keyStore, pem.EncodeToMemory(encryptedBlock), utils.FileMode); err != nil {
+	encryptedBlock, err := x509.EncryptPrivateKeyAgain(keyBlock, passFile, passFileBackUp, encryptAlgorithm)
+	if err != nil {
+		return err
+	}
+	if err = x509.OverridePassWdFile(keyStore, pem.EncodeToMemory(encryptedBlock), utils.FileMode); err != nil {
 		return err
 	}
 	hwlog.RunLog.Info("[OP]encrypted key file import successfully")
@@ -168,7 +178,7 @@ func importCert(certFile, keyFile string) error {
 
 func importCA(caFile string) error {
 	hwlog.RunLog.Info("[OP]start to import the ca file")
-	caBytes, err := utils.CheckCaCert(caFile)
+	caBytes, err := x509.CheckCaCert(caFile, x509.InvalidNum)
 	if err != nil {
 		return err
 	}
@@ -184,7 +194,7 @@ func importCA(caFile string) error {
 func importCRL(crlFile string) error {
 	// start to import the crl file
 	hwlog.RunLog.Info("[OP]start to import the crl file")
-	crlBytes, err := utils.CheckCRL(crlFile)
+	crlBytes, err := x509.CheckCRL(crlFile)
 	if err != nil {
 		return err
 	}
@@ -208,35 +218,35 @@ func valid(certFile string, keyFile string, caFile string, crlFile string) error
 }
 
 func commonValid() error {
-	if encryptAlgorithm != utils.Aes128gcm && encryptAlgorithm != utils.Aes256gcm {
+	if encryptAlgorithm != aes128gcm && encryptAlgorithm != aes256gcm {
 		hwlog.RunLog.Warn("reset invalid encryptAlgorithm ")
-		encryptAlgorithm = utils.Aes256gcm
+		encryptAlgorithm = aes256gcm
 	}
 	cp, ok := cptMap[component]
 	if !ok {
 		return errors.New("the component is invalid")
 	}
 	var paths []string
-	keyStore = dirPrefix + cp + "/" + utils.KeyStore
+	keyStore = dirPrefix + cp + "/" + tls.KeyStore
 	paths = append(paths, keyStore)
-	certStore = dirPrefix + cp + "/" + utils.CertStore
+	certStore = dirPrefix + cp + "/" + tls.CertStore
 	paths = append(paths, certStore)
-	caStore = dirPrefix + cp + "/" + utils.CaStore
+	caStore = dirPrefix + cp + "/" + tls.CaStore
 	paths = append(paths, caStore)
-	crlStore = dirPrefix + cp + "/" + utils.CrlStore
+	crlStore = dirPrefix + cp + "/" + tls.CrlStore
 	paths = append(paths, crlStore)
-	passFile = dirPrefix + cp + "/" + utils.PassFile
+	passFile = dirPrefix + cp + "/" + tls.PassFile
 	paths = append(paths, passFile)
-	passFileBackUp = dirPrefix + cp + "/" + utils.PassFileBackUp
+	passFileBackUp = dirPrefix + cp + "/" + tls.PassFileBackUp
 	paths = append(paths, passFileBackUp)
-	kubeConfStore = dirPrefix + cp + "/" + utils.KubeCfgFile
+	kubeConfStore = dirPrefix + cp + "/" + tls.KubeCfgFile
 	paths = append(paths, kubeConfStore)
 	return checkPathIsExist(paths)
 }
 
 func checkPathIsExist(paths []string) error {
 	for _, v := range paths {
-		if !utils.IsExists(v) {
+		if !utils.IsExist(v) {
 			continue
 		}
 		_, err := utils.CheckPath(v)
@@ -248,7 +258,7 @@ func checkPathIsExist(paths []string) error {
 }
 
 func initHwLogger() error {
-	if utils.IsExists(hwLogConfig.LogFileName) {
+	if utils.IsExist(hwLogConfig.LogFileName) {
 		_, err := utils.CheckPath(hwLogConfig.LogFileName)
 		if err != nil {
 			return err
@@ -300,10 +310,16 @@ func importKubeConfig(kubeConf string) error {
 	if err != nil {
 		return err
 	}
-	if err = utils.KmcInit(encryptAlgorithm, "", ""); err != nil {
+	if err = kmc.Initialize(encryptAlgorithm, "", ""); err != nil {
 		return err
 	}
-	encryptedConf, err := utils.Encrypt(0, btes)
+	defer func() {
+		err = kmc.Finalize()
+		if err != nil {
+			hwlog.RunLog.Error(err)
+		}
+	}()
+	encryptedConf, err := kmc.Encrypt(0, btes)
 	if err != nil {
 		return errors.New("encrypt kubeConfig failed")
 	}
@@ -311,7 +327,7 @@ func importKubeConfig(kubeConf string) error {
 		return err
 	}
 	hwlog.RunLog.Info("[OP]encrypt kubeConfig successfully")
-	if err = utils.OverridePassWdFile(kubeConfStore, encryptedConf, utils.FileMode); err != nil {
+	if err = x509.OverridePassWdFile(kubeConfStore, encryptedConf, utils.FileMode); err != nil {
 		return errors.New("write encrypted kubeConfig to file failed")
 	}
 	hwlog.RunLog.Info("[OP]import kubeConfig successfully")
@@ -325,12 +341,17 @@ func resourceClean(conf string) error {
 	if err := adjustOwner(); err != nil {
 		return err
 	}
-	utils.KmcShutDown()
+	defer func() {
+		err := kmc.Finalize()
+		if err != nil {
+			hwlog.RunLog.Error(err)
+		}
+	}()
 	if notDel {
 		hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
 		return nil
 	}
-	if err := utils.OverridePassWdFile(conf, []byte{}, utils.FileMode); err != nil {
+	if err := x509.OverridePassWdFile(conf, []byte{}, utils.FileMode); err != nil {
 		hwlog.RunLog.Warn("security delete config failed")
 	}
 	err := os.Remove(conf)

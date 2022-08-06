@@ -23,9 +23,11 @@ import (
 
 	"huawei.com/mindx/common/hwlog"
 	"huawei.com/mindx/common/limiter"
+	mytls "huawei.com/mindx/common/tls"
+	"huawei.com/mindx/common/utils"
+	myx509 "huawei.com/mindx/common/x509"
 	"huawei.com/npu-exporter/collector"
 	"huawei.com/npu-exporter/collector/container"
-	"huawei.com/npu-exporter/utils"
 	"huawei.com/npu-exporter/versions"
 )
 
@@ -56,12 +58,12 @@ const (
 	portLeft                = 1025
 	portRight               = 40000
 	oneMinute               = 60
-	keyStore                = dirPrefix + utils.KeyStore
-	certStore               = dirPrefix + utils.CertStore
-	caStore                 = dirPrefix + utils.CaStore
-	crlStore                = dirPrefix + utils.CrlStore
-	passFile                = dirPrefix + utils.PassFile
-	passFileBackUp          = dirPrefix + utils.PassFileBackUp
+	keyStore                = dirPrefix + mytls.KeyStore
+	certStore               = dirPrefix + mytls.CertStore
+	caStore                 = dirPrefix + mytls.CaStore
+	crlStore                = dirPrefix + mytls.CrlStore
+	passFile                = dirPrefix + mytls.PassFile
+	passFileBackUp          = dirPrefix + mytls.PassFileBackUp
 	defaultConcurrency      = 5
 	defaultLogFile          = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
 	containerModeDocker     = "docker"
@@ -72,6 +74,13 @@ const (
 	maxConnection           = 20
 	maxHeaderBytes          = 1024
 	defaultWarningDays      = 100
+	// weekDays one week days
+	weekDays = 7
+	// yearDays one year days
+	yearDays = 365
+	// tenDays ten days
+	tenDays   = 10
+	aes256gcm = 9
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
@@ -104,14 +113,14 @@ func main() {
 		return
 	}
 	if certificate != nil {
-		tlsConf, err := utils.NewTLSConfig(caBytes, *certificate, cipherSuites)
+		tlsConf, err := mytls.NewTLSConfig(caBytes, *certificate, []uint16{cipherSuites})
 		if err != nil {
 			hwlog.RunLog.Error(err)
 			return
 		}
 		s.TLSConfig = tlsConf
 		s.Handler, err = limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency,
-			utils.Interceptor(http.DefaultServeMux, crlcerList), true, http.MethodGet)
+			myx509.Interceptor(http.DefaultServeMux, crlcerList), true, http.MethodGet)
 		if err != nil {
 			hwlog.RunLog.Error(err)
 			return
@@ -201,16 +210,16 @@ func validate() error {
 	if enableHTTP {
 		return nil
 	}
-	if checkInterval < 1 || checkInterval > utils.WeekDays {
+	if checkInterval < 1 || checkInterval > weekDays {
 		return errors.New("certificate check interval time invalidate")
 	}
-	if warningDays < utils.TenDays || warningDays > utils.YearDays {
+	if warningDays < tenDays || warningDays > yearDays {
 		return errors.New("certificate warning time invalidate")
 	}
-	utils.SetPeriodCheckParam(warningDays, checkInterval)
+	myx509.SetPeriodCheckParam(warningDays, checkInterval)
 	// key file exist and need init kmc
 	hwlog.RunLog.Info("start load imported certificate files")
-	tlsCert, err := utils.LoadCertPair(certStore, keyStore, passFile, passFileBackUp, utils.Aes256gcm)
+	tlsCert, err := mytls.LoadCertPair(certStore, keyStore, passFile, passFileBackUp, aes256gcm)
 	if err != nil {
 		return err
 	}
@@ -218,7 +227,7 @@ func validate() error {
 	if err = loadCRL(); err != nil {
 		return err
 	}
-	caBytes, err = utils.CheckCaCert(caStore)
+	caBytes, err = myx509.CheckCaCert(caStore, myx509.InvalidNum)
 	return err
 }
 
@@ -321,7 +330,7 @@ func indexHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func getCertStatus(w http.ResponseWriter, _ *http.Request) {
-	b, err := json.Marshal(utils.GetCertStatus())
+	b, err := json.Marshal(myx509.GetCertStatus())
 	if err != nil {
 		hwlog.RunLog.Error("fail to marshal cert status")
 	}
@@ -332,7 +341,7 @@ func getCertStatus(w http.ResponseWriter, _ *http.Request) {
 }
 
 func loadCRL() error {
-	crlBytes, err := utils.CheckCRL(crlStore)
+	crlBytes, err := myx509.CheckCRL(crlStore)
 	if err != nil {
 		return err
 	}

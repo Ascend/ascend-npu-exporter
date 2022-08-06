@@ -4,7 +4,6 @@
 package utils
 
 import (
-	"bufio"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
@@ -17,18 +16,13 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math"
-	"net"
 	"net/http"
 	"os"
-	"os/exec"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"syscall"
 	"time"
 
 	"huawei.com/kmc/pkg/adaptor/inbound/api"
@@ -85,12 +79,7 @@ const (
 	PassFileBackUpPath = "PassFileBackUpPath"
 	yearHours          = 87600
 	maskLen            = 2
-	// WeekDays one week days
-	WeekDays = 7
-	// YearDays one year days
-	YearDays = 365
-	// TenDays ten days
-	TenDays = 10
+	tenDays            = 10
 	// Size10M  bytes of 10M
 	Size10M            = 10 * 1024 * 1024
 	maxSize            = 1024 * 1024 * 1024
@@ -99,17 +88,7 @@ const (
 	initSize           = 4
 	minCount           = 2
 
-	rootUID         = 0
-	maxPathDepth    = 20
-	maxPathLength   = 1024
-	invalidFileMode = 0022
-
-	ldSplitLen     = 2
-	ldLibNameIndex = 0
-	ldLibPathIndex = 1
-	ldCommand      = "/sbin/ldconfig"
-	ldParam        = "--print-cache"
-	grepCommand    = "/bin/grep"
+	maxPathLength = 1024
 )
 
 var (
@@ -130,17 +109,6 @@ type CertStatus struct {
 	NotAfter          time.Time `json:"not_after"`
 	IsCA              bool      `json:"is_ca"`
 	FingerprintSHA256 string    `json:"fingerprint_sha256,omitempty"`
-}
-
-// GetCertStatus return certifcateMap
-func GetCertStatus() map[string]*CertStatus {
-	return certificateMap
-}
-
-// SetPeriodCheckParam set period parameter
-func SetPeriodCheckParam(warningDaysFlag, checkIntervalFlag int) {
-	warningDays = warningDaysFlag
-	checkInterval = checkIntervalFlag
 }
 
 // ReadBytes read contents from file path
@@ -567,20 +535,10 @@ func KmcInit(sdpAlgID int, primaryKey, standbyKey string) error {
 	if err != nil {
 		return errors.New("initial kmc failed,please make sure the LD_LIBRARY_PATH include the kmc-ext.so ")
 	}
-	if updateErr := cryptoAPI.UpdateLifetimeDays(TenDays * TenDays); updateErr != nil {
+	if updateErr := cryptoAPI.UpdateLifetimeDays(tenDays * tenDays); updateErr != nil {
 		hwlog.RunLog.Warn("update crypto lifetime failed ")
 	}
 	return nil
-}
-
-// KmcShutDown shutdown kmc init
-func KmcShutDown() {
-	if bootstrap != nil {
-		err := bootstrap.Shutdown()
-		if err != nil {
-			hwlog.RunLog.Error(err)
-		}
-	}
 }
 
 func checkRootMaterial(primaryKey string) error {
@@ -758,22 +716,6 @@ func CheckCaCertV2(caFile string, overdueTime int) ([]byte, error) {
 	return caBytes, nil
 }
 
-// LoadCertPair load and valid encrypted certificate and private key
-func LoadCertPair(cert, keyFile, psFile, psFileBk string, encryptAlgorithm int) (*tls.Certificate, error) {
-	pathMap := map[string]string{
-		CertStorePath:      cert,
-		KeyStorePath:       keyFile,
-		PassFilePath:       psFile,
-		PassFileBackUpPath: psFileBk,
-	}
-	certBytes, keyPem, err := LoadCertPairByte(pathMap, encryptAlgorithm, FileMode)
-	if err != nil {
-		return nil, err
-	}
-
-	return ValidateCertPair(certBytes, keyPem, true, InvalidNum)
-}
-
 // CheckCertFiles CheckCertFiles
 func CheckCertFiles(pathMap map[string]string) error {
 	cert, ok := pathMap[CertStorePath]
@@ -818,50 +760,6 @@ func CheckCertFiles(pathMap map[string]string) error {
 	return nil
 }
 
-// LoadCertPairByte load and valid encrypted certificate and private key
-func LoadCertPairByte(pathMap map[string]string, encryptAlgorithm int, mode os.FileMode) ([]byte, []byte, error) {
-	if err := CheckCertFiles(pathMap); err != nil {
-		return nil, nil, err
-	}
-	cert := pathMap[CertStorePath]
-	key := pathMap[KeyStorePath]
-	psFile := pathMap[PassFilePath]
-	psFileBk := pathMap[PassFileBackUpPath]
-	certBytes, err := ReadLimitBytes(cert, Size10M)
-	if err != nil {
-		return nil, nil, errors.New("there is no certFile provided")
-	}
-	encodedPd := ReadOrUpdatePd(psFile, psFileBk, mode)
-	if err = KmcInit(encryptAlgorithm, "", ""); err != nil {
-		return nil, nil, err
-	}
-	pd, err := Decrypt(0, encodedPd)
-	if err != nil {
-		return nil, nil, errors.New("decrypt passwd failed")
-	}
-	hwlog.RunLog.Info("decrypt passwd successfully")
-	isEncode, err := isEncryptedKey(key)
-	if err != nil {
-		return nil, nil, err
-	}
-	if !isEncode {
-		return nil, nil, errors.New("mindx-dl don't support non-encrypted key ")
-	}
-	keyBlock, err := DecryptPrivateKeyWithPd(key, pd)
-	if err != nil {
-		return nil, nil, err
-	}
-	hwlog.RunLog.Info("decrypt success")
-	if bootstrap != nil {
-		err = bootstrap.Shutdown()
-		if err != nil {
-			hwlog.RunLog.Error(err)
-		}
-	}
-	PaddingAndCleanSlice(pd)
-	return certBytes, pem.EncodeToMemory(keyBlock), nil
-}
-
 // ValidateCertPair ValidateCertPair
 func ValidateCertPair(certBytes, keyPem []byte, periodCheck bool, overdueTime int) (*tls.Certificate, error) {
 	var err error
@@ -887,35 +785,6 @@ func ValidateCertPair(certBytes, keyPem []byte, periodCheck bool, overdueTime in
 		go PeriodCheck()
 	}
 	return tlsCert, nil
-}
-
-// NewTLSConfig  create the tls config struct
-func NewTLSConfig(caBytes []byte, certificate tls.Certificate, cipherSuites uint16) (*tls.Config, error) {
-	return NewTLSConfigV2(caBytes, certificate, []uint16{cipherSuites})
-}
-
-// NewTLSConfigV2  create the tls config struct version 2
-func NewTLSConfigV2(caBytes []byte, certificate tls.Certificate, cipherSuites []uint16) (*tls.Config, error) {
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{certificate},
-		MinVersion:   tls.VersionTLS12,
-		CipherSuites: cipherSuites,
-	}
-	if len(caBytes) > 0 {
-		// Two-way SSL
-		pool := x509.NewCertPool()
-		if ok := pool.AppendCertsFromPEM(caBytes); !ok {
-			return nil, errors.New("append the CA file failed")
-		}
-		tlsConfig.ClientCAs = pool
-		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-		hwlog.RunLog.Info("enable Two-way SSL mode")
-	} else {
-		// One-way SSL
-		tlsConfig.ClientAuth = tls.NoClientCert
-		hwlog.RunLog.Info("enable One-way SSL mode")
-	}
-	return tlsConfig, nil
 }
 
 func write(path string, overrideByte []byte, mode os.FileMode) error {
@@ -944,36 +813,6 @@ func checkExtension(cert *x509.Certificate) error {
 }
 
 var dirPrefix = "/etc/mindx-dl/npu-exporter/"
-
-// GetTLSConfigForClient get the tls config for client
-func GetTLSConfigForClient(componentType string, encryptAlgorithm int) (*tls.Config, error) {
-	if componentType != "npu-exporter" {
-		dirPrefix = strings.Replace(dirPrefix, "npu-exporter", componentType, -1)
-	}
-	keyStore := dirPrefix + KeyStore
-	certStore := dirPrefix + CertStore
-	caStore := dirPrefix + CaStore
-	passFile := dirPrefix + PassFileBackUp
-	passFileBackUp := dirPrefix + PassFileBackUp
-	tlsCert, err := LoadCertPair(certStore, keyStore, passFile, passFileBackUp, encryptAlgorithm)
-	if err != nil {
-		return nil, err
-	}
-	caBytes, err := CheckCaCert(caStore)
-	if err != nil {
-		return nil, err
-	}
-	pool := x509.NewCertPool()
-	if ok := pool.AppendCertsFromPEM(caBytes); !ok {
-		return nil, errors.New("append the CA file failed")
-	}
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{*tlsCert},
-		RootCAs:      pool,
-		MinVersion:   tls.VersionTLS12,
-	}
-	return tlsConfig, nil
-}
 
 // AddToCertStatusTrace  add certstatus to trace map
 func AddToCertStatusTrace(cert *x509.Certificate) error {
@@ -1020,29 +859,6 @@ func CheckPath(path string) (string, error) {
 	return resoledPath, nil
 }
 
-// ClientIP try to get the clientIP
-func ClientIP(r *http.Request) string {
-	// get forward ip fistly
-	var ip string
-	xForwardedFor := r.Header.Get("X-Forwarded-For")
-	forwardSlice := strings.Split(xForwardedFor, ",")
-	if len(forwardSlice) >= 1 {
-		if ip = strings.TrimSpace(forwardSlice[0]); ip != "" {
-			return ip
-		}
-	}
-	// try get ip from "X-Real-Ip"
-	ip = strings.TrimSpace(r.Header.Get("X-Real-Ip"))
-	if ip != "" {
-		return ip
-	}
-	var err error
-	if ip, _, err = net.SplitHostPort(strings.TrimSpace(r.RemoteAddr)); err == nil {
-		return ip
-	}
-	return ""
-}
-
 // LoadFile load file content
 func LoadFile(filePath string) ([]byte, error) {
 	if filePath == "" {
@@ -1061,217 +877,4 @@ func LoadFile(filePath string) ([]byte, error) {
 	}
 
 	return contentBytes, nil
-}
-
-// Interceptor Interceptor
-func Interceptor(h http.Handler, crlCertList *pkix.CertificateList) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if crlCertList != nil && CheckRevokedCert(r, crlCertList) {
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-		w.Header().Set("Strict-Transport-Security", "max-age=31536000")
-		h.ServeHTTP(w, r)
-	})
-}
-
-// ReplacePrefix replate string with prefix
-func ReplacePrefix(source, prefix string) string {
-	if prefix == "" {
-		prefix = "****"
-	}
-	if len(source) <= maskLen {
-		return prefix
-	}
-	end := string([]rune(source)[maskLen:len(source)])
-	return prefix + end
-}
-
-// MaskPrefix mask string prefix with ***
-func MaskPrefix(source string) string {
-	return ReplacePrefix(source, "")
-}
-
-// group and other user cannot write
-func checkMode(mode os.FileMode) bool {
-	checkMode := uint32(mode) & uint32(invalidFileMode)
-	return checkMode == 0
-}
-
-func checkPathPermission(verifyPath string) (string, bool) {
-	if verifyPath == "" {
-		hwlog.RunLog.Debug("empty path")
-		return verifyPath, false
-	}
-	absPath, err := filepath.Abs(verifyPath)
-	if err != nil {
-		hwlog.RunLog.Debugf("Abs failed %#v", err)
-		return "", false
-	}
-	resoledPath, err := filepath.EvalSymlinks(absPath)
-	if err != nil {
-		hwlog.RunLog.Debugf("EvalSymlinks failed %#v", err)
-		return "", false
-	}
-	// if symlinks
-	if absPath != resoledPath {
-		// check symlinks its self owner
-		pathInfo, err := os.Lstat(absPath)
-		if err != nil {
-			hwlog.RunLog.Debugf("lstat failed, %#v", err)
-			return "", false
-		}
-		stat, ok := pathInfo.Sys().(*syscall.Stat_t)
-		if !ok || stat.Uid != rootUID {
-			hwlog.RunLog.Debug("symlinks owner may not root")
-			return "", false
-		}
-	}
-	pathInfo, err := os.Stat(resoledPath)
-	if err != nil {
-		hwlog.RunLog.Debugf("Stat failed %#v", err)
-		return "", false
-	}
-	stat, ok := pathInfo.Sys().(*syscall.Stat_t)
-	if !ok || stat.Uid != rootUID || !checkMode(pathInfo.Mode()) {
-		return "", false
-	}
-	return resoledPath, true
-}
-
-func checkAbsPath(libPath string) (string, bool) {
-	absLibPath, ok := checkPathPermission(libPath)
-	if !ok {
-		return "", false
-	}
-	count := 0
-	fPath := absLibPath
-	for {
-		if count >= maxPathDepth {
-			break
-		}
-		count++
-		if fPath == "/" {
-			return absLibPath, true
-		}
-		fPath = filepath.Dir(fPath)
-		if _, ok := checkPathPermission(fPath); !ok {
-			return "", false
-		}
-	}
-	return "", false
-}
-
-func checkLibsPath(libraryPaths []string, libraryName string) (string, error) {
-	for _, libraryPath := range libraryPaths {
-		libraryAbsName := path.Join(libraryPath, libraryName)
-		if len(libraryAbsName) > maxPathLength {
-			continue
-		}
-		if absLibPath, ok := checkAbsPath(libraryAbsName); ok {
-			return absLibPath, nil
-		}
-	}
-	return "", fmt.Errorf("driver lib is not exist or it's permission is invalid")
-}
-
-func getLibFromEnv(libraryName string) (string, error) {
-	ldLibraryPath := os.Getenv("LD_LIBRARY_PATH")
-	if len(ldLibraryPath) > maxPathLength {
-		return "", fmt.Errorf("invalid library path env")
-	}
-	libraryPaths := strings.Split(ldLibraryPath, ":")
-	return checkLibsPath(libraryPaths, libraryName)
-}
-
-func trimSpaceTable(data string) string {
-	data = strings.Replace(data, " ", "", -1)
-	data = strings.Replace(data, "\t", "", -1)
-	data = strings.Replace(data, "\n", "", -1)
-	return data
-}
-
-func parserLibPath(line, libraryName string) string {
-	ldInfo := strings.Split(line, "=>")
-	if len(ldInfo) < ldSplitLen {
-		return ""
-	}
-	libNames := strings.Split(ldInfo[ldLibNameIndex], " ")
-	for index, libName := range libNames {
-		if index >= maxPathDepth {
-			break
-		}
-		if len(libName) == 0 {
-			continue
-		}
-		if name := trimSpaceTable(libName); name != libraryName {
-			continue
-		}
-		return trimSpaceTable(ldInfo[ldLibPathIndex])
-	}
-	return ""
-}
-
-func parseLibFromLdCmd(libraryName string) (string, error) {
-	ldCmd := exec.Command(ldCommand, ldParam)
-	grepCmd := exec.Command(grepCommand, libraryName)
-	ldCmdStdout, err := ldCmd.StdoutPipe()
-	if err != nil {
-		hwlog.RunLog.Error(err)
-		return "", fmt.Errorf("command exec failed")
-	}
-	grepCmd.Stdin = ldCmdStdout
-	stdout, err := grepCmd.StdoutPipe()
-	if err != nil {
-		hwlog.RunLog.Error(err)
-		return "", fmt.Errorf("command exec failed")
-	}
-	if err := grepCmd.Start(); err != nil {
-		hwlog.RunLog.Error(err)
-		return "", fmt.Errorf("command exec failed")
-	}
-	if err := ldCmd.Run(); err != nil {
-		hwlog.RunLog.Error(err)
-		return "", fmt.Errorf("command exec failed")
-	}
-	defer func() {
-		if err := grepCmd.Wait(); err != nil {
-			hwlog.RunLog.Warnf("command exec failed, %#v", err)
-		}
-	}()
-	reader := bufio.NewReader(stdout)
-	for {
-		line, err2 := reader.ReadString('\n')
-		if err2 != nil || io.EOF == err2 {
-			break
-		}
-		if libPath := parserLibPath(line, libraryName); libPath != "" {
-			return libPath, nil
-		}
-	}
-	return "", fmt.Errorf("can't find valid lib")
-}
-
-func getLibFromLdCmd(libraryName string) (string, error) {
-	libraryAbsName, err := parseLibFromLdCmd(libraryName)
-	if err != nil {
-		return "", err
-	}
-	if absLibPath, ok := checkAbsPath(libraryAbsName); ok {
-		return absLibPath, nil
-	}
-	return "", fmt.Errorf("driver lib is not exist or it's permission is invalid")
-}
-
-// GetDriverLibPath get driver lib path from ld config
-func GetDriverLibPath(libraryName string) (string, error) {
-	var libPath string
-	var err error
-	if libPath, err = getLibFromEnv(libraryName); err == nil {
-		return libPath, nil
-	}
-	if libPath, err = getLibFromLdCmd(libraryName); err == nil {
-		return libPath, nil
-	}
-	return "", fmt.Errorf("cannot found valid driver lib, %#v", err)
 }

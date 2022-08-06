@@ -260,8 +260,8 @@ import (
 	"unsafe"
 
 	"huawei.com/mindx/common/hwlog"
+	"huawei.com/mindx/common/utils"
 	"huawei.com/npu-exporter/devmanager/common"
-	"huawei.com/npu-exporter/utils"
 )
 
 // CDcmiMemoryInfoV3 the c struct of memoryInfo for v3

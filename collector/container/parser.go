@@ -19,7 +19,7 @@ import (
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	"huawei.com/mindx/common/hwlog"
-	"huawei.com/npu-exporter/utils"
+	"huawei.com/mindx/common/utils"
 )
 
 const (

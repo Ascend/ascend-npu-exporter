@@ -10,7 +10,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -311,84 +310,6 @@ func TestCheckCaCert(t *testing.T) {
 	})
 }
 
-// TestLoadEncryptedCertPair  test load function
-func TestLoadEncryptedCertPair(t *testing.T) {
-	Convey("test for LoadCertPair", t, func() {
-		var mainks = "./testdata/mainks"
-		var backupks = "./testdata/mainks"
-		// mock kmcInit
-		initStub := gomonkey.ApplyFunc(KmcInit, func(sdpAlgID int, primaryKey, standbyKey string) error {
-			return nil
-		})
-		defer initStub.Reset()
-		Convey("normal cert", func() {
-			encryptStub := gomonkey.ApplyFunc(Decrypt, func(domainID int, data []byte) ([]byte, error) {
-				return []byte("111111"), nil
-			})
-			defer encryptStub.Reset()
-			isEncryptedStub := gomonkey.ApplyFunc(isEncryptedKey, func(keyFile string) (bool, error) {
-				return true, nil
-			})
-			defer isEncryptedStub.Reset()
-			c, err := LoadCertPair("./testdata/cert/client-v3.crt",
-				"./testdata/cert/client.key", mainks, backupks, 0)
-			So(err, ShouldEqual, nil)
-			So(c, ShouldNotBeEmpty)
-		})
-		Convey("cert not match", func() {
-			encryptStub := gomonkey.ApplyFunc(Decrypt, func(domainID int, data []byte) ([]byte, error) {
-				return []byte("111111"), nil
-			})
-			defer encryptStub.Reset()
-			c, err := LoadCertPair("./testdata/cert/server.crt",
-				"./testdata/cert/client.key", mainks, backupks, 0)
-			So(c, ShouldEqual, nil)
-			So(err, ShouldNotBeEmpty)
-		})
-		Convey("cert not exist", func() {
-			c, err := LoadCertPair("./testdata/xxx.crt",
-				"./testdata/xxx/client.key", mainks, backupks, 0)
-			So(c, ShouldEqual, nil)
-			So(err, ShouldNotBeEmpty)
-		})
-		Convey("decrypt failed", func() {
-			encryptStub := gomonkey.ApplyFunc(Decrypt, func(domainID int, data []byte) ([]byte, error) {
-				return nil, errors.New("mock err")
-			})
-			defer encryptStub.Reset()
-			c, err := LoadCertPair("./testdata/cert/client-v1.crt",
-				"./testdata/cert/client.key", mainks, backupks, 0)
-			So(c, ShouldEqual, nil)
-			So(err.Error(), ShouldEqual, "decrypt passwd failed")
-		})
-
-	})
-}
-
-// TestNewTLSConfig test for new tls
-func TestNewTLSConfig(t *testing.T) {
-	Convey("test for NewTLSConfig", t, func() {
-		c := tls.Certificate{}
-		Convey("One-way HTTPS", func() {
-			conf, err := NewTLSConfig([]byte{}, c, tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)
-			So(err, ShouldEqual, nil)
-			So(conf, ShouldNotBeEmpty)
-		})
-		Convey("Two-way HTTPS,but ca check failed", func() {
-			conf, err := NewTLSConfig([]byte("sdsddd"), c, tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)
-			So(conf, ShouldEqual, nil)
-			So(err, ShouldNotBeEmpty)
-		})
-		Convey("Two-way HTTPS", func() {
-			ca, err := CheckCaCert("./testdata/cert/ca.crt")
-			conf, err := NewTLSConfig(ca, c, tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)
-			So(err, ShouldEqual, nil)
-			So(conf, ShouldNotBeEmpty)
-		})
-
-	})
-}
-
 // TestCheckPath test for file path check
 func TestCheckPath(t *testing.T) {
 	Convey("test for file path check", t, func() {
@@ -407,66 +328,6 @@ func TestCheckPath(t *testing.T) {
 			err = os.Remove("./testdata/cert/ca.crtlnk")
 			fmt.Printf("remove file faild:%s", err)
 		})
-	})
-}
-
-// TestReplacePrefix test for ReplacePrefix
-func TestReplacePrefix(t *testing.T) {
-	Convey("relative path", t, func() {
-		path := ReplacePrefix("./testdata/cert/ca.crt", "****")
-		So(path, ShouldEqual, "****testdata/cert/ca.crt")
-	})
-	Convey("absolute path", t, func() {
-		path := ReplacePrefix("/testdata/cert/ca.crt", "****")
-		So(path, ShouldEqual, "****estdata/cert/ca.crt")
-	})
-	Convey("path length less than 2", t, func() {
-		path := ReplacePrefix("/", "****")
-		So(path, ShouldEqual, "****")
-	})
-	Convey("empty string", t, func() {
-		path := ReplacePrefix("", "****")
-		So(path, ShouldEqual, "****")
-	})
-
-}
-
-// TestClientIP test for ClientIP
-func TestClientIP(t *testing.T) {
-	Convey("get ip from RemoteAddr", t, func() {
-		req, err := http.NewRequest("GET", "http://127.0.0.1", nil)
-		req.RemoteAddr = "127.0.0.1:80"
-		ip := ClientIP(req)
-		So(err, ShouldEqual, nil)
-		So(ip, ShouldEqual, "127.0.0.1")
-	})
-	Convey("get ip from X-Real-Ip", t, func() {
-		req, err := http.NewRequest("GET", "http://127.0.0.1", nil)
-		req.Header.Set("X-Real-IP", "127.0.0.2")
-		ip := ClientIP(req)
-		So(err, ShouldEqual, nil)
-		So(ip, ShouldEqual, "127.0.0.2")
-	})
-	Convey("get ip from X-Forwarded-For", t, func() {
-		req, err := http.NewRequest("GET", "http://127.0.0.1", nil)
-		req.Header.Set("X-Forwarded-For", "127.0.0.3")
-		ip := ClientIP(req)
-		So(err, ShouldEqual, nil)
-		So(ip, ShouldEqual, "127.0.0.3")
-	})
-}
-
-// TestGetTLSConfigForClient test for GetTLSConfigForClient
-func TestGetTLSConfigForClient(t *testing.T) {
-	Convey("get tlsconfig", t, func() {
-		gomonkey.ApplyFunc(LoadCertPairByte, func(pathMap map[string]string, encryptAlgorithm int,
-			mode os.FileMode) ([]byte, []byte, error) {
-			return nil, nil, errors.New("error")
-		})
-		cfg, err := GetTLSConfigForClient("npu-exporter", 1)
-		So(err, ShouldNotBeEmpty)
-		So(cfg, ShouldNotBeEmpty)
-		So(cfg, ShouldEqual, nil)
 	})
 }
 
