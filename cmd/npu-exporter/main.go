@@ -277,6 +277,9 @@ func baseParamValid() error {
 	if cacheSize < 1 || cacheSize > limiter.DefaultCacheSize*tenDays {
 		return errors.New("cacheSize range error")
 	}
+	if concurrency < 1 || concurrency > maxConcurrency {
+		return errors.New("concurrency range error")
+	}
 	if enableHTTP {
 		return nil
 	}
@@ -330,7 +333,7 @@ func init() {
 	flag.StringVar(&endpoint, "endpoint", "",
 		"The endpoint of the CRI  server to which will be connected")
 	flag.IntVar(&concurrency, "concurrency", defaultConcurrency,
-		"The max concurrency of the http server, range is [1-50]")
+		"The max concurrency of the http server, range is [1-512]")
 	// hwlog configuration
 	flag.IntVar(&hwLogConfig.LogLevel, "logLevel", 0,
 		"Log level, -1-debug, 0-info, 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal (default 0)")
@@ -345,9 +348,11 @@ func init() {
 	flag.IntVar(&warningDays, "warningDays", defaultWarningDays,
 		"the Ahead days of warning for certificate overdue, range is [10, 365]")
 	flag.IntVar(&cacheSize, "cacheSize", limiter.DefaultCacheSize, "the cacheSize for ip limit,"+
-		"keep default normally")
-	flag.IntVar(&limitIPConn, "limitIPConn", defaultConcurrency, "the tcp connection limit for each Ip")
-	flag.IntVar(&limitTotalConn, "limitTotalConn", defaultConnection, "the tcp connection limit for all request")
+		"range  is [1,1024000],keep default normally")
+	flag.IntVar(&limitIPConn, "limitIPConn", defaultConcurrency, "the tcp connection limit for each Ip,"+
+		"range  is [1,128]")
+	flag.IntVar(&limitTotalConn, "limitTotalConn", defaultConnection, "the tcp connection limit for all"+
+		" request,range  is [1,512]")
 	flag.StringVar(&limitIPReq, "limitIPReq", "2/1",
 		"the http request limit counts for each Ip,2/1 means allow 2 request in 1 seconds")
 }
