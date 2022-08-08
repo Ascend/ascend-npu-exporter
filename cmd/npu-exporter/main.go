@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -32,22 +33,26 @@ import (
 )
 
 var (
-	port          int
-	updateTime    int
-	certificate   *tls.Certificate
-	ip            string
-	enableHTTP    bool
-	caBytes       []byte
-	version       bool
-	tlsSuites     int
-	cipherSuites  uint16
-	concurrency   int
-	containerMode string
-	containerd    string
-	endpoint      string
-	crlcerList    *pkix.CertificateList
-	warningDays   int
-	checkInterval int
+	port           int
+	updateTime     int
+	certificate    *tls.Certificate
+	ip             string
+	enableHTTP     bool
+	caBytes        []byte
+	version        bool
+	tlsSuites      int
+	cipherSuites   uint16
+	concurrency    int
+	containerMode  string
+	containerd     string
+	endpoint       string
+	crlcerList     *pkix.CertificateList
+	warningDays    int
+	checkInterval  int
+	limitIPReq     string
+	limitIPConn    int
+	limitTotalConn int
+	cacheSize      int
 )
 
 const (
@@ -68,10 +73,8 @@ const (
 	defaultLogFile          = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
 	containerModeDocker     = "docker"
 	containerModeContainerd = "containerd"
-	maxConcurrency          = 50
 	unixPre                 = "unix://"
 	timeout                 = 10
-	maxConnection           = 20
 	maxHeaderBytes          = 1024
 	defaultWarningDays      = 100
 	// weekDays one week days
@@ -79,8 +82,11 @@ const (
 	// yearDays one year days
 	yearDays = 365
 	// tenDays ten days
-	tenDays   = 10
-	aes256gcm = 9
+	tenDays           = 10
+	aes256gcm         = 9
+	maxIPConnLimit    = 128
+	maxConcurrency    = 512
+	defaultConnection = 20
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
@@ -108,7 +114,8 @@ func main() {
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 	http.Handle("/", http.HandlerFunc(indexHandler))
 	http.Handle("/v1/certstatus", http.HandlerFunc(getCertStatus))
-	s, limitLs := newServerAndListener()
+	conf := initConfig()
+	s, limitLs := newServerAndListener(conf)
 	if s == nil || limitLs == nil {
 		return
 	}
@@ -119,8 +126,7 @@ func main() {
 			return
 		}
 		s.TLSConfig = tlsConf
-		s.Handler, err = limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency,
-			myx509.Interceptor(http.DefaultServeMux, crlcerList), true, http.MethodGet)
+		s.Handler, err = limiter.NewLimitHandlerV2(myx509.Interceptor(http.DefaultServeMux, crlcerList), conf)
 		if err != nil {
 			hwlog.RunLog.Error(err)
 			return
@@ -137,9 +143,20 @@ func main() {
 	}
 }
 
-func newServerAndListener() (*http.Server, net.Listener) {
-	handler, err := limiter.NewLimitHandlerWithMethod(concurrency, maxConcurrency, http.DefaultServeMux, true,
-		http.MethodGet)
+func initConfig() *limiter.HandlerConfig {
+	conf := &limiter.HandlerConfig{
+		PrintLog:         true,
+		Method:           http.MethodGet,
+		LimitBytes:       limiter.DefaultDataLimit,
+		TotalConCurrency: concurrency,
+		IPConCurrency:    limitIPReq,
+		CacheSize:        limiter.DefaultCacheSize,
+	}
+	return conf
+}
+
+func newServerAndListener(conf *limiter.HandlerConfig) (*http.Server, net.Listener) {
+	handler, err := limiter.NewLimitHandlerV2(http.DefaultServeMux, conf)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return nil, nil
@@ -156,7 +173,7 @@ func newServerAndListener() (*http.Server, net.Listener) {
 		hwlog.RunLog.Error(err)
 		return nil, nil
 	}
-	limitLs, err := limiter.LimitListener(ln, maxConnection)
+	limitLs, err := limiter.LimitListener(ln, limitTotalConn, limitIPConn, limiter.DefaultCacheSize)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return nil, nil
@@ -244,6 +261,38 @@ func baseParamValid() error {
 	if updateTime > oneMinute || updateTime < 1 {
 		return errors.New("the updateTime is invalid")
 	}
+	if err := containerSockCheck(); err != nil {
+		return err
+	}
+	reg := regexp.MustCompile("^[1-9]\\d?/[1-9]\\d?$")
+	if !reg.Match([]byte(limitIPReq)) {
+		return errors.New("limitIPReq format error")
+	}
+	if limitIPConn < 1 || limitIPConn > maxIPConnLimit {
+		return errors.New("limitIPConn range error")
+	}
+	if limitTotalConn < 1 || limitTotalConn > maxConcurrency {
+		return errors.New("limitTotalConn range error")
+	}
+	if cacheSize < 1 || cacheSize > limiter.DefaultCacheSize*tenDays {
+		return errors.New("cacheSize range error")
+	}
+	if enableHTTP {
+		return nil
+	}
+	if tlsSuites != 0 && tlsSuites != 1 {
+		hwlog.RunLog.Warn("reset invalid tlsSuites = 1 ")
+		tlsSuites = 1
+	}
+	if tlsSuites == 0 {
+		cipherSuites = tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+	} else {
+		cipherSuites = tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+	}
+	return nil
+}
+
+func containerSockCheck() error {
 	if endpoint != "" {
 		ep, err := utils.CheckPath(strings.TrimPrefix(endpoint, unixPre))
 		if err != nil {
@@ -257,18 +306,6 @@ func baseParamValid() error {
 			return err
 		}
 		containerd = unixPre + cnd
-	}
-	if enableHTTP {
-		return nil
-	}
-	if tlsSuites != 0 && tlsSuites != 1 {
-		hwlog.RunLog.Warn("reset invalid tlsSuites = 1 ")
-		tlsSuites = 1
-	}
-	if tlsSuites == 0 {
-		cipherSuites = tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
-	} else {
-		cipherSuites = tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
 	}
 	return nil
 }
@@ -294,7 +331,6 @@ func init() {
 		"The endpoint of the CRI  server to which will be connected")
 	flag.IntVar(&concurrency, "concurrency", defaultConcurrency,
 		"The max concurrency of the http server, range is [1-50]")
-
 	// hwlog configuration
 	flag.IntVar(&hwLogConfig.LogLevel, "logLevel", 0,
 		"Log level, -1-debug, 0-info, 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal (default 0)")
@@ -308,6 +344,12 @@ func init() {
 		"the Interval time for certificate validate period check, range is [1, 7]")
 	flag.IntVar(&warningDays, "warningDays", defaultWarningDays,
 		"the Ahead days of warning for certificate overdue, range is [10, 365]")
+	flag.IntVar(&cacheSize, "cacheSize", limiter.DefaultCacheSize, "the cacheSize for ip limit,"+
+		"keep default normally")
+	flag.IntVar(&limitIPConn, "limitIPConn", defaultConcurrency, "the tcp connection limit for each Ip")
+	flag.IntVar(&limitTotalConn, "limitTotalConn", defaultConnection, "the tcp connection limit for all request")
+	flag.StringVar(&limitIPReq, "limitIPReq", "2/1",
+		"the http request limit counts for each Ip,2/1 means allow 2 request in 1 seconds")
 }
 
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
