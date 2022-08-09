@@ -264,7 +264,7 @@ func baseParamValid() error {
 	if err := containerSockCheck(); err != nil {
 		return err
 	}
-	reg := regexp.MustCompile("^[1-9]\\d?/[1-9]\\d?$")
+	reg := regexp.MustCompile(limiter.IPReqLimitReg)
 	if !reg.Match([]byte(limitIPReq)) {
 		return errors.New("limitIPReq format error")
 	}
@@ -336,7 +336,7 @@ func init() {
 		"The max concurrency of the http server, range is [1-512]")
 	// hwlog configuration
 	flag.IntVar(&hwLogConfig.LogLevel, "logLevel", 0,
-		"Log level, -1-debug, 0-info, 1-warning, 2-error, 3-dpanic, 4-panic, 5-fatal (default 0)")
+		"Log level, -1-debug, 0-info, 1-warning, 2-error, 3-critical(default 0)")
 	flag.IntVar(&hwLogConfig.MaxAge, "maxAge", hwlog.DefaultMinSaveAge,
 		"Maximum number of days for backup log files, must be greater than or equal to 7 days")
 	flag.StringVar(&hwLogConfig.LogFileName, "logFile", defaultLogFile,
@@ -353,8 +353,8 @@ func init() {
 		"range  is [1,128]")
 	flag.IntVar(&limitTotalConn, "limitTotalConn", defaultConnection, "the tcp connection limit for all"+
 		" request,range  is [1,512]")
-	flag.StringVar(&limitIPReq, "limitIPReq", "2/1",
-		"the http request limit counts for each Ip,2/1 means allow 2 request in 1 seconds")
+	flag.StringVar(&limitIPReq, "limitIPReq", "20/1",
+		"the http request limit counts for each Ip,20/1 means allow 20 request in 1 seconds")
 }
 
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
