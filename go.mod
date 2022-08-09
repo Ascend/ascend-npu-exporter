@@ -7,7 +7,7 @@ require (
 	github.com/golang/protobuf v1.5.1
 	github.com/prometheus/client_golang v1.11.1
 	github.com/stretchr/testify v1.7.0
-	google.golang.org/grpc v1.28.0
+	google.golang.org/grpc v1.41.0
 	huawei.com/mindx/common/cache v0.0.0
 	huawei.com/mindx/common/hwlog v0.0.0
 	huawei.com/mindx/common/kmc v0.0.0
