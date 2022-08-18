@@ -40,6 +40,8 @@ const (
 	sliceLen8                   = 8
 	cgroupIndex                 = 4
 	mountPointIdx               = 3
+	cgroupPrePath               = 1
+	cgroupSuffixPath            = 2
 )
 
 const (
@@ -154,7 +156,9 @@ func (dp *DevicesParser) parseDevices(ctx context.Context, c *v1alpha2.Container
 	defer func(di *DevicesInfo) {
 		rs <- *di
 	}(&deviceInfo)
-
+	if len(c.Id) > maxCgroupPath {
+		return errors.New("the containerId is too long")
+	}
 	p, err := dp.RuntimeOperator.CgroupsPath(ctx, c.Id)
 	if err != nil {
 		return contactError(err, "getting cgroup path of container fail")
@@ -357,19 +361,18 @@ func toCgroupHierarchy(cgroupsPath string) (string, error) {
 }
 
 func parseSystemdCgroup(cgroup string) string {
-	cols := strings.Split(cgroup, ":")
-	if len(cols) != expectSystemdCgroupPathCols {
+	pathsArr := strings.Split(cgroup, ":")
+	if len(pathsArr) != expectSystemdCgroupPathCols {
 		hwlog.RunLog.Error("systemd cgroup path must have three parts separated by colon")
 		return ""
 	}
 
-	slicePath := parseSlice(cols[0])
+	slicePath := parseSlice(pathsArr[0])
 	if slicePath == "" {
 		hwlog.RunLog.Error("failed to parse the slice part of the cgroupsPath")
 		return ""
 	}
-
-	return filepath.Join(slicePath, getUnit(cols[1], cols[2]))
+	return filepath.Join(slicePath, getUnit(pathsArr[cgroupPrePath], pathsArr[cgroupSuffixPath]))
 }
 
 func parseSlice(slice string) string {
