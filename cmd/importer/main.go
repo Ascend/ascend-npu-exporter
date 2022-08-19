@@ -54,7 +54,7 @@ var (
 	defaultLogFile   = "/var/log/mindx-dl/cert-importer/cert-importer.log"
 	cptMap           = map[string]string{
 		"ne": "npu-exporter", "am": "access-manager", "lm": "license-manager", "la": "license-agent",
-		"hc": "hccl-controller", "dp": "device-plugin", "nd": "noded",
+		"hc": "hccl-controller", "dp": "device-plugin", "nd": "noded", "rc": "resilience-controller",
 	}
 	notDel bool
 )
@@ -99,7 +99,7 @@ func init() {
 		"Use 8 for aes128gcm,9 for aes256gcm,not recommended config it in general")
 	flag.StringVar(&component, "cpt", "ne", "The component name such as ne (npu-exporter),"+
 		"am (access-manager),lm(license-manager),la(license agent),hc(hccl-controller),"+
-		"dp(device-plugin),nd(noded)")
+		"dp(device-plugin),nd(noded),rc(resilience-controller)")
 	flag.BoolVar(&version, "version", false,
 		"If true,query the version of the program (default false)")
 	flag.StringVar(&hwLogConfig.LogFileName, "logFile", defaultLogFile, "Log file path")
