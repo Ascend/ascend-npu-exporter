@@ -142,8 +142,8 @@ func (d *DeviceManagerMockErr) GetDeviceIPAddress(logicID int32) (string, error)
 }
 
 // CreateVirtualDevice create virtual device
-func (d *DeviceManagerMockErr) CreateVirtualDevice(logicID, vDevID int32,
-	templateName string) (common.CgoCreateVDevOut, error) {
+func (d *DeviceManagerMockErr) CreateVirtualDevice(logicID int32, vDevInfo common.CgoCreateVDevRes) (common.
+	CgoCreateVDevOut, error) {
 	return common.CgoCreateVDevOut{}, errors.New(errorMsg)
 }
 

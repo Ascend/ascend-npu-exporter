@@ -27,7 +27,7 @@ type ChipInfo struct {
 	Version string `json:"chip_version"`
 }
 
-// CgoCreateVDevOut create virtual device info
+// CgoCreateVDevOut create virtual device output info
 type CgoCreateVDevOut struct {
 	VDevID     uint32
 	PcieBus    uint32
@@ -35,6 +35,14 @@ type CgoCreateVDevOut struct {
 	PcieFunc   uint32
 	VfgID      uint32
 	Reserved   []uint8
+}
+
+// CgoCreateVDevRes create virtual device input info
+type CgoCreateVDevRes struct {
+	VDevID       uint32
+	VfgID        uint32
+	TemplateName string
+	Reserved     []uint8
 }
 
 // CgoBaseResource base resource info

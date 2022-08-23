@@ -79,7 +79,8 @@ func get910TemplateNameList() map[string]struct{} {
 }
 
 func get310PTemplateNameList() map[string]struct{} {
-	return map[string]struct{}{"vir04": {}, "vir02": {}, "vir01": {}, "vir04_3c": {}, "vir02_1c": {}}
+	return map[string]struct{}{"vir04": {}, "vir02": {}, "vir01": {}, "vir04_3c": {}, "vir02_1c": {},
+		"vir04_4c_dvpp": {}, "vir04_3c_ndvpp": {}}
 }
 
 // IsValidTemplateName check template name meet the requirement
