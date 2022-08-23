@@ -64,9 +64,13 @@ const (
 	portRight               = 40000
 	oneMinute               = 60
 	keyStore                = dirPrefix + mytls.KeyStore
+	keyBkpStore             = dirPrefix + mytls.KeyBackup
 	certStore               = dirPrefix + mytls.CertStore
+	certBkpStore            = dirPrefix + mytls.CertBackup
 	caStore                 = dirPrefix + mytls.CaStore
+	caBkpStore              = dirPrefix + mytls.CaBackup
 	crlStore                = dirPrefix + mytls.CrlStore
+	crlBkpStore             = dirPrefix + mytls.CrlBackup
 	passFile                = dirPrefix + mytls.PassFile
 	passFileBackUp          = dirPrefix + mytls.PassFileBackUp
 	defaultConcurrency      = 5
@@ -236,7 +240,15 @@ func validate() error {
 	myx509.SetPeriodCheckParam(warningDays, checkInterval)
 	// key file exist and need init kmc
 	hwlog.RunLog.Info("start load imported certificate files")
-	tlsCert, err := mytls.LoadCertPair(certStore, keyStore, passFile, passFileBackUp, aes256gcm)
+	pathMap := map[string]string{
+		myx509.CertStorePath:       certStore,
+		myx509.CertStoreBackupPath: certBkpStore,
+		myx509.KeyStorePath:        keyStore,
+		myx509.KeyStoreBackupPath:  keyBkpStore,
+		myx509.PassFilePath:        passFile,
+		myx509.PassFileBackUpPath:  passFileBackUp,
+	}
+	tlsCert, err := mytls.LoadCertPair(pathMap, aes256gcm)
 	if err != nil {
 		return err
 	}
@@ -244,7 +256,9 @@ func validate() error {
 	if err = loadCRL(); err != nil {
 		return err
 	}
-	caBytes, err = myx509.CheckCaCert(caStore, myx509.InvalidNum)
+	if err = loadCA(); err != nil {
+		return err
+	}
 	return err
 }
 
@@ -388,11 +402,13 @@ func getCertStatus(w http.ResponseWriter, _ *http.Request) {
 }
 
 func loadCRL() error {
-	crlBytes, err := myx509.CheckCRL(crlStore)
+	crlInstance, err := myx509.NewBKPInstance(nil, crlStore, crlBkpStore)
 	if err != nil {
 		return err
 	}
-	if len(crlBytes) == 0 {
+	crlBytes, err := crlInstance.ReadFromDisk(utils.FileMode, false)
+	if err != nil || crlBytes == nil {
+		hwlog.RunLog.Info("no crl file found")
 		return nil
 	}
 	crlList, err := x509.ParseCRL(crlBytes)
@@ -405,6 +421,19 @@ func loadCRL() error {
 		hwlog.RunLog.Infof("load CRL success")
 	}
 	return nil
+}
+
+func loadCA() error {
+	caInstance, err := myx509.NewBKPInstance(nil, caStore, caBkpStore)
+	if err != nil {
+		return err
+	}
+	caBytes, err = caInstance.ReadFromDisk(utils.FileMode, false)
+	if err != nil || len(caBytes) == 0 {
+		hwlog.RunLog.Info("no ca file found")
+		return nil
+	}
+	return myx509.VerifyCaCert(caBytes, myx509.InvalidNum)
 }
 
 func initHwLogger() error {

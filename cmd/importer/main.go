@@ -9,7 +9,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -44,13 +43,18 @@ var (
 	version          bool
 	component        string
 	keyStore         string
+	keyBackup        string
 	certStore        string
+	certBackup       string
 	caStore          string
+	caBackup         string
 	crlStore         string
+	crlBackup        string
 	passFile         string
 	passFileBackUp   string
 	kubeConfig       string
 	kubeConfStore    string
+	kubeConfBackup   string
 	defaultLogFile   = "/var/log/mindx-dl/cert-importer/cert-importer.log"
 	cptMap           = map[string]string{
 		"ne": "npu-exporter", "am": "access-manager", "lm": "license-manager", "la": "license-agent",
@@ -144,7 +148,11 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) error {
 
 func importCert(certFile, keyFile string) error {
 	hwlog.RunLog.Info("[OP]start to import the key file")
-	keyBlock, err := x509.DecryptPrivateKeyWithPd(keyFile, nil)
+	keyBytes, err := utils.ReadLimitBytes(keyFile, utils.Size10M)
+	if err != nil {
+		return err
+	}
+	keyBlock, err := x509.ParsePrivateKeyWithPassword(keyBytes, nil)
 	if err != nil {
 		return err
 	}
@@ -165,11 +173,20 @@ func importCert(certFile, keyFile string) error {
 	if err != nil {
 		return err
 	}
-	if err = x509.OverridePassWdFile(keyStore, pem.EncodeToMemory(encryptedBlock), utils.FileMode); err != nil {
+	keyBkpInstance, err := x509.NewBKPInstance(pem.EncodeToMemory(encryptedBlock), keyStore, keyBackup)
+	if err != nil {
+		return err
+	}
+	if err = keyBkpInstance.WriteToDisk(utils.FileMode, true); err != nil {
 		return err
 	}
 	hwlog.RunLog.Info("[OP]encrypted key file import successfully")
-	if err = ioutil.WriteFile(certStore, certBytes, utils.FileMode); err != nil {
+	certBkpInstance, err := x509.NewBKPInstance(certBytes, certStore, certBackup)
+	if err != nil {
+		return err
+	}
+	if err = certBkpInstance.WriteToDisk(utils.FileMode, false); err != nil {
+		hwlog.RunLog.Error(err)
 		return errors.New("write certBytes to config failed ")
 	}
 	hwlog.RunLog.Info("[OP]cert file import successfully")
@@ -183,7 +200,12 @@ func importCA(caFile string) error {
 		return err
 	}
 	if len(caBytes) != 0 {
-		if err = ioutil.WriteFile(caStore, caBytes, utils.FileMode); err != nil {
+		bkpInstance, err := x509.NewBKPInstance(caBytes, caStore, caBackup)
+		if err != nil {
+			return err
+		}
+		if err = bkpInstance.WriteToDisk(utils.FileMode, false); err != nil {
+			hwlog.RunLog.Error(err)
 			return errors.New("write caBytes to config failed ")
 		}
 		hwlog.RunLog.Info("[OP]ca file import successfully")
@@ -199,7 +221,12 @@ func importCRL(crlFile string) error {
 		return err
 	}
 	if len(crlBytes) != 0 {
-		if err = ioutil.WriteFile(crlStore, crlBytes, utils.FileMode); err != nil {
+		bkpInstance, err := x509.NewBKPInstance(crlBytes, crlStore, crlBackup)
+		if err != nil {
+			return err
+		}
+		if err = bkpInstance.WriteToDisk(utils.FileMode, false); err != nil {
+			hwlog.RunLog.Error(err)
 			return errors.New("write crlBytes to config failed ")
 		}
 		hwlog.RunLog.Info("[OP]crl file import successfully")
@@ -229,18 +256,28 @@ func commonValid() error {
 	var paths []string
 	keyStore = dirPrefix + cp + "/" + tls.KeyStore
 	paths = append(paths, keyStore)
+	keyBackup = dirPrefix + cp + "/" + tls.KeyBackup
+	paths = append(paths, keyBackup)
 	certStore = dirPrefix + cp + "/" + tls.CertStore
 	paths = append(paths, certStore)
+	certBackup = dirPrefix + cp + "/" + tls.CertBackup
+	paths = append(paths, certBackup)
 	caStore = dirPrefix + cp + "/" + tls.CaStore
 	paths = append(paths, caStore)
+	caBackup = dirPrefix + cp + "/" + tls.CaBackup
+	paths = append(paths, caBackup)
 	crlStore = dirPrefix + cp + "/" + tls.CrlStore
 	paths = append(paths, crlStore)
+	crlBackup = dirPrefix + cp + "/" + tls.CrlBackup
+	paths = append(paths, crlBackup)
 	passFile = dirPrefix + cp + "/" + tls.PassFile
 	paths = append(paths, passFile)
 	passFileBackUp = dirPrefix + cp + "/" + tls.PassFileBackUp
 	paths = append(paths, passFileBackUp)
 	kubeConfStore = dirPrefix + cp + "/" + tls.KubeCfgFile
 	paths = append(paths, kubeConfStore)
+	kubeConfBackup = dirPrefix + cp + "/" + tls.KubeCfgBackup
+	paths = append(paths, kubeConfBackup)
 	return checkPathIsExist(paths)
 }
 
@@ -306,7 +343,7 @@ func importKubeConfig(kubeConf string) error {
 	if err = commonValid(); err != nil {
 		return err
 	}
-	btes, err := utils.ReadLimitBytes(conf, utils.Size10M)
+	configBytes, err := utils.ReadLimitBytes(conf, utils.Size10M)
 	if err != nil {
 		return err
 	}
@@ -314,20 +351,26 @@ func importKubeConfig(kubeConf string) error {
 		return err
 	}
 	defer func() {
-		err = kmc.Finalize()
-		if err != nil {
+		if err = kmc.Finalize(); err != nil {
 			hwlog.RunLog.Error(err)
 		}
 	}()
-	encryptedConf, err := kmc.Encrypt(0, btes)
+	encryptedConf, err := kmc.Encrypt(0, configBytes)
 	if err != nil {
 		return errors.New("encrypt kubeConfig failed")
 	}
+	hwlog.RunLog.Info("[OP]encrypt kubeConfig successfully")
 	if err = utils.MakeSureDir(keyStore); err != nil {
 		return err
 	}
-	hwlog.RunLog.Info("[OP]encrypt kubeConfig successfully")
-	if err = x509.OverridePassWdFile(kubeConfStore, encryptedConf, utils.FileMode); err != nil {
+	bkpInstance, err := x509.NewBKPInstance(encryptedConf, kubeConfStore, kubeConfBackup)
+	if err != nil {
+		hwlog.RunLog.Error("new backup instance failed")
+		return err
+	}
+	hwlog.RunLog.Info("[OP]start to write data to disk")
+	if err = bkpInstance.WriteToDisk(utils.FileMode, true); err != nil {
+		hwlog.RunLog.Error(err)
 		return errors.New("write encrypted kubeConfig to file failed")
 	}
 	hwlog.RunLog.Info("[OP]import kubeConfig successfully")
@@ -341,12 +384,6 @@ func resourceClean(conf string) error {
 	if err := adjustOwner(); err != nil {
 		return err
 	}
-	defer func() {
-		err := kmc.Finalize()
-		if err != nil {
-			hwlog.RunLog.Error(err)
-		}
-	}()
 	if notDel {
 		hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
 		return nil
