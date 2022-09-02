@@ -121,12 +121,15 @@ spec:
         - name: kmckeystore
           hostPath:
             path: /etc/mindx-dl/kmc_primary_store
+            type: Directory
         - name: kmckeybak
           hostPath:
             path: /etc/mindx-dl/.config
+            type: Directory
         - name: kmc-exporter
           hostPath:
             path: /etc/mindx-dl/npu-exporter
+            type: Directory
         - name: sys
           hostPath:
             path: /sys
