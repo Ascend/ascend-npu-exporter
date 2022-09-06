@@ -88,6 +88,10 @@ func main() {
 		hwlog.RunLog.Error(err)
 		return
 	}
+	if certFile == "" || keyFile == "" {
+		hwlog.RunLog.Info("kubeConfig imported finished")
+		return
+	}
 	if err = importCertFiles(certFile, keyFile, caFile, crlFile); err != nil {
 		hwlog.RunLog.Error(err)
 	}
