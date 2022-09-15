@@ -12,6 +12,11 @@ type A310PManager struct {
 	dcmi.DcManager
 }
 
+// DcGetDevicePowerInfo query power by mcu interface for 310P
+func (d *A310PManager) DcGetDevicePowerInfo(cardID, deviceID int32) (float32, error) {
+	return d.DcGetMcuPowerInfo(cardID)
+}
+
 // DcGetMcuPowerInfo this function is only for Ascend310P
 func (d *A310PManager) DcGetMcuPowerInfo(cardID int32) (float32, error) {
 	return dcmi.FuncDcmiMcuGetPowerInfo(cardID)
