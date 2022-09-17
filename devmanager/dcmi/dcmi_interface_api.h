@@ -277,6 +277,8 @@ DCMIDLLEXPORT int dcmi_get_card_id_device_id_from_logicid(int *card_id, int *dev
 
 DCMIDLLEXPORT int dcmi_get_card_id_device_id_from_phyid(int *card_id, int *device_id, unsigned int device_phy_id);
 
+DCMIDLLEXPORT int dcmi_get_product_type(int card_id, int device_id, char *product_type_str, int buf_size);
+
 #endif
 
 #if defined DCMI_VERSION_1

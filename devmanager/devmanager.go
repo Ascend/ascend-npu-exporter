@@ -40,6 +40,7 @@ type DeviceInterface interface {
 	GetVirtualDeviceInfo(logicID int32) (common.VirtualDevInfo, error)
 	DestroyVirtualDevice(logicID int32, vDevID uint32) error
 	GetDevType() string
+	GetProductType() (string, error)
 }
 
 // DeviceManager common device manager for Ascend910/310P/310
@@ -418,4 +419,33 @@ func (d *DeviceManager) GetMcuPowerInfo(cardID int32) (float32, error) {
 // GetCardIDDeviceID get cardID and deviceID by logicID
 func (d *DeviceManager) GetCardIDDeviceID(logicID int32) (int32, int32, error) {
 	return d.DcMgr.DcGetCardIDDeviceID(logicID)
+}
+
+// GetProductType get product type
+func (d *DeviceManager) GetProductType() (string, error) {
+	cardNum, cardList, err := d.GetCardList()
+	if cardNum == 0 || err != nil {
+		hwlog.RunLog.Errorf("failed to get card list, err: %#v", err)
+		return "", err
+	}
+	for _, cardID := range cardList {
+		devNum, err := d.GetDeviceNumInCard(cardID)
+		if err != nil {
+			hwlog.RunLog.Debugf("get device num by cardID(%d) failed, error: %#v", cardID, err)
+			continue
+		}
+		if devNum == 0 {
+			hwlog.RunLog.Debugf("not found device on card %d", cardID)
+			continue
+		}
+		for devID := int32(0); devID < devNum; devID++ {
+			productType, err := d.DcMgr.DcGetProductType(cardID, devID)
+			if err != nil {
+				hwlog.RunLog.Debugf("get product type by card %d deviceID %d failed, err: %#v", cardID, devID, err)
+				continue
+			}
+			return productType, nil
+		}
+	}
+	return "", fmt.Errorf("not found product type name")
 }
