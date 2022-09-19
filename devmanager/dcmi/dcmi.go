@@ -173,6 +173,11 @@ package dcmi
     CALL_FUNC(dcmi_mcu_get_power_info,card_id,power)
    }
 
+   int (*dcmi_get_product_type_func)(int card_id, int device_id, char *product_type_str, int buf_size);
+   int dcmi_get_product_type(int card_id, int device_id, char *product_type_str, int buf_size){
+    CALL_FUNC(dcmi_get_product_type,card_id,device_id,product_type_str,buf_size)
+   }
+
    // load .so files and functions
    int dcmiInit_dl(const char* dcmiLibPath){
    	if (dcmiLibPath == NULL) {
@@ -241,6 +246,8 @@ package dcmi
 
    	dcmi_mcu_get_power_info_func = dlsym(dcmiHandle,"dcmi_mcu_get_power_info");
 
+	dcmi_get_product_type_func = dlsym(dcmiHandle,"dcmi_get_product_type");
+
    	return SUCCESS;
    }
 
@@ -306,6 +313,7 @@ type DcDriverInterface interface {
 	DcCreateVDevice(int32, common.CgoCreateVDevRes) (common.CgoCreateVDevOut, error)
 	DcGetVDeviceInfo(int32) (common.VirtualDevInfo, error)
 	DcDestroyVDevice(int32, uint32) error
+	DcGetProductType(int32, int32) (string, error)
 }
 
 const (
@@ -1099,4 +1107,15 @@ func FuncDcmiMcuGetPowerInfo(cardID int32) (float32, error) {
 // DcGetMcuPowerInfo this function is only for Ascend310P, A910/A310 not support
 func (d *DcManager) DcGetMcuPowerInfo(cardID int32) (float32, error) {
 	return 0, nil
+}
+
+// DcGetProductType get product type by dcmi interface
+func (d *DcManager) DcGetProductType(cardID, deviceID int32) (string, error) {
+	cProductType := C.CString(string(make([]byte, productTypeLen)))
+	defer C.free(unsafe.Pointer(cProductType))
+	err := C.dcmi_get_product_type(C.int(cardID), C.int(deviceID), (*C.char)(cProductType), productTypeLen)
+	if err != 0 {
+		return "", fmt.Errorf("get product type failed, errCode: %d", err)
+	}
+	return C.GoString(cProductType), nil
 }

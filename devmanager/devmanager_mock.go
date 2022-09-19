@@ -162,3 +162,8 @@ func (d *DeviceManagerMock) GetMcuPowerInfo(cardID int32) (float32, error) {
 func (d *DeviceManagerMock) GetCardIDDeviceID(logicID int32) (int32, int32, error) {
 	return 0, 0, nil
 }
+
+// GetProductType get product type
+func (d *DeviceManagerMock) GetProductType() (string, error) {
+	return "", nil
+}

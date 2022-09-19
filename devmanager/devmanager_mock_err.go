@@ -166,3 +166,8 @@ func (d *DeviceManagerMockErr) GetMcuPowerInfo(cardID int32) (float32, error) {
 func (d *DeviceManagerMockErr) GetCardIDDeviceID(logicID int32) (int32, int32, error) {
 	return 0, 0, errors.New(errorMsg)
 }
+
+// GetProductType get product type
+func (d *DeviceManagerMockErr) GetProductType() (string, error) {
+	return "", errors.New("not found product type name")
+}
