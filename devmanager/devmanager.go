@@ -447,5 +447,5 @@ func (d *DeviceManager) GetProductType() (string, error) {
 			return productType, nil
 		}
 	}
-	return "", fmt.Errorf("not found product type name")
+	return "", nil
 }
