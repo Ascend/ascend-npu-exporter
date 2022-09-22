@@ -11,6 +11,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"huawei.com/mindx/common/utils"
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	"huawei.com/mindx/common/hwlog"
@@ -116,7 +117,7 @@ func (operator *RuntimeOperatorTool) GetContainers(ctx context.Context) ([]*v1al
 	request := &v1alpha2.ListContainersRequest{
 		Filter: filter,
 	}
-	if operator.criClient == nil {
+	if utils.IsNil(operator.criClient) || operator.criConn == nil {
 		return nil, errors.New("criClient is empty")
 	}
 	r, err := operator.criClient.ListContainers(ctx, request)
@@ -129,7 +130,7 @@ func (operator *RuntimeOperatorTool) GetContainers(ctx context.Context) ([]*v1al
 
 // CgroupsPath returns the cgroup path from spec of specified container
 func (operator *RuntimeOperatorTool) CgroupsPath(ctx context.Context, id string) (string, error) {
-	if operator.client == nil {
+	if utils.IsNil(operator.client) || operator.conn == nil {
 		return "", errors.New("oci client is empty")
 	}
 	resp, err := operator.client.Get(setGrpcNamespaceHeader(ctx, operator.Namespace), &v1.GetContainerRequest{
