@@ -88,7 +88,7 @@ func main() {
 		hwlog.RunLog.Error(err)
 		return
 	}
-	if certFile == "" || keyFile == "" {
+	if kubeConfig != "" && (certFile == "" || keyFile == "") {
 		hwlog.RunLog.Info("kubeConfig imported finished")
 		return
 	}
@@ -245,17 +245,9 @@ func valid(certFile string, keyFile string, caFile string, crlFile string) error
 	if certFile == "" || keyFile == "" {
 		return errors.New("need input certFile and keyFile together")
 	}
-	return commonValid()
-}
-
-func commonValid() error {
-	if encryptAlgorithm != aes128gcm && encryptAlgorithm != aes256gcm {
-		hwlog.RunLog.Warn("reset invalid encryptAlgorithm ")
-		encryptAlgorithm = aes256gcm
-	}
-	cp, ok := cptMap[component]
-	if !ok {
-		return errors.New("the component is invalid")
+	cp, err := commonValid()
+	if err != nil {
+		return err
 	}
 	var paths []string
 	keyStore = dirPrefix + cp + "/" + tls.KeyStore
@@ -278,6 +270,27 @@ func commonValid() error {
 	paths = append(paths, passFile)
 	passFileBackUp = dirPrefix + cp + "/" + tls.PassFileBackUp
 	paths = append(paths, passFileBackUp)
+	return checkPathIsExist(paths)
+}
+
+func commonValid() (string, error) {
+	if encryptAlgorithm != aes128gcm && encryptAlgorithm != aes256gcm {
+		hwlog.RunLog.Warn("reset invalid encryptAlgorithm ")
+		encryptAlgorithm = aes256gcm
+	}
+	cp, ok := cptMap[component]
+	if !ok {
+		return "", errors.New("the component is invalid")
+	}
+	return cp, nil
+}
+
+func kubeValid() error {
+	cp, err := commonValid()
+	if err != nil {
+		return err
+	}
+	var paths []string
 	kubeConfStore = dirPrefix + cp + "/" + tls.KubeCfgFile
 	paths = append(paths, kubeConfStore)
 	kubeConfBackup = dirPrefix + cp + "/" + tls.KubeCfgBackup
@@ -287,9 +300,6 @@ func commonValid() error {
 
 func checkPathIsExist(paths []string) error {
 	for _, v := range paths {
-		if !utils.IsExist(v) {
-			continue
-		}
 		_, err := utils.CheckPath(v)
 		if err != nil {
 			return err
@@ -344,7 +354,7 @@ func importKubeConfig(kubeConf string) error {
 	if suffix := path.Ext(kubeConf); suffix != ".conf" {
 		return errors.New("invalid kubeConfig file")
 	}
-	if err = commonValid(); err != nil {
+	if err = kubeValid(); err != nil {
 		return err
 	}
 	configBytes, err := utils.ReadLimitBytes(conf, utils.Size10M)
@@ -364,7 +374,7 @@ func importKubeConfig(kubeConf string) error {
 		return errors.New("encrypt kubeConfig failed")
 	}
 	hwlog.RunLog.Info("[OP]encrypt kubeConfig successfully")
-	if err = utils.MakeSureDir(keyStore); err != nil {
+	if err = utils.MakeSureDir(kubeConfStore); err != nil {
 		return err
 	}
 	bkpInstance, err := x509.NewBKPInstance(encryptedConf, kubeConfStore, kubeConfBackup)
