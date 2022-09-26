@@ -310,17 +310,17 @@ func baseParamValid() error {
 }
 
 func containerSockCheck() error {
-	if endpoint != "" && !strings.Contains(endpoint, unixPre) {
-		endpoint = unixPre + endpoint
-	}
-	if containerd != "" && !strings.Contains(containerd, unixPre) {
-		containerd = unixPre + containerd
-	}
 	if endpoint != "" && !strings.Contains(endpoint, ".sock") {
 		return errors.New("endpoint file not sock address")
 	}
 	if containerd != "" && !strings.Contains(containerd, ".sock") {
 		return errors.New("containerd file not sock address")
+	}
+	if endpoint != "" && !strings.Contains(endpoint, unixPre) {
+		endpoint = unixPre + endpoint
+	}
+	if containerd != "" && !strings.Contains(containerd, unixPre) {
+		containerd = unixPre + containerd
 	}
 	return nil
 }

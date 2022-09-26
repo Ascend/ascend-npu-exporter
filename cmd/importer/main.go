@@ -315,15 +315,16 @@ func kubeValid(kubeConf string) error {
 	paths = append(paths, kubeConfBackup)
 	if err = checkPathIsExist(paths); err != nil {
 		hwlog.RunLog.Error(err)
+		return errors.New("kubeConfig store file check failed")
 	}
-	return errors.New("kubeConfig store file check failed")
+	return nil
 }
 
 func checkPathIsExist(paths []string) error {
 	for _, v := range paths {
 		_, err := utils.CheckPath(v)
 		if err != nil {
-			return err
+			return fmt.Errorf("%s file check failed:%s", utils.MaskPrefix(v), err.Error())
 		}
 	}
 	return nil
