@@ -90,7 +90,7 @@ func main() {
 		usr, name, ip, versions.BuildVersion)
 	if err = importKubeConfig(kubeConfig); err != nil {
 		hwlog.RunLog.Error(err)
-		hwlog.RunLog.Info("[OP]kubeConfig imported failed")
+		hwlog.RunLog.Error("[OP]kubeConfig imported failed")
 		return
 	}
 	if kubeConfig != "" && (certFile == "" || keyFile == "") {
@@ -300,7 +300,10 @@ func commonValid() (string, error) {
 	return cp, nil
 }
 
-func kubeValid() error {
+func kubeValid(kubeConf string) error {
+	if suffix := path.Ext(kubeConf); suffix != ".conf" {
+		return errors.New("invalid kubeConfig file")
+	}
 	cp, err := commonValid()
 	if err != nil {
 		return err
@@ -310,7 +313,10 @@ func kubeValid() error {
 	paths = append(paths, kubeConfStore)
 	kubeConfBackup = dirPrefix + cp + "/" + tls.KubeCfgBackup
 	paths = append(paths, kubeConfBackup)
-	return checkPathIsExist(paths)
+	if err = checkPathIsExist(paths); err != nil {
+		hwlog.RunLog.Error(err)
+	}
+	return errors.New("kubeConfig store file check failed")
 }
 
 func checkPathIsExist(paths []string) error {
@@ -367,11 +373,7 @@ func importKubeConfig(kubeConf string) error {
 		hwlog.RunLog.Error("check imported path failed")
 		return err
 	}
-	if suffix := path.Ext(kubeConf); suffix != ".conf" {
-		return errors.New("invalid kubeConfig file")
-	}
-	if err = kubeValid(); err != nil {
-		hwlog.RunLog.Error("check store path failed")
+	if err = kubeValid(conf); err != nil {
 		return err
 	}
 	configBytes, err := utils.ReadLimitBytes(conf, utils.Size10M)
