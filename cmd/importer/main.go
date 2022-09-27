@@ -12,7 +12,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"huawei.com/mindx/common/hwlog"
@@ -83,13 +82,19 @@ func main() {
 	if err != nil {
 		hwlog.RunLog.Warn("get hostName failed")
 	}
-	hwlog.RunLog.Infof("[OP]current userID is %d,hostName is %s,127.0.0.1", syscall.Getuid(), name)
+	usr, ip, err := utils.GetLoginUserAndIP()
+	if err != nil {
+		hwlog.RunLog.Warn("get login ip failed")
+	}
+	hwlog.RunLog.Infof("[OP]current user is %s,hostName is %s,login ip is %s,verison is:%s",
+		usr, name, ip, versions.BuildVersion)
 	if err = importKubeConfig(kubeConfig); err != nil {
 		hwlog.RunLog.Error(err)
+		hwlog.RunLog.Error("[OP]kubeConfig imported failed")
 		return
 	}
 	if kubeConfig != "" && (certFile == "" || keyFile == "") {
-		hwlog.RunLog.Info("kubeConfig imported finished")
+		hwlog.RunLog.Info(" kubeConfig imported finished")
 		return
 	}
 	if err = importCertFiles(certFile, keyFile, caFile, crlFile); err != nil {
@@ -120,20 +125,22 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) error {
 	if err := valid(certFile, keyFile, caFile, crlFile); err != nil {
 		return err
 	}
-	hwlog.RunLog.Infof("[OP]start to import certificate and the program version is %s", versions.BuildVersion)
 	if err := importCert(certFile, keyFile); err != nil {
+		hwlog.RunLog.Error("[OP] import cert files failed")
 		return err
 	}
 	if err := importCA(caFile); err != nil {
+		hwlog.RunLog.Error("[OP] import ca file failed")
 		return err
 	}
 	if err := importCRL(crlFile); err != nil {
+		hwlog.RunLog.Error("[OP] import crl file failed")
 		return err
 	}
 	if err := adjustOwner(); err != nil {
 		return err
 	}
-	hwlog.RunLog.Info("[OP]import certificate successfully")
+	hwlog.RunLog.Info("import certificate finished")
 	if notDel {
 		hwlog.RunLog.Info("please delete the relevant sensitive files once you decide not to use them again.")
 		return nil
@@ -154,10 +161,12 @@ func importCert(certFile, keyFile string) error {
 	hwlog.RunLog.Info("[OP]start to import the key file")
 	keyBytes, err := utils.ReadLimitBytes(keyFile, utils.Size10M)
 	if err != nil {
+		hwlog.RunLog.Error("read keyfile failed")
 		return err
 	}
 	keyBlock, err := x509.ParsePrivateKeyWithPassword(keyBytes, nil)
 	if err != nil {
+		hwlog.RunLog.Error("parsePrivateKeyWithPassword executed error")
 		return err
 	}
 	hwlog.RunLog.Info("[OP]start to import the cert file")
@@ -182,22 +191,26 @@ func importCert(certFile, keyFile string) error {
 		return err
 	}
 	if err = keyBkpInstance.WriteToDisk(utils.FileMode, true); err != nil {
-		return err
+		hwlog.RunLog.Error(err)
+		return errors.New(" write encrypted key bytes to disk failed ")
 	}
-	hwlog.RunLog.Info("[OP]encrypted key file import successfully")
+	hwlog.RunLog.Info("[OP] key file import successfully")
 	certBkpInstance, err := x509.NewBKPInstance(certBytes, certStore, certBackup)
 	if err != nil {
 		return err
 	}
 	if err = certBkpInstance.WriteToDisk(utils.FileMode, false); err != nil {
 		hwlog.RunLog.Error(err)
-		return errors.New("write certBytes to config failed ")
+		return errors.New(" write certBytes to disk failed ")
 	}
 	hwlog.RunLog.Info("[OP]cert file import successfully")
 	return nil
 }
 
 func importCA(caFile string) error {
+	if caFile == "" || !utils.IsExist(caFile) {
+		return nil
+	}
 	hwlog.RunLog.Info("[OP]start to import the ca file")
 	caBytes, err := x509.CheckCaCert(caFile, x509.InvalidNum)
 	if err != nil {
@@ -210,7 +223,7 @@ func importCA(caFile string) error {
 		}
 		if err = bkpInstance.WriteToDisk(utils.FileMode, false); err != nil {
 			hwlog.RunLog.Error(err)
-			return errors.New("write caBytes to config failed ")
+			return errors.New(" write caBytes to disk failed ")
 		}
 		hwlog.RunLog.Info("[OP]ca file import successfully")
 	}
@@ -218,7 +231,9 @@ func importCA(caFile string) error {
 }
 
 func importCRL(crlFile string) error {
-	// start to import the crl file
+	if crlFile == "" || !utils.IsExist(crlFile) {
+		return nil
+	}
 	hwlog.RunLog.Info("[OP]start to import the crl file")
 	crlBytes, err := x509.CheckCRL(crlFile)
 	if err != nil {
@@ -231,7 +246,7 @@ func importCRL(crlFile string) error {
 		}
 		if err = bkpInstance.WriteToDisk(utils.FileMode, false); err != nil {
 			hwlog.RunLog.Error(err)
-			return errors.New("write crlBytes to config failed ")
+			return errors.New(" write crlBytes to disk failed ")
 		}
 		hwlog.RunLog.Info("[OP]crl file import successfully")
 	}
@@ -285,7 +300,10 @@ func commonValid() (string, error) {
 	return cp, nil
 }
 
-func kubeValid() error {
+func kubeValid(kubeConf string) error {
+	if suffix := path.Ext(kubeConf); suffix != ".conf" {
+		return errors.New("invalid kubeConfig file")
+	}
 	cp, err := commonValid()
 	if err != nil {
 		return err
@@ -295,14 +313,18 @@ func kubeValid() error {
 	paths = append(paths, kubeConfStore)
 	kubeConfBackup = dirPrefix + cp + "/" + tls.KubeCfgBackup
 	paths = append(paths, kubeConfBackup)
-	return checkPathIsExist(paths)
+	if err = checkPathIsExist(paths); err != nil {
+		hwlog.RunLog.Error(err)
+		return errors.New("kubeConfig store file check failed")
+	}
+	return nil
 }
 
 func checkPathIsExist(paths []string) error {
 	for _, v := range paths {
 		_, err := utils.CheckPath(v)
 		if err != nil {
-			return err
+			return fmt.Errorf("%s file check failed:%s", utils.MaskPrefix(v), err.Error())
 		}
 	}
 	return nil
@@ -346,19 +368,18 @@ func importKubeConfig(kubeConf string) error {
 	if kubeConf == "" {
 		return nil
 	}
-	hwlog.RunLog.Infof("[OP]start to import kubeConfig and the program version is %s", versions.BuildVersion)
+	hwlog.RunLog.Info("[OP]start to import kubeConfig")
 	conf, err := utils.CheckPath(kubeConf)
 	if err != nil {
+		hwlog.RunLog.Error("check imported path failed")
 		return err
 	}
-	if suffix := path.Ext(kubeConf); suffix != ".conf" {
-		return errors.New("invalid kubeConfig file")
-	}
-	if err = kubeValid(); err != nil {
+	if err = kubeValid(conf); err != nil {
 		return err
 	}
 	configBytes, err := utils.ReadLimitBytes(conf, utils.Size10M)
 	if err != nil {
+		hwlog.RunLog.Error("read file content failed")
 		return err
 	}
 	if err = kmc.Initialize(encryptAlgorithm, "", ""); err != nil {
@@ -373,7 +394,7 @@ func importKubeConfig(kubeConf string) error {
 	if err != nil {
 		return errors.New("encrypt kubeConfig failed")
 	}
-	hwlog.RunLog.Info("[OP]encrypt kubeConfig successfully")
+	hwlog.RunLog.Info("encrypt kubeConfig successfully")
 	if err = utils.MakeSureDir(kubeConfStore); err != nil {
 		return err
 	}
@@ -382,7 +403,7 @@ func importKubeConfig(kubeConf string) error {
 		hwlog.RunLog.Error("new backup instance failed")
 		return err
 	}
-	hwlog.RunLog.Info("[OP]start to write data to disk")
+	hwlog.RunLog.Info("start to write data to disk")
 	if err = bkpInstance.WriteToDisk(utils.FileMode, true); err != nil {
 		hwlog.RunLog.Error(err)
 		return errors.New("write encrypted kubeConfig to file failed")

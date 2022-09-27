@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"syscall"
 
 	"google.golang.org/grpc"
@@ -22,12 +23,14 @@ const (
 	labelK8sPodNamespace = "io.kubernetes.pod.namespace"
 	labelK8sPodName      = "io.kubernetes.pod.name"
 	// DefaultDockerShim default docker shim sock address
-	DefaultDockerShim = "unix:///var/run/dockershim.sock"
+	DefaultDockerShim = "unix:///run/dockershim.sock"
 	// DefaultContainerdAddr default containerd sock address
 	DefaultContainerdAddr = "unix:///run/containerd/containerd.sock"
 	// DefaultDockerAddr default docker containerd sock address
-	DefaultDockerAddr = "unix:///var/run/docker/containerd/docker-containerd.sock"
-	grpcHeader        = "containerd-namespace"
+	DefaultDockerAddr    = "unix:///run/docker/containerd/docker-containerd.sock"
+	defaultDockerOnEuler = "unix:///run/docker/containerd/containerd.sock"
+	grpcHeader           = "containerd-namespace"
+	unixPre              = "unix://"
 )
 
 // RuntimeOperator wraps operations against container runtime
@@ -72,6 +75,10 @@ func (operator *RuntimeOperatorTool) Init() error {
 			hwlog.RunLog.Debugf("recover uid to:%d", start)
 		}()
 	}
+	if err := sockCheck(operator); err != nil {
+		hwlog.RunLog.Error("check socket path failed")
+		return err
+	}
 	criConn, err := GetConnection(operator.CriEndpoint)
 	if err != nil || criConn == nil {
 		return errors.New("connecting to CRI server failed")
@@ -84,14 +91,29 @@ func (operator *RuntimeOperatorTool) Init() error {
 		hwlog.RunLog.Errorf("failed to get OCI connection")
 		if operator.UseBackup {
 			hwlog.RunLog.Errorf("try again")
-			conn, err = GetConnection(DefaultContainerdAddr)
-			if err != nil {
-				return err
+			if utils.IsExist(strings.TrimPrefix(DefaultContainerdAddr, unixPre)) {
+				conn, err = GetConnection(DefaultContainerdAddr)
+
+			} else if utils.IsExist(strings.TrimPrefix(defaultDockerOnEuler, unixPre)) {
+				conn, err = GetConnection(defaultDockerOnEuler)
 			}
 		}
 	}
+	if err != nil {
+		return err
+	}
 	operator.client = v1.NewContainersClient(conn)
 	operator.conn = conn
+	return nil
+}
+
+func sockCheck(operator *RuntimeOperatorTool) error {
+	if _, err := utils.CheckPath(strings.TrimPrefix(operator.CriEndpoint, unixPre)); err != nil {
+		return err
+	}
+	if _, err := utils.CheckPath(strings.TrimPrefix(operator.OciEndpoint, unixPre)); err != nil {
+		return err
+	}
 	return nil
 }
 
