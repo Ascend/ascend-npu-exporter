@@ -93,7 +93,8 @@ const (
 	defaultConnection = 20
 )
 
-var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile}
+var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile, ExpiredTime: hwlog.DefaultExpiredTime,
+	CacheSize: hwlog.DefaultCacheSize}
 
 func main() {
 	flag.Parse()
