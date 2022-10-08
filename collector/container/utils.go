@@ -26,8 +26,8 @@ const (
 	MaxLenDNS = 63
 	// MinLenDNS configName min len
 	MinLenDNS = 2
-	// DNSRe DNS regex string
-	DNSRe         = `^[a-z0-9]+[a-z0-9-]*[a-z0-9]+$`
+	// DNSReWithDot DNS regex string
+	DNSReWithDot  = `^[a-z0-9]+[a-z0-9-.]*[a-z0-9]+$`
 	maxContainers = 1024
 	maxCgroupPath = 2028
 )
@@ -92,7 +92,7 @@ func validDNSRe(dnsContent string) error {
 		return errors.New("param len invalid")
 	}
 
-	if match, err := regexp.MatchString(DNSRe, dnsContent); !match || err != nil {
+	if match, err := regexp.MatchString(DNSReWithDot, dnsContent); !match || err != nil {
 		return errors.New("param invalid, not meet requirement")
 	}
 	return nil
