@@ -433,7 +433,7 @@ func ScanForAscendDevices(devicesListFile string) ([]int, bool, error) {
 			return nil, false, ErrNoCgroupHierarchy
 		}
 		return nil, false, contactError(err, fmt.Sprintf("error while opening devices cgroup file %q",
-			utils.MaskPrefix(strings.TrimPrefix(devicesListFile, unixProtocol+"://"))))
+			utils.MaskPrefix(strings.TrimPrefix(devicesListFile, unixPrefix+"://"))))
 	}
 	defer func() {
 		err = f.Close()

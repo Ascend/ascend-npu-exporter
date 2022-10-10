@@ -16,6 +16,7 @@ import (
 
 	"huawei.com/mindx/common/hwlog"
 	"huawei.com/mindx/common/kmc"
+	"huawei.com/mindx/common/terminal"
 	"huawei.com/mindx/common/tls"
 	"huawei.com/mindx/common/utils"
 	"huawei.com/mindx/common/x509"
@@ -82,7 +83,7 @@ func main() {
 	if err != nil {
 		hwlog.RunLog.Warn("get hostName failed")
 	}
-	usr, ip, err := utils.GetLoginUserAndIP()
+	usr, ip, err := terminal.GetLoginUserAndIP()
 	if err != nil {
 		hwlog.RunLog.Warn("get login ip failed")
 	}

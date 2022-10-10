@@ -21,7 +21,7 @@ import (
 
 const (
 	defaultTimeout = 5 * time.Second
-	unixProtocol   = "unix"
+	unixPrefix     = "unix"
 	// MaxLenDNS configName max len
 	MaxLenDNS = 63
 	// MinLenDNS configName min len
@@ -39,24 +39,24 @@ func GetConnection(endPoint string) (*grpc.ClientConn, error) {
 	}
 	var conn *grpc.ClientConn
 	hwlog.RunLog.Debugf("connect using endpoint '%s' with '%s' timeout", utils.MaskPrefix(strings.TrimPrefix(endPoint,
-		unixProtocol+"://")), defaultTimeout)
+		unixPrefix+"://")), defaultTimeout)
 	addr, dialer, err := getAddressAndDialer(endPoint)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return nil, err
 	}
-	ctx, canceFn := context.WithTimeout(context.Background(), defaultTimeout)
-	defer canceFn()
+	ctx, cancelFn := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancelFn()
 	conn, err = grpc.DialContext(ctx, addr, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(dialer))
 	if err != nil {
 		return nil, err
 	}
 	hwlog.RunLog.Debugf("connected successfully using endpoint: %s", utils.MaskPrefix(strings.TrimPrefix(endPoint,
-		unixProtocol+"://")))
+		unixPrefix+"://")))
 	return conn, nil
 }
 
-func parseEndpoint(endpoint string) (string, string, error) {
+func parseSocketEndpoint(endpoint string) (string, string, error) {
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return "", "", err
@@ -72,19 +72,21 @@ func parseEndpoint(endpoint string) (string, string, error) {
 	}
 }
 
-// getAddressAndDialer returns the address parsed from the given endpoint and a context dialer.
+// getAddressAndDialer returns the address parsed from the given socket endpoint and  dialer
 func getAddressAndDialer(endpoint string) (string, func(ctx context.Context, addr string) (net.Conn, error), error) {
-	protocol, addr, err := parseEndpoint(endpoint)
+	prefix, addr, err := parseSocketEndpoint(endpoint)
 	if err != nil {
 		return "", nil, err
 	}
-	if protocol != unixProtocol {
-		return "", nil, fmt.Errorf("only support unix socket endpoint")
+	if prefix != unixPrefix {
+		return "", nil, fmt.Errorf("only support unix socket")
 	}
 	return addr, dial, nil
 }
+
+// dial  return the context dialer
 func dial(ctx context.Context, addr string) (net.Conn, error) {
-	return (&net.Dialer{}).DialContext(ctx, unixProtocol, addr)
+	return (&net.Dialer{}).DialContext(ctx, unixPrefix, addr)
 }
 
 func validDNSRe(dnsContent string) error {
