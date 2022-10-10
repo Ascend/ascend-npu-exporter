@@ -127,15 +127,15 @@ func importCertFiles(certFile, keyFile, caFile, crlFile string) error {
 		return err
 	}
 	if err := importCert(certFile, keyFile); err != nil {
-		hwlog.RunLog.Error("[OP] import cert files failed")
+		hwlog.RunLog.Error("[OP]import cert files failed")
 		return err
 	}
 	if err := importCA(caFile); err != nil {
-		hwlog.RunLog.Error("[OP] import ca file failed")
+		hwlog.RunLog.Error("[OP]import ca file failed")
 		return err
 	}
 	if err := importCRL(crlFile); err != nil {
-		hwlog.RunLog.Error("[OP] import crl file failed")
+		hwlog.RunLog.Error("[OP]import crl file failed")
 		return err
 	}
 	if err := adjustOwner(); err != nil {
@@ -195,7 +195,7 @@ func importCert(certFile, keyFile string) error {
 		hwlog.RunLog.Error(err)
 		return errors.New(" write encrypted key bytes to disk failed ")
 	}
-	hwlog.RunLog.Info("[OP] key file import successfully")
+	hwlog.RunLog.Info("[OP]key file import successfully")
 	certBkpInstance, err := x509.NewBKPInstance(certBytes, certStore, certBackup)
 	if err != nil {
 		return err
@@ -298,6 +298,7 @@ func commonValid() (string, error) {
 	if !ok {
 		return "", errors.New("the component is invalid")
 	}
+	hwlog.RunLog.Infof("import component name is %s", cp)
 	return cp, nil
 }
 
