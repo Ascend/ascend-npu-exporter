@@ -31,7 +31,13 @@ const (
 	// aes128gcm AES128-GCM
 	aes128gcm = 8
 	// aes256gcm AES256-GCM
-	aes256gcm = 9
+	aes256gcm     = 9
+	kmcMasterDir  = dirPrefix + "kmc_primary_store"
+	kmcBackuprDir = dirPrefix + ".config"
+	kmcMaster     = kmcMasterDir + "/master.ks"
+	kmcBackup     = kmcBackuprDir + "/backup.ks"
+	parentDirMode = 0755 //  other user like hwMindX need enter the dir
+	kmcFileMode   = 0644 // other user like hwMindX need read the file
 )
 
 var (
@@ -442,8 +448,29 @@ func adjustOwner() error {
 	if err != nil {
 		return errors.New("config file directory is not safe")
 	}
-	if err := chownR(filePath, hwMindX, hwMindX); err != nil {
+	if err = chownR(filePath, hwMindX, hwMindX); err != nil {
 		hwlog.RunLog.Warn("change file owner failed, please chown to hwMindX manually")
+	}
+	if err = chownR(kmcMasterDir, 0, 0); err != nil {
+		hwlog.RunLog.Warn("change kmc master key file owner failed")
+	}
+	if err = chownR(kmcBackuprDir, 0, 0); err != nil {
+		hwlog.RunLog.Warn("change kmc backup key file owner failed")
+	}
+	// symbolic links  have been checked in the entry of the program
+	fileMap := map[string]os.FileMode{kmcMasterDir: parentDirMode,
+		kmcBackuprDir: parentDirMode,
+		kmcMaster:     kmcFileMode,
+		kmcBackup:     kmcFileMode,
+	}
+	for k, v := range fileMap {
+		if err = os.Chmod(k, v); err != nil {
+			hwlog.RunLog.Warnf("change file:%s mod failed", utils.MaskPrefix(k))
+		}
+	}
+	if err != nil {
+		hwlog.RunLog.Errorf("the mindx-dl config file's privily may not work, please check manually")
+		return errors.New("change owner failed")
 	}
 	hwlog.RunLog.Info("change owner successfully")
 	return nil
