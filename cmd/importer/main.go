@@ -10,7 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"time"
@@ -32,13 +31,8 @@ const (
 	// aes128gcm AES128-GCM
 	aes128gcm = 8
 	// aes256gcm AES256-GCM
-	aes256gcm     = 9
-	kmcMasterDir  = dirPrefix + "kmc_primary_store"
-	kmcBackuprDir = dirPrefix + ".config"
-	kmcMaster     = kmcMasterDir + "/master.ks"
-	kmcBackup     = kmcBackuprDir + "/backup.ks"
-	parentDirMode = 0755 //  other user like hwMindX need enter the dir
-	advanceDays   = 180
+	aes256gcm   = 9
+	advanceDays = 180
 )
 
 var (
@@ -492,40 +486,8 @@ func adjustOwner() error {
 	if err != nil {
 		return errors.New("config file directory is not safe")
 	}
-	errList := make([]error, 0, 10)
 	if err = chownR(filePath, hwMindX, hwMindX); err != nil {
 		hwlog.RunLog.Warn("change file owner failed, please chown to hwMindX manually")
-		errList = append(errList, err)
-	}
-	if err = chownR(kmcMasterDir, 0, 0); err != nil {
-		hwlog.RunLog.Warn("change kmc master key file owner failed")
-		errList = append(errList, err)
-	}
-	if err = chownR(kmcBackuprDir, 0, 0); err != nil {
-		hwlog.RunLog.Warn("change kmc backup key file owner failed")
-		errList = append(errList, err)
-	}
-	// symbolic links  have been checked in the entry of the program
-	fileMap := map[string]os.FileMode{kmcMasterDir: parentDirMode,
-		kmcBackuprDir: parentDirMode,
-	}
-	for k, v := range fileMap {
-		if err = os.Chmod(k, v); err != nil {
-			hwlog.RunLog.Warnf("change file:%s mod failed", utils.MaskPrefix(k))
-			errList = append(errList, err)
-		}
-	}
-	if err = setFacl(kmcMaster); err != nil {
-		hwlog.RunLog.Warn("set kmc master key file acl failed")
-		errList = append(errList, err)
-	}
-	if err = setFacl(kmcBackup); err != nil {
-		hwlog.RunLog.Warn("set kmc backup key file acl failed")
-		errList = append(errList, err)
-	}
-	if len(errList) != 0 {
-		hwlog.RunLog.Errorf("the mindx-dl config file mode set failed , please check manually")
-		return errors.New("change owner or set file mode failed")
 	}
 	hwlog.RunLog.Info("change owner and set file mode successfully")
 	return nil
@@ -537,14 +499,4 @@ func chownR(path string, uid, gid int) error {
 		}
 		return err
 	})
-}
-
-func setFacl(file string) error {
-	setfaclCmd := "/usr/bin/setfacl"
-	if _, err := utils.CheckOwnerAndPermission(setfaclCmd, utils.DefaultWriteFileMode, 0); err != nil {
-		hwlog.RunLog.Error("check setfacl file uid or mod failed")
-		return err
-	}
-	cmd := exec.Command(setfaclCmd, "-m", "u:hwMindX:r", file)
-	return cmd.Run()
 }
