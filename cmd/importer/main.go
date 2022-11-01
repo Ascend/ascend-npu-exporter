@@ -38,6 +38,7 @@ const (
 	kmcMaster     = kmcMasterDir + "/master.ks"
 	kmcBackup     = kmcBackuprDir + "/backup.ks"
 	parentDirMode = 0755 //  other user like hwMindX need enter the dir
+	advanceDays   = 180
 )
 
 var (
@@ -66,7 +67,9 @@ var (
 		"ne": "npu-exporter", "am": "access-manager", "lm": "license-manager", "la": "license-agent",
 		"hc": "hccl-controller", "dp": "device-plugin", "nd": "noded", "rc": "resilience-controller",
 	}
-	notDel bool
+	notDel   bool
+	updateMk bool
+	updateRk bool
 )
 
 var hwLogConfig = &hwlog.LogConfig{FileMaxSize: hwlog.DefaultFileMaxSize,
@@ -95,6 +98,12 @@ func main() {
 	}
 	hwlog.RunLog.Infof("[OP]current user is %s,hostName is %s,login ip is %s,verison is:%s",
 		usr, name, ip, versions.BuildVersion)
+	if err = updateMkAndRk(); err != nil {
+		return
+	}
+	if updateRk || updateMk {
+		return
+	}
 	if err = importKubeConfig(kubeConfig); err != nil {
 		hwlog.RunLog.Error(err)
 		hwlog.RunLog.Error("[OP]kubeConfig imported failed")
@@ -107,6 +116,36 @@ func main() {
 	if err = importCertFiles(certFile, keyFile, caFile, crlFile); err != nil {
 		hwlog.RunLog.Error(err)
 	}
+}
+
+func updateMkAndRk() error {
+	if !updateMk && !updateRk {
+		return nil
+	}
+	kmcInstance, err := kmc.KeInitializeEx(kmc.NewKmcInitConfig())
+	if err != nil {
+		hwlog.RunLog.Error(err)
+		return err
+	}
+	defer kmcInstance.KeFinalizeEx()
+	if updateMk {
+		hwlog.RunLog.Info("[OP]start to update master key")
+		if err = kmcInstance.KeCheckAndUpdateMkEx(0, advanceDays); err != nil {
+			hwlog.RunLog.Info("[OP]update master key failed")
+			return err
+		}
+		hwlog.RunLog.Info("[OP]update master key successfully")
+	}
+	if updateRk {
+		hwlog.RunLog.Info("[OP]start to update kmc root key")
+		if err = kmcInstance.UpdateRootKey(); err != nil {
+			hwlog.RunLog.Info("[OP]update root key failed")
+			return err
+		}
+		hwlog.RunLog.Info("[OP]update kmc root key successfully")
+	}
+
+	return nil
 }
 
 func init() {
@@ -126,6 +165,10 @@ func init() {
 	flag.StringVar(&kubeConfig, "kubeConfig", "", "The k8s config file path")
 	flag.BoolVar(&notDel, "n", false,
 		"If true,stop delete the sensitive original file automatically")
+	flag.BoolVar(&updateMk, "updateMk", false,
+		"If true,update the kmc master key immediately")
+	flag.BoolVar(&updateRk, "updateRk", false,
+		"If true,update the kmc root key immediately")
 }
 
 func importCertFiles(certFile, keyFile, caFile, crlFile string) error {
