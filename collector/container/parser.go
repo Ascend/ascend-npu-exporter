@@ -246,24 +246,32 @@ func (dp *DevicesParser) doParse(resultOut chan<- DevicesInfos) {
 
 	r := make(chan DevicesInfo)
 	defer close(r)
-	ctx, cancelFn := context.WithTimeout(ctx, withDefault(dp.Timeout, parsingNpuDefaultTimeout))
-	defer cancelFn()
+	wg := sync.WaitGroup{}
+	wg.Add(l)
+
 	for _, container := range containers {
 		go func(container *v1alpha2.Container) {
 			if err := dp.parseDevices(ctx, container, r); err != nil {
 				dp.err <- err
 			}
+			wg.Done()
 		}(container)
 	}
-
+	ctx, cancelFn := context.WithTimeout(ctx, withDefault(dp.Timeout, parsingNpuDefaultTimeout))
+	defer cancelFn()
 	if result, err = dp.collect(ctx, r, int32(l)); result != nil && err == nil {
 		dp.result <- result
 	}
+	wg.Wait()
 }
 
 // FetchAndParse triggers the asynchronous process of querying and analyzing all containers
 // resultOut channel is for fetching the current result
 func (dp *DevicesParser) FetchAndParse(resultOut chan<- DevicesInfos) {
+	if dp.err == nil {
+		hwlog.RunLog.Debug("device paster is not initialized")
+		return
+	}
 	go dp.doParse(resultOut)
 }
 
