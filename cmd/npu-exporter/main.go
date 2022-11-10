@@ -12,6 +12,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"regexp"
@@ -172,6 +173,7 @@ func newServerAndListener(conf *limiter.HandlerConfig) (*http.Server, net.Listen
 		ReadTimeout:    timeout * time.Second,
 		WriteTimeout:   timeout * time.Second,
 		MaxHeaderBytes: maxHeaderBytes,
+		ErrorLog:       log.New(&hwlog.SelfLogWriter{}, "", log.Lshortfile),
 	}
 	ln, err := net.Listen("tcp", s.Addr)
 	if err != nil {
