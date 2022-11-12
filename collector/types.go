@@ -18,9 +18,8 @@ const (
 	// UnHealthy status of unhealth
 	UnHealthy HealthEnum = "UnHealthy"
 	// convert base
-	base = 10
-	// log level
-	five = 5
+	base             = 10
+	containerNameLen = 3
 	// cache key
 	key = "npu-exporter-npu-list"
 	// cache key for parsing-device result

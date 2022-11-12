@@ -22,6 +22,7 @@ import (
 const (
 	labelK8sPodNamespace = "io.kubernetes.pod.namespace"
 	labelK8sPodName      = "io.kubernetes.pod.name"
+	labelContainerName   = "io.kubernetes.container.name"
 	// DefaultDockerShim default docker shim sock address
 	DefaultDockerShim = "unix:///run/dockershim.sock"
 	// DefaultContainerdAddr default containerd sock address
