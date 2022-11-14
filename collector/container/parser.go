@@ -174,19 +174,21 @@ func (dp *DevicesParser) parseDevices(ctx context.Context, c *v1alpha2.Container
 	} else if err != nil {
 		return contactError(err, fmt.Sprintf("parsing Ascend devices of container %s fail", c.Id))
 	}
+	var names []string
 	ns := c.Labels[labelK8sPodNamespace]
-	err = validDNSRe(ns)
-	if err != nil {
-		return err
-	}
+	names = append(names, ns)
 	podName := c.Labels[labelK8sPodName]
-	err = validDNSRe(podName)
-	if err != nil {
-		return err
+	names = append(names, podName)
+	containerName := c.Labels[labelContainerName]
+	names = append(names, containerName)
+	for _, v := range names {
+		if err = validDNSRe(v); err != nil {
+			return err
+		}
 	}
 	if hasAscend {
 		deviceInfo.ID = c.Id
-		deviceInfo.Name = ns + "_" + podName + "_" + c.Metadata.Name
+		deviceInfo.Name = ns + "_" + podName + "_" + containerName
 		deviceInfo.Devices = devicesIDs
 	}
 	return nil

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -52,18 +53,23 @@ var (
 		"the container name and deviceID relationship", []string{"containerID", "containerName", "npuID"}, nil)
 	npuContainerTotalMemory = prometheus.NewDesc("container_npu_total_memory",
 		"the npu total memory in container, unit is 'MB'", []string{"id",
-			"pod_name"}, nil)
+			"namespace", "pod_name", "container_name"}, nil)
 	npuContainerUsedMemory = prometheus.NewDesc("container_npu_used_memory",
 		"the npu used memory in container, unit is 'MB'", []string{"id",
-			"pod_name"}, nil)
+			"namespace", "pod_name", "container_name"}, nil)
 	npuContainerUtilization = prometheus.NewDesc("container_npu_utilization",
 		"the npu ai core utilization in container, unit is '%'", []string{"id",
-			"pod_name"}, nil)
+			"namespace", "pod_name", "container_name"}, nil)
 	npuContainerInfoInit sync.Once
 	npuChipInfoInit      sync.Once
 )
 
-const cacheSize = 128
+const (
+	cacheSize    = 128
+	nameSpaceIdx = 0
+	podNameIdx   = 1
+	conNameIdx   = 2
+)
 
 type npuCollector struct {
 	cache         *cache.ConcurrencyLRUCache
@@ -260,7 +266,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 		for _, chip := range card.DeviceList {
 			containerName, ok := containerMap[chip.DeviceID]
 			if !ok {
-				containerName = ""
+				containerName = nil
 			}
 			updateNPUCommonInfo(ch, &card, chip, containerName)
 			updateNPUMemoryInfo(ch, &card, chip, containerName)
@@ -271,7 +277,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(machineInfoNPUDesc, prometheus.GaugeValue, float64(totalCount))
 }
 
-func updateContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) map[int]string {
+func updateContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) map[int][]string {
 	if ch == nil {
 		hwlog.RunLog.Error("metric channel is nil")
 		return nil
@@ -297,10 +303,10 @@ func updateContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) map[in
 		hwlog.RunLog.Error("Error cache and convert failed")
 		return nil
 	}
-	res := make(map[int]string, initSize)
+	res := make(map[int][]string, initSize)
 	for _, v := range cntNpuInfos {
 		for _, deviceID := range v.Devices {
-			res[deviceID] = v.Name
+			res[deviceID] = strings.Split(v.Name, "_")
 			ch <- prometheus.MustNewConstMetric(
 				npuContainerInfo,
 				prometheus.GaugeValue, 1,
@@ -346,7 +352,8 @@ func validate(ch chan<- prometheus.Metric, objs ...interface{}) bool {
 	return true
 }
 
-func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip, containerName string) {
+func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
+	containerName []string) {
 	if !validate(ch, npu, chip, chip.HbmInfo, chip.Meminf) {
 		hwlog.RunLog.Error("Invalid param in function updateNPUMemoryInfo")
 		return
@@ -371,21 +378,42 @@ func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 		npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescTotalMemory, prometheus.GaugeValue, float64(chip.Meminf.MemorySize),
 			[]string{strconv.FormatInt(int64(chip.DeviceID), base)}...))
-	if containerName != "" {
+	updateContainerInfo(ch, npu, chip, containerName)
+}
+
+func updateContainerInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip, containerName []string) {
+	if len(containerName) != containerNameLen {
+		return
+	}
+	if strings.Contains(chip.ChipIfo.Name, "910") {
 		ch <- prometheus.NewMetricWithTimestamp(
 			npu.Timestamp,
 			prometheus.MustNewConstMetric(npuContainerTotalMemory, prometheus.GaugeValue,
-				float64(chip.Meminf.MemorySize), []string{strconv.FormatInt(int64(chip.DeviceID),
-					base), containerName}...))
+				float64(chip.HbmInfo.MemorySize), []string{strconv.FormatInt(int64(chip.DeviceID), base),
+					containerName[nameSpaceIdx], containerName[podNameIdx], containerName[conNameIdx]}...))
 		ch <- prometheus.NewMetricWithTimestamp(
 			npu.Timestamp,
 			prometheus.MustNewConstMetric(npuContainerUsedMemory, prometheus.GaugeValue,
-				float64(chip.Meminf.MemorySize-chip.Meminf.MemoryAvailable),
-				[]string{strconv.FormatInt(int64(chip.DeviceID), base), containerName}...))
+				float64(chip.HbmInfo.Usage),
+				[]string{strconv.FormatInt(int64(chip.DeviceID), base),
+					containerName[nameSpaceIdx], containerName[podNameIdx], containerName[conNameIdx]}...))
+		return
 	}
+	ch <- prometheus.NewMetricWithTimestamp(
+		npu.Timestamp,
+		prometheus.MustNewConstMetric(npuContainerTotalMemory, prometheus.GaugeValue,
+			float64(chip.Meminf.MemorySize), []string{strconv.FormatInt(int64(chip.DeviceID), base),
+				containerName[nameSpaceIdx], containerName[podNameIdx], containerName[conNameIdx]}...))
+	ch <- prometheus.NewMetricWithTimestamp(
+		npu.Timestamp,
+		prometheus.MustNewConstMetric(npuContainerUsedMemory, prometheus.GaugeValue,
+			float64(chip.Meminf.MemorySize-chip.Meminf.MemoryAvailable),
+			[]string{strconv.FormatInt(int64(chip.DeviceID), base),
+				containerName[nameSpaceIdx], containerName[podNameIdx], containerName[conNameIdx]}...))
 }
 
-func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip, containerName string) {
+func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
+	containerName []string) {
 	if !validate(ch, npu, chip) {
 		hwlog.RunLog.Error("Invalid param in function updateNpuCommonInfo")
 		return
@@ -408,12 +436,12 @@ func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 		npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescVoltage, prometheus.GaugeValue, float64(chip.Voltage),
 			[]string{strconv.FormatInt(int64(chip.DeviceID), base)}...))
-	if containerName != "" {
+	if len(containerName) == containerNameLen {
 		ch <- prometheus.NewMetricWithTimestamp(
 			npu.Timestamp,
 			prometheus.MustNewConstMetric(npuContainerUtilization, prometheus.GaugeValue,
 				float64(chip.Utilization), []string{strconv.FormatInt(int64(chip.DeviceID),
-					base), containerName}...))
+					base), containerName[nameSpaceIdx], containerName[podNameIdx], containerName[conNameIdx]}...))
 	}
 }
 
