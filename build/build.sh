@@ -32,6 +32,8 @@ echo "Build Architecture is" "${arch}"
 
 OUTPUT_NAME="npu-exporter"
 DOCKER_FILE_NAME="Dockerfile"
+A200ISOC_DOCKER_FILE_NAME="Dockerfile-310P-1usoc"
+A200ISOC_RUN_SHELL="run_for_310P_1usoc.sh"
 
 function clean() {
   rm -rf "${TOP_DIR}"/output
@@ -55,14 +57,19 @@ function build() {
 function mv_file() {
   mv "${TOP_DIR}"/cmd/npu-exporter/${OUTPUT_NAME} "${TOP_DIR}"/output
   cp "${TOP_DIR}"/build/npu-exporter.yaml "${TOP_DIR}"/output/npu-exporter-"${build_version}".yaml
+  cp "${TOP_DIR}"/build/npu-exporter-310P-1usoc.yaml "${TOP_DIR}"/output/npu-exporter-310P-1usoc-"${build_version}".yaml
   sed -i "s/npu-exporter:.*/npu-exporter:${build_version}/" "${TOP_DIR}"/output/npu-exporter-"${build_version}".yaml
+  sed -i "s/npu-exporter:.*/npu-exporter:${build_version}/" "${TOP_DIR}"/output/npu-exporter-310P-1usoc-"${build_version}".yaml
   # need CI prepare so lib before excute build.sh
   cp -r "${TOP_DIR}"/lib "${TOP_DIR}"/output/ || true
   cp "${TOP_DIR}"/build/${DOCKER_FILE_NAME} "${TOP_DIR}"/output
+  cp "${TOP_DIR}"/build/${A200ISOC_DOCKER_FILE_NAME} "${TOP_DIR}"/output
+  cp "${TOP_DIR}"/build/${A200ISOC_RUN_SHELL} "${TOP_DIR}"/output
   chmod 400 "${TOP_DIR}"/output/*
   chmod 550 "${TOP_DIR}"/output/lib
   chmod 500 "${TOP_DIR}"/output/lib/*
   chmod 500 "${TOP_DIR}"/output/${OUTPUT_NAME}
+  chmod 500 "${TOP_DIR}"/output/${A200ISOC_RUN_SHELL}
 
 }
 

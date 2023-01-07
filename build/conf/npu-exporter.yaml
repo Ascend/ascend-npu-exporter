@@ -46,12 +46,20 @@ compile:
             src: [ '{{ systemEnv.workspace }}/{{component}}/build/npu-exporter.yaml' ]
             des: "{{ systemEnv.workspace }}/{{component}}/output/npu-exporter-{{version}}.yaml"
             rename: True
+        - copy:
+            src: [ '{{ systemEnv.workspace }}/{{component}}/build/npu-exporter-310P-1usoc.yaml' ]
+            des: "{{ systemEnv.workspace }}/{{component}}/output/npu-exporter-310P-1usoc-{{version}}.yaml"
+            rename: True
         - sed:
             option: "-i"
             srcstr: "s/npu-exporter:.*/npu-exporter:{{version}}/"
             curfile: "{{ systemEnv.workspace }}/{{component}}/output/npu-exporter-{{version}}.yaml"
+        - sed:
+            option: "-i"
+            srcstr: "s/npu-exporter:.*/npu-exporter:{{version}}/"
+            curfile: "{{ systemEnv.workspace }}/{{component}}/output/npu-exporter-310P-1usoc-{{version}}.yaml"
         - copy:
-            src: ['{{ systemEnv.workspace }}/{{component}}/lib','{{ systemEnv.workspace }}/npu-exporter/build/Dockerfile']
+            src: ['{{ systemEnv.workspace }}/{{component}}/lib','{{ systemEnv.workspace }}/npu-exporter/build/Dockerfile','{{ systemEnv.workspace }}/npu-exporter/build/Dockerfile-310P-1usoc','{{ systemEnv.workspace }}/npu-exporter/build/run_for_310P_1usoc.sh']
             des: "{{ systemEnv.workspace }}/{{ component}}/output/"
         - mode:
             src: ["{{ systemEnv.workspace }}/{{ component}}/output/*"]
@@ -60,7 +68,7 @@ compile:
             src: [ "{{ systemEnv.workspace }}/{{ component}}/output/lib" ]
             mode: "550"
         - mode:
-            src: [ "{{ systemEnv.workspace }}/{{ component}}/output/lib/*","{{ systemEnv.workspace }}/{{ component}}/output/{{ component }}" ]
+            src: [ "{{ systemEnv.workspace }}/{{ component}}/output/lib/*","{{ systemEnv.workspace }}/{{ component}}/output/{{ component }}", '{{ systemEnv.workspace }}/{{ component}}/output/run_for_310P_1usoc.sh']
             mode: "500"
         - move:
             src: [ '{{ systemEnv.workspace }}/{{component}}/cmd/importer/cert-importer' ]

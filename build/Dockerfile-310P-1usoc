@@ -1,0 +1,22 @@
+FROM ubuntu:18.04
+RUN useradd -d /home/hwMindX -u 9000 -m -s /usr/sbin/nologin hwMindX &&\
+    groupadd -g 1000 HwHiAiUser && useradd -u 1000 -g HwHiAiUser -d /home/HwHiAiUser -m HwHiAiUser &&\
+    groupadd -g 1002 HwDmUser && useradd -u 1002 -g HwDmUser -d /home/HwDmUser -m HwDmUser &&\
+    groupadd -g 1003 HwBaseUser && useradd -u 1003 -g HwBaseUser -d /home/HwBaseUser -m HwBaseUser &&\
+    usermod -a -G HwBaseUser HwHiAiUser &&\
+    usermod -a -G HwDmUser HwHiAiUser &&\
+    usermod -a -G HwBaseUser HwDmUser &&\
+    usermod -a -G HwHiAiUser HwDmUser &&\
+    usermod root -s /usr/sbin/nologin
+
+COPY ./npu-exporter  /usr/local/bin/
+COPY ./lib  /usr/local/lib
+COPY ./run_for_310P_1usoc.sh /
+RUN chown root:root /usr/local/bin/npu-exporter  &&\
+    chmod 750 -R /home/hwMindX &&\
+    chmod 500 /run_for_310P_1usoc.sh &&\
+    chmod 550 /usr/local/bin/ /usr/local/lib &&\
+    chmod 500 /usr/local/lib/* &&\
+    chmod 500 /usr/local/bin/npu-exporter &&\
+    echo 'umask 027' >> /etc/profile && \
+    echo 'source /etc/profile' >> ~/.bashrc
