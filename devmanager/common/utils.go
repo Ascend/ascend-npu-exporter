@@ -45,6 +45,7 @@ func IsValidChipInfo(chip *ChipInfo) bool {
 
 // IsValidCardID valid card id
 func IsValidCardID(cardID int32) bool {
+	// for cardID, please watch the maximum value of the driver is changed in the future version
 	return cardID >= 0 && cardID < HiAIMaxCardID
 }
 
