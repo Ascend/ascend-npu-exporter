@@ -65,7 +65,7 @@ const (
 	DeviceIPLength = 4
 
 	// HiAIMaxCardID max card id for Ascend chip
-	HiAIMaxCardID = 4096
+	HiAIMaxCardID = math.MaxInt32
 
 	// HiAIMaxCardNum max card number
 	HiAIMaxCardNum = 64
