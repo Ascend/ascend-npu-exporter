@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -17,10 +17,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -35,33 +31,22 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"huawei.com/mindx/common/hwlog"
-	"huawei.com/mindx/common/limiter"
-	mytls "huawei.com/mindx/common/tls"
-	"huawei.com/mindx/common/utils"
-	myx509 "huawei.com/mindx/common/x509"
 	"huawei.com/npu-exporter/collector"
 	"huawei.com/npu-exporter/collector/container"
+	"huawei.com/npu-exporter/common-utils/hwlog"
+	"huawei.com/npu-exporter/common-utils/limiter"
 	"huawei.com/npu-exporter/versions"
 )
 
 var (
 	port           int
 	updateTime     int
-	certificate    *tls.Certificate
 	ip             string
-	enableHTTP     bool
-	caBytes        []byte
 	version        bool
-	tlsSuites      int
-	cipherSuites   uint16
 	concurrency    int
 	containerMode  string
 	containerd     string
 	endpoint       string
-	crlcerList     *pkix.CertificateList
-	warningDays    int
-	checkInterval  int
 	limitIPReq     string
 	limitIPConn    int
 	limitTotalConn int
@@ -69,23 +54,12 @@ var (
 )
 
 const (
-	dirPrefix               = "/etc/mindx-dl/npu-exporter/"
 	portConst               = 8082
 	updateTimeConst         = 5
 	cacheTime               = 65 * time.Second
 	portLeft                = 1025
 	portRight               = 40000
 	oneMinute               = 60
-	keyStore                = dirPrefix + mytls.KeyStore
-	keyBkpStore             = dirPrefix + mytls.KeyBackup
-	certStore               = dirPrefix + mytls.CertStore
-	certBkpStore            = dirPrefix + mytls.CertBackup
-	caStore                 = dirPrefix + mytls.CaStore
-	caBkpStore              = dirPrefix + mytls.CaBackup
-	crlStore                = dirPrefix + mytls.CrlStore
-	crlBkpStore             = dirPrefix + mytls.CrlBackup
-	passFile                = dirPrefix + mytls.PassFile
-	passFileBackUp          = dirPrefix + mytls.PassFileBackUp
 	defaultConcurrency      = 5
 	defaultLogFile          = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
 	containerModeDocker     = "docker"
@@ -93,14 +67,8 @@ const (
 	unixPre                 = "unix://"
 	timeout                 = 10
 	maxHeaderBytes          = 1024
-	defaultWarningDays      = 100
-	// weekDays one week days
-	weekDays = 7
-	// yearDays one year days
-	yearDays = 365
 	// tenDays ten days
 	tenDays           = 10
-	aes256gcm         = 9
 	maxIPConnLimit    = 128
 	maxConcurrency    = 512
 	defaultConnection = 20
@@ -118,7 +86,7 @@ func main() {
 	if err := initHwLogger(); err != nil {
 		return
 	}
-	if err := validate(); err != nil {
+	if err := baseParamValid(); err != nil {
 		hwlog.RunLog.Error(err)
 		return
 	}
@@ -131,29 +99,10 @@ func main() {
 	}
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 	http.Handle("/", http.HandlerFunc(indexHandler))
-	http.Handle("/v1/certstatus", http.HandlerFunc(getCertStatus))
 	conf := initConfig()
 	s, limitLs := newServerAndListener(conf)
 	if s == nil || limitLs == nil {
 		return
-	}
-	if certificate != nil {
-		tlsConf, err := mytls.NewTLSConfig(caBytes, *certificate, []uint16{cipherSuites})
-		if err != nil {
-			hwlog.RunLog.Error(err)
-			return
-		}
-		s.TLSConfig = tlsConf
-		s.Handler, err = limiter.NewLimitHandlerV2(myx509.Interceptor(http.DefaultServeMux, crlcerList), conf)
-		if err != nil {
-			hwlog.RunLog.Error(err)
-			return
-		}
-		hwlog.RunLog.Info("start https server now...")
-		if err = s.ServeTLS(limitLs, "", ""); err != nil {
-			hwlog.RunLog.Error("Https server error and stopped")
-			return
-		}
 	}
 	hwlog.RunLog.Warn("enable unsafe http server")
 	if err := s.Serve(limitLs); err != nil {
@@ -239,44 +188,6 @@ func regPrometheus(opts container.CntNpuMonitorOpts) (*prometheus.Registry, erro
 	return reg, nil
 }
 
-func validate() error {
-	if err := baseParamValid(); err != nil {
-		return err
-	}
-	if enableHTTP {
-		return nil
-	}
-	if checkInterval < 1 || checkInterval > weekDays {
-		return errors.New("certificate check interval time invalidate")
-	}
-	if warningDays < tenDays || warningDays > yearDays {
-		return errors.New("certificate warning time invalidate")
-	}
-	myx509.SetPeriodCheckParam(warningDays, checkInterval)
-	// key file exist and need init kmc
-	hwlog.RunLog.Info("start load imported certificate files")
-	pathMap := map[string]string{
-		myx509.CertStorePath:       certStore,
-		myx509.CertStoreBackupPath: certBkpStore,
-		myx509.KeyStorePath:        keyStore,
-		myx509.KeyStoreBackupPath:  keyBkpStore,
-		myx509.PassFilePath:        passFile,
-		myx509.PassFileBackUpPath:  passFileBackUp,
-	}
-	tlsCert, err := mytls.LoadCertPair(pathMap, aes256gcm)
-	if err != nil {
-		return err
-	}
-	certificate = tlsCert
-	if err = loadCRL(); err != nil {
-		return err
-	}
-	if err = loadCA(); err != nil {
-		return err
-	}
-	return err
-}
-
 func baseParamValid() error {
 	if port < portLeft || port > portRight {
 		return errors.New("the port is invalid")
@@ -309,18 +220,6 @@ func baseParamValid() error {
 	if concurrency < 1 || concurrency > maxConcurrency {
 		return errors.New("concurrency range error")
 	}
-	if enableHTTP {
-		return nil
-	}
-	if tlsSuites != 0 && tlsSuites != 1 {
-		hwlog.RunLog.Warn("reset invalid tlsSuites = 1 ")
-		tlsSuites = 1
-	}
-	if tlsSuites == 0 {
-		cipherSuites = tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
-	} else {
-		cipherSuites = tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-	}
 	return nil
 }
 
@@ -347,10 +246,6 @@ func init() {
 		"The listen ip of the service,0.0.0.0 is not recommended when install on Multi-NIC host")
 	flag.IntVar(&updateTime, "updateTime", updateTimeConst,
 		"Interval (seconds) to update the npu metrics cache,range[1-60]")
-	flag.BoolVar(&enableHTTP, "enableHTTP", false,
-		"If true, the program will not check certificate files and enable http server (default false)")
-	flag.IntVar(&tlsSuites, "tlsSuites", 1,
-		"Use 0 for TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 ,1 for TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256")
 	flag.BoolVar(&version, "version", false,
 		"If true,query the version of the program (default false)")
 	flag.StringVar(&containerMode, "containerMode", containerModeDocker,
@@ -370,10 +265,6 @@ func init() {
 		"Log file path. If the file size exceeds 20MB, will be rotated")
 	flag.IntVar(&hwLogConfig.MaxBackups, "maxBackups", hwlog.DefaultMaxBackups,
 		"Maximum number of backup log files, range is (0, 30]")
-	flag.IntVar(&checkInterval, "checkInterval", 1,
-		"the Interval time for certificate validate period check, range is [1, 7]")
-	flag.IntVar(&warningDays, "warningDays", defaultWarningDays,
-		"the Ahead days of warning for certificate overdue, range is [10, 365]")
 	flag.IntVar(&cacheSize, "cacheSize", limiter.DefaultCacheSize, "the cacheSize for ip limit,"+
 		"range  is [1,1024000],keep default normally")
 	flag.IntVar(&limitIPConn, "limitIPConn", defaultConcurrency, "the tcp connection limit for each Ip,"+
@@ -386,9 +277,6 @@ func init() {
 
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
 	var proposal = "http"
-	if certificate != nil {
-		proposal = "https"
-	}
 	_, err := w.Write([]byte(
 		`<html>
 			<head><title>NPU-Exporter</title></head>
@@ -401,52 +289,6 @@ func indexHandler(w http.ResponseWriter, _ *http.Request) {
 	if err != nil {
 		hwlog.RunLog.Error("Write to response error")
 	}
-}
-
-func getCertStatus(w http.ResponseWriter, _ *http.Request) {
-	b, err := json.Marshal(myx509.GetCertStatus())
-	if err != nil {
-		hwlog.RunLog.Error("fail to marshal cert status")
-	}
-	_, err = w.Write(b)
-	if err != nil {
-		hwlog.RunLog.Error("Write to response error")
-	}
-}
-
-func loadCRL() error {
-	crlInstance, err := myx509.NewBKPInstance(nil, crlStore, crlBkpStore)
-	if err != nil {
-		return err
-	}
-	crlBytes, err := crlInstance.ReadFromDisk(utils.FileMode, false)
-	if err != nil || crlBytes == nil {
-		hwlog.RunLog.Info("no crl file found")
-		return nil
-	}
-	crlList, err := x509.ParseCRL(crlBytes)
-	if err != nil {
-		return errors.New("parse crlFile failed")
-	}
-	// skip check CRL update time when load it,only check when import CRL file
-	if crlList != nil {
-		crlcerList = crlList
-		hwlog.RunLog.Infof("load CRL success")
-	}
-	return nil
-}
-
-func loadCA() error {
-	caInstance, err := myx509.NewBKPInstance(nil, caStore, caBkpStore)
-	if err != nil {
-		return err
-	}
-	caBytes, err = caInstance.ReadFromDisk(utils.FileMode, false)
-	if err != nil || len(caBytes) == 0 {
-		hwlog.RunLog.Info("no ca file found")
-		return nil
-	}
-	return myx509.VerifyCaCert(caBytes, myx509.InvalidNum)
 }
 
 func initHwLogger() error {
