@@ -36,87 +36,60 @@ Prometheus（普罗米修斯）是一个开源的系统监控和警报工具包�
     |文件名 |说明 |
     | ---- | ---- |
     | npu-exporter |二进制文件  |
-    |npu-exporter-{verson}-{arch}.tar.gz| Docker镜像包（需使用docker load导入） |
-    |npu-exporter-{version}.yaml |K8s启动yaml|
+    | npu-exporter-{version}.yaml |K8s启动yaml|
+    | npu-exporter-310P-1usoc-{version}.yaml |1usoc场景K8s启动yaml|
+    | Dockerfile |常规镜像制作配置文件  |
+    | Dockerfile-310P-1usoc | 1usoc场景镜像制作专用配置文件  |
+    | run_for_310P_1usoc.sh | 1usoc场景启动脚本  |
 
     >! **说明：** 
     >
     >- _\{version\}_：表示版本号，请根据实际写入。
-    >- _\{arch\}_：表示系统架构，请根据实际写入。
 
-2. 执行以下命令，启动NPU-Exporter。
+2. 镜像制作
+    确保执行步骤一，生成相应的二进制文件和Dockerfile文件
+    cd output
+    构建镜像（镜像名为）
+    docker build --no-cache -t npu-exporter:v3.0.0 ./
+    分发镜像（
+    
+    2.1 先保存为压缩包
+    
+        docker save hccl-controller:v3.0.0 > hccl-controller-v3.0.0-linux-arrch64.tar
+    
+    2.2 然后分发到各节点
+    
+        scp hccl-controller-v3.0.0-linux-arrch64.tar root@{目标节点IP地址}:保存路径
+    
+    2.3 节点上加载镜像
+    
+        docker load < hccl-controller-v3.0.0-linux-arrch64.tar 
+    
+3. 执行以下命令，启动NPU-Exporter。
 
     **表 2**  操作命令
-
-| 启动类型            | 启动命令                                                     |
-| :-------------------- | -------------------------------------------------------- |
-| 二进制启动          | ./npu-exporter                                             |
-| Docker启动          | docker run -it --privileged   （） -- rm --volume=/var/log/npu-exporter:/var/log/npu-exporter --volume=/etc/localtime:/etc/localtime:ro --volume=/usr/local/Ascend/driver:/usr/local/Ascend/driver:ro --publish=8082:8082 --name=npu-exporter npu-exporter:{version} |
-| K8s启动（推荐方式） | kubectl apply -f npu-exporter-{version}.yaml                 |
+    
+    | 启动类型            | 启动命令                                                     |
+    | :-------------------- | -------------------------------------------------------- |
+    | 二进制启动          | ./npu-exporter   -ip=0.0.0.0                                          |
+    | K8s启动（推荐方式） | kubectl apply -f npu-exporter-{version}.yaml                 |
 
    >! **说明：** 
    >
    >- _\{version\}_：表示版本号，请根据实际写入。
    >- 二进制启动时，添加-h参数可查看可用参数及说明。
+   >- k8s启动时，注意yaml文件使用镜像名为自己构建的镜像。                                                                                                                                                                                                                                                                                                                                                                                                                 >
 
-3.  执行以下命令，访问http接口查看服务。
+4.  执行以下命令，访问http接口查看服务。
 
     **http://**_\{ip\}_**:8082/metrics**
 
     >! **说明：** 
     >_\{ip\}_：表示物理机IP地址（二进制或者Docker启动时）或容器IP地址（K8s启动时，只显示端口到K8s集群内部。并配置了网络策略，默认只能Prometheus访问，网络策略详情参考[Kubernetes文档](https://kubernetes.io/zh/docs/concepts/services-networking/network-policies/)），请根据实际写入。
 
-
-#### Prometheus集成方法
-
--   如果Prometheus和NPU-Exporter部署在K8s中，考虑到NPU-Exporter配置了网络策略，Prometheus的启动yaml中需要配置app: prometheus的标签（labels）。
-
-    ```
-    apiVersion: apps/v1
-    kind: Deployment
-    metadata:
-      labels:
-        name: prometheus-deployment
-      name: prometheus
-     spec:
-      replicas: 1
-      selector:
-        matchLabels:
-          app: prometheus
-      template:
-        metadata:
-          labels:
-            app: prometheus
-        spec:
-          nodeSelector:
-            masterselector: dls-master-node
-          containers:
-          - image: prom/prometheus:v2.10.0
-            name: prometheus
-            command:
-            - "/bin/prometheus"
-           ....
-    ```
-
--   Prometheus的config.yaml中增加如下scrape\_configs配置抓取NPU-Exporter。
-
-    ```
-      - job_name: 'kubernetes-npu-exporter'
-          kubernetes_sd_configs:
-          - role: pod
-          scheme: http
-          relabel_configs:
-          - action: keep
-            source_labels: [__meta_kubernetes_namespace]
-            regex: npu-exporter
-          - source_labels: [__meta_kubernetes_pod_node_name]
-            target_label: job
-            replacement: ${1}
-    ```
-
 ## 环境依赖
 
-华为NPU驱动20.1.0及以后。
+华为NPU驱动"Ascend HDK 22.0.RC2"及以后。
 
 ## 目录结构
 
@@ -124,36 +97,92 @@ Prometheus（普罗米修斯）是一个开源的系统监控和警报工具包�
 npu-exporter                                                              
 ├── build                                      #编译和配置文件目录
 │   ├── build.sh
-│   ├── cov.out
 │   ├── Dockerfile
+│   ├── Dockerfile-310P-1usoc
 │   ├── npu-exporter.yaml
+│   ├── npu-exporter-310P-1usoc.yaml
+│   ├── run-for-310P-1usoc.sh
 │   └── test.sh
-├── collector                                  #源码主要目录                           
-│   ├── cov.out
-│   ├── npu_collector.go
-│   ├── npu_collector_test.go
+├── cmd                                      #主函数入口 
+│   └──npu-exporter 
+│       └──── main.go
+├── collector                                  #指标收集                           
 │   ├── container
-│   │   ├── cri_name.go
-│   │   ├── docker_name.go
-│   │   ├── name_fetcher.go
+│   │   ├── v1
+│   │   │   ├── containerd.pb.go
+│   │   │   ├── containerd.proto
+│   │   │   └── spec.go
+│   │   ├── utils.go
 │   │   ├── parser.go
 │   │   ├── runtime_ops.go
 │   ├── testdata                              #测试数据
 │   │   ├── prometheus_metrics
 │   │   └── prometheus_metrics2
+│   ├── npu_collector.go
+│   ├── npu_collector_test.go
 │   └── types.go
-├── dsmi                                       #驱动相关接口封装
-│   ├── constants.go
-│   ├── devicetype.go
-│   ├── dsmi_common_interface.h
-│   ├── dcmi_interface_api.h
-│   ├── dsmi.go
-│   ├── dsmi_mock_err.go
-│   └── dsmi_mock.go
+├── common-utils                                  #公共函数，其他组件会调用                           
+│   ├── cache
+│   │   ├── lrucache.go
+│   │   └── lrucache_test.go
+│   ├── hwlog                            
+│   │   ├── api.go
+│   │   ├── api_test.go
+│   │   ├── hwlog_adaptor.go
+│   │   ├── hwlog_adaptor_test.go
+│   │   ├── log_limiter.go
+│   │   ├── logger.go
+│   │   ├── logger_test.go
+│   │   ├── rolog.go
+│   │   ├── rolog_test.go
+│   │   ├── type.go
+│   │   ├── utils.go
+│   │   └── utils_test.go
+│   ├── limiter                            
+│   │   ├── limit_handler.go
+│   │   ├── limit_handler_test.go
+│   │   ├── limit_listener.go
+│   │   └── limit_listener_test.go
+│   ├── rand                            
+│   │   ├── rand_linux.go
+│   │   ├── rand_linux_test.go
+│   │   ├── random.go
+│   │   └── random_test.go
+│   └── utils
+│   │   ├── file.go
+│   │   ├── file_check.go
+│   │   ├── file_check_test.go
+│   │   ├── file_test.go
+│   │   ├── interface.go
+│   │   ├── interface_test.go
+│   │   ├── up_utils.go
+│   │   ├── up_utils_test.go
+│   │   ├── path.go
+│   │   ├── path_test.go
+│   │   ├── pwd_util.go
+│   │   ├── pwd_util_test.go
+│   │   ├── string.go
+│   │   └── string_test.go
+├── devmanager      
+│   ├── common
+│   │   ├── constants.go
+│   │   ├── utils.go
+│   │   └── type.go  
+│   ├── dcmi
+│   │   ├── constants.go
+│   │   ├── dcmi.go                      #驱动相关接口封装
+│   │   └── dcmi_interface_api.go
+│   ├── a310mgr.go
+│   ├── a310pmgr.go
+│   ├── a910mgr.h
+│   ├── devmanager.go
+│   ├── devmanager_mock.go
+│   └── devmanager_mock_err.go
+├── vensions      
+│   └── vension.go
 ├── go.mod                                     #go语言依赖文件
-├── go.sum
+│   └── go.sum
 ├── LICENSE
-├── main.go                                    #程序入口
 └── README.md
 ```
 
@@ -161,43 +190,7 @@ npu-exporter
 
 | 版本       | 发布日期   | 修改说明       |
 | ---------- | ---------- | -------------- |
-| v2.0.1 | 2020-3-30 | 适配710 |
-| v20.2.0 | 2020-12-30 | 第一次正式发布 |
-
-## 附录
-
-### 日志切割配置
-
-1. 设置日志目录权限
-
-   ```
-   chmod -R 750 /var/log/npu-exporter/
-   ```
-
-2. 配置日志转储
-
-   ```
-   cat <<EOF >/etc/logrotate.d/npu-exporter
-   /var/log/npu-exporter/*.log{
-   daily
-   rotate 8
-   size 10M
-   compress
-   dateext
-   missingok
-   notifempty
-   copytruncate
-   create 0640 root root
-   sharedscripts
-   postrotate
-   chmod 640 /var/log/npu-exporter/*.log
-   chmod 440 /var/log/npu-exporter/*.log-*
-   endscript
-   }
-   EOF
-   
-   chmod 640 /etc/logrotate.d/npu-exporter
-   ```
+| v3.0.0 | 2022-1230 | 第一次发布 |
 
 ### metrics标签
 
@@ -207,7 +200,7 @@ npu-exporter
 | machine_npu_name               | 昇腾系列AI处理器名称                                  | N/A              |
 | npu_chip_info_error_code       | 昇腾系列AI处理器错误码                                | N/A              |
 | npu_chip_info_health_status    | 昇腾系列AI处理器健康状态                              | 1：健康0：不健康 |
-| npu_chip_info_power            | 昇腾系列AI处理器功耗(710板载功耗，910和310为芯片功耗)                                 | 瓦特（W）        |
+| npu_chip_info_power            | 昇腾系列AI处理器功耗(310P板载功耗，910和310为芯片功耗)                                 | 瓦特（W）        |
 | npu_chip_info_temperature      | 昇腾系列AI处理器温度                                  | 摄氏度（℃）      |
 | npu_chip_info_used_memory      | 昇腾系列AI处理器已使用内存                            | MB               |
 | npu_chip_info_total_memory     | 昇腾系列AI处理器总内存                                | MB               |

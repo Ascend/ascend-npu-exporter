@@ -48,7 +48,7 @@ spec:
         workerselector: dls-worker-node
       containers:
       - name: npu-exporter
-        image: npu-exporter:beta
+        image: npu-exporter:v3.0.0
         resources:
           requests:
               memory: 1000Mi
@@ -58,8 +58,6 @@ spec:
               cpu: 1000m
         imagePullPolicy: Never
         command: [ "/bin/bash", "-c", "--"]
-        # NOTE: enable HTTPS needs to use
-        # ./cert-importer -certFile=../cert/rsa_aes.crt -keyFile=../cert/rsa_aes_private.key to import certificate
         # pair firstly
         args: [ "umask 027;npu-exporter -port=8082 -ip=0.0.0.0  -updateTime=5
                  -logFile=/var/log/mindx-dl/npu-exporter/npu-exporter.log -logLevel=0 -containerMode=docker" ]
@@ -84,12 +82,6 @@ spec:
           - name: ascend-dcmi
             mountPath: /usr/local/dcmi
             readOnly: true
-          - name: kmckeystore
-            mountPath: /etc/mindx-dl/kmc_primary_store
-          - name: kmckeybak
-            mountPath: /etc/mindx-dl/.config
-          - name: kmc-exporter
-            mountPath: /etc/mindx-dl/npu-exporter
           - name: sys
             mountPath: /sys
             readOnly: true
@@ -118,18 +110,6 @@ spec:
         - name: ascend-dcmi
           hostPath:
             path: /usr/local/dcmi
-        - name: kmckeystore
-          hostPath:
-            path: /etc/mindx-dl/kmc_primary_store
-            type: Directory
-        - name: kmckeybak
-          hostPath:
-            path: /etc/mindx-dl/.config
-            type: Directory
-        - name: kmc-exporter
-          hostPath:
-            path: /etc/mindx-dl/npu-exporter
-            type: Directory
         - name: sys
           hostPath:
             path: /sys

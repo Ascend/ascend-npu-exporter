@@ -26,9 +26,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"huawei.com/mindx/common/cache"
-	"huawei.com/mindx/common/hwlog"
 	"huawei.com/npu-exporter/collector/container"
+	"huawei.com/npu-exporter/common-utils/cache"
+	"huawei.com/npu-exporter/common-utils/hwlog"
 	"huawei.com/npu-exporter/devmanager"
 	"huawei.com/npu-exporter/devmanager/common"
 	"huawei.com/npu-exporter/versions"

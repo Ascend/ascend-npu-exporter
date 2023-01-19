@@ -27,9 +27,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
-	"huawei.com/mindx/common/cache"
-	"huawei.com/mindx/common/hwlog"
 	"huawei.com/npu-exporter/collector/container"
+	"huawei.com/npu-exporter/common-utils/cache"
+	"huawei.com/npu-exporter/common-utils/hwlog"
 	"huawei.com/npu-exporter/devmanager"
 	"huawei.com/npu-exporter/devmanager/common"
 )

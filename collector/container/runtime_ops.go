@@ -24,11 +24,11 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"huawei.com/mindx/common/utils"
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
-	"huawei.com/mindx/common/hwlog"
 	"huawei.com/npu-exporter/collector/container/v1"
+	"huawei.com/npu-exporter/common-utils/hwlog"
+	"huawei.com/npu-exporter/common-utils/utils"
 )
 
 const (

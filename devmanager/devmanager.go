@@ -19,7 +19,7 @@ import (
 	"errors"
 	"fmt"
 
-	"huawei.com/mindx/common/hwlog"
+	"huawei.com/npu-exporter/common-utils/hwlog"
 	"huawei.com/npu-exporter/devmanager/common"
 	"huawei.com/npu-exporter/devmanager/dcmi"
 )
