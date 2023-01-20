@@ -31,7 +31,7 @@ spec:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: npu-exporter
+  name: npu-exporter-310p-1usoc
   namespace: npu-exporter
 spec:
   selector:
@@ -46,9 +46,10 @@ spec:
     spec:
       nodeSelector:
         workerselector: dls-worker-node
+        servertype: soc
       containers:
       - name: npu-exporter
-        image: npu-exporter:v3.0.0
+        image: npu-exporter:beta
         resources:
           requests:
               memory: 1000Mi
@@ -57,13 +58,10 @@ spec:
               memory: 1000Mi
               cpu: 1000m
         imagePullPolicy: Never
-        command: [ "/bin/bash", "-c", "--"]
+        command: [ "/bin/bash", "-c", "/run_for_310P_1usoc.sh"]
         # pair firstly
-        args: [ "umask 027;npu-exporter -port=8082 -ip=0.0.0.0  -updateTime=5
-                 -logFile=/var/log/mindx-dl/npu-exporter/npu-exporter.log -logLevel=0 -containerMode=docker" ]
         securityContext:
           privileged: true
-          readOnlyRootFilesystem: true
           runAsUser: 0
           runAsGroup: 0
         ports:
@@ -86,16 +84,28 @@ spec:
             mountPath: /sys
             readOnly: true
           - name: docker-shim  # delete when only use containerd
-            mountPath: /var/run/dockershim.sock
+            mountPath: /run/dockershim.sock
             readOnly: true
           - name: docker  # delete when only use containerd
-            mountPath: /var/run/docker
+            mountPath: /run/docker/containerd/containerd.sock
             readOnly: true
           - name: containerd
             mountPath: /run/containerd
             readOnly: true
           - name: tmp
             mountPath: /tmp
+          - name: dmp
+            mountPath: /var/dmp_daemon
+            readOnly: true
+          - name: slogd
+            mountPath: /var/slogd
+            readOnly: true
+          - name: hbasic
+            mountPath: /etc/hdcBasic.cfg
+            readOnly: true
+          - name: slogconf
+            mountPath: /var/log/npu/conf/slog/slog.conf
+            readOnly: true
       volumes:
         - name: log-npu-exporter
           hostPath:
@@ -115,14 +125,29 @@ spec:
             path: /sys
         - name: docker-shim # delete when only use containerd
           hostPath:
-            path: /var/run/dockershim.sock
+            path: /run/dockershim.sock
         - name: docker  # delete when only use containerd
           hostPath:
-            path: /var/run/docker
+            path: /run/docker/containerd/containerd.sock
         - name: containerd
           hostPath:
             path: /run/containerd
         - name: tmp
           hostPath:
             path: /tmp
-
+        - name: dmp
+          hostPath:
+            path: /var/dmp_daemon
+            type: File
+        - name: slogd
+          hostPath:
+            path: /var/slogd
+            type: File
+        - name: hbasic
+          hostPath:
+            path: /etc/hdcBasic.cfg
+            type: File
+        - name: slogconf
+          hostPath:
+            path: /var/log/npu/conf/slog/slog.conf
+            type: File

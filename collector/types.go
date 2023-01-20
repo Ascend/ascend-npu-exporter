@@ -1,23 +1,24 @@
-//  Copyright(C) 2020. Huawei Technologies Co.,Ltd. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
 
 // Package collector for Prometheus
 package collector
 
 import (
-	"huawei.com/npu-exporter/dsmi"
 	"time"
+
+	"huawei.com/npu-exporter/devmanager/common"
 )
 
 // HealthEnum enum
@@ -29,28 +30,23 @@ const (
 	// UnHealthy status of unhealth
 	UnHealthy HealthEnum = "UnHealthy"
 	// convert base
-	base = 10
-	// log level
-	five = 5
+	base             = 10
+	containerNameLen = 3
 	// cache key
 	key = "npu-exporter-npu-list"
-)
-
-var (
-	// BuildName build name
-	BuildName string
-	// BuildVersion build version
-	BuildVersion string
+	// cache key for parsing-device result
+	containersDevicesInfoKey = "npu-exporter-containers-devices"
+	initSize                 = 8
 )
 
 // HuaWeiAIChip chip info
 type HuaWeiAIChip struct {
 	// the memoryInfo of the chip
-	Meminf *dsmi.MemoryInfo `json:"memory_info"`
+	Meminf *common.MemoryInfo `json:"memory_info"`
 	// the chip info
-	ChipIfo *dsmi.ChipInfo `json:"chip_info"`
+	ChipIfo *common.ChipInfo `json:"chip_info"`
 	// the hbm info
-	HbmInfo *dsmi.HbmInfo `json:"hbm_info"`
+	HbmInfo *common.HbmInfo `json:"hbm_info"`
 	// the healthy status of the  AI chip
 	HealthStatus HealthEnum `json:"health_status"`
 	// the error code of the chip
