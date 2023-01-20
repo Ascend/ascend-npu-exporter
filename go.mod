@@ -1,13 +1,14 @@
 module huawei.com/npu-exporter
 
-go 1.14
+go 1.17
 
 require (
-	github.com/fsnotify/fsnotify v1.4.9
-	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/prashantv/gostub v1.0.1-0.20191007164320-bbe3712b9c4a
-	github.com/prometheus/client_golang v1.5.0
-	github.com/stretchr/testify v1.4.0
-	go.uber.org/zap v1.16.0
-	gopkg.in/natefinch/lumberjack.v2 v2.0.0
+	github.com/agiledragon/gomonkey/v2 v2.8.0
+	github.com/fsnotify/fsnotify v1.6.0
+	github.com/golang/protobuf v1.5.1
+	github.com/prometheus/client_golang v1.11.1
+	github.com/smartystreets/goconvey v1.6.4
+	github.com/stretchr/testify v1.7.0
+	google.golang.org/grpc v1.41.0
+	k8s.io/cri-api v0.19.4
 )

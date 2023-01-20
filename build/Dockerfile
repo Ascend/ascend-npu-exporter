@@ -1,9 +1,10 @@
-FROM ubuntu:18.04 
-
-RUN useradd -d /home/HwHiAiUser -u 1000 -m -s /usr/sbin/nologin HwHiAiUser
-
+FROM ubuntu:18.04
+RUN useradd -d /home/hwMindX -u 9000 -m -s /usr/sbin/nologin hwMindX &&\
+    usermod root -s /usr/sbin/nologin
 COPY ./npu-exporter  /usr/local/bin/
 RUN chown root:root /usr/local/bin/npu-exporter  &&\
+    chmod 750 -R /home/hwMindX &&\
+    chmod 550 /usr/local/bin/ &&\
     chmod 500 /usr/local/bin/npu-exporter &&\
     echo 'umask 027' >> /etc/profile && \
     echo 'source /etc/profile' >> ~/.bashrc
