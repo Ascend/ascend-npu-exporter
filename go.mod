@@ -1,4 +1,4 @@
-module huawei.com/npu-exporter
+module huawei.com/npu-exporter/v3
 
 go 1.17
 

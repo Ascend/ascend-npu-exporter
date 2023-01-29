@@ -17,7 +17,7 @@ package devmanager
 import (
 	"errors"
 
-	"huawei.com/npu-exporter/devmanager/common"
+	"huawei.com/npu-exporter/v3/devmanager/common"
 )
 
 var errorMsg = "mock error"

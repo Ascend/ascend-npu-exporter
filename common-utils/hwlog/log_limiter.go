@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"huawei.com/npu-exporter/common-utils/cache"
+	"huawei.com/npu-exporter/v3/common-utils/cache"
 )
 
 const (

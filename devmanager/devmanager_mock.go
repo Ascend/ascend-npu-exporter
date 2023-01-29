@@ -16,7 +16,7 @@
 package devmanager
 
 import (
-	"huawei.com/npu-exporter/devmanager/common"
+	"huawei.com/npu-exporter/v3/devmanager/common"
 )
 
 // DeviceManagerMock common device manager mock for Ascend910/310P/310

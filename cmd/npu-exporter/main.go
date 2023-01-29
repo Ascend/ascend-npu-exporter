@@ -31,11 +31,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"huawei.com/npu-exporter/collector"
-	"huawei.com/npu-exporter/collector/container"
-	"huawei.com/npu-exporter/common-utils/hwlog"
-	"huawei.com/npu-exporter/common-utils/limiter"
-	"huawei.com/npu-exporter/versions"
+	"huawei.com/npu-exporter/v3/collector"
+	"huawei.com/npu-exporter/v3/collector/container"
+	"huawei.com/npu-exporter/v3/common-utils/hwlog"
+	"huawei.com/npu-exporter/v3/common-utils/limiter"
+	"huawei.com/npu-exporter/v3/versions"
 )
 
 var (
