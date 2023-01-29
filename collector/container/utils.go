@@ -27,8 +27,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"huawei.com/npu-exporter/common-utils/hwlog"
-	"huawei.com/npu-exporter/common-utils/utils"
+	"huawei.com/npu-exporter/v3/common-utils/hwlog"
+	"huawei.com/npu-exporter/v3/common-utils/utils"
 )
 
 const (

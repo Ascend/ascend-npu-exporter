@@ -24,7 +24,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/smartystreets/goconvey/convey"
 
-	"huawei.com/npu-exporter/common-utils/utils"
+	"huawei.com/npu-exporter/v3/common-utils/utils"
 )
 
 func TestCheckDir(t *testing.T) {

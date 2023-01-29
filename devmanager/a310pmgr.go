@@ -16,7 +16,7 @@
 package devmanager
 
 import (
-	"huawei.com/npu-exporter/devmanager/dcmi"
+	"huawei.com/npu-exporter/v3/devmanager/dcmi"
 )
 
 // A310PManager Ascend310P device manager
