@@ -190,6 +190,16 @@ package dcmi
     CALL_FUNC(dcmi_get_product_type,card_id,device_id,product_type_str,buf_size)
    }
 
+   int (*dcmi_set_device_reset_func)(int card_id, int device_id, enum dcmi_reset_channel channel_type);
+   int dcmi_set_device_reset(int card_id, int device_id, enum dcmi_reset_channel channel_type){
+    CALL_FUNC(dcmi_set_device_reset,card_id,device_id,channel_type)
+   }
+
+   int (*dcmi_get_device_boot_status_func)(int card_id, int device_id, enum dcmi_boot_status *boot_status);
+   int dcmi_get_device_boot_status(int card_id, int device_id, enum dcmi_boot_status *boot_status){
+    CALL_FUNC(dcmi_get_device_boot_status,card_id,device_id,boot_status)
+   }
+
    // load .so files and functions
    int dcmiInit_dl(const char* dcmiLibPath){
    	if (dcmiLibPath == NULL) {
@@ -260,6 +270,10 @@ package dcmi
 
 	dcmi_get_product_type_func = dlsym(dcmiHandle,"dcmi_get_product_type");
 
+	dcmi_set_device_reset_func = dlsym(dcmiHandle,"dcmi_set_device_reset");
+
+	dcmi_get_device_boot_status_func = dlsym(dcmiHandle,"dcmi_get_device_boot_status");
+
    	return SUCCESS;
    }
 
@@ -327,6 +341,8 @@ type DcDriverInterface interface {
 	DcGetVDeviceInfo(int32) (common.VirtualDevInfo, error)
 	DcDestroyVDevice(int32, uint32) error
 	DcGetProductType(int32, int32) (string, error)
+	DcSetDeviceReset(int32) error
+	DcGetDeviceBootStatus(int32) (int, error)
 }
 
 const (
@@ -1131,4 +1147,42 @@ func (d *DcManager) DcGetProductType(cardID, deviceID int32) (string, error) {
 		return "", fmt.Errorf("get product type failed, errCode: %d", err)
 	}
 	return C.GoString(cProductType), nil
+}
+
+// DcSetDeviceReset reset spec device chip
+func (d *DcManager) DcSetDeviceReset(logicID int32) error {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return fmt.Errorf("input invalid logicID: %d", logicID)
+	}
+	cardID, deviceID, err := d.DcGetCardIDDeviceID(logicID)
+	if err != nil {
+		return fmt.Errorf("failed to get cardID and deviceID by logicID(%d)", logicID)
+	}
+	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
+		return fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
+	}
+	var channelType C.enum_dcmi_reset_channel = C.INBAND_CHANNEL
+	if errCode := C.dcmi_set_device_reset(C.int(cardID), C.int(deviceID), channelType); errCode != 0 {
+		return fmt.Errorf("device reset errCode: %v", errCode)
+	}
+	return nil
+}
+
+// DcGetDeviceBootStatus get NPU boot status
+func (d *DcManager) DcGetDeviceBootStatus(logicID int32) (int, error) {
+	if !common.IsValidLogicIDOrPhyID(logicID) {
+		return common.RetError, fmt.Errorf("input invalid logicID: %d", logicID)
+	}
+	cardID, deviceID, err := d.DcGetCardIDDeviceID(logicID)
+	if err != nil {
+		return common.RetError, fmt.Errorf("failed to get cardID and deviceID by logicID(%d)", logicID)
+	}
+	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
+		return common.RetError, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
+	}
+	var bootStatus C.enum_dcmi_boot_status = C.DCMI_BOOT_STATUS_FINISH
+	if errCode := C.dcmi_get_device_boot_status(C.int(cardID), C.int(deviceID), &bootStatus); errCode != 0 {
+		return common.RetError, fmt.Errorf("device boot status errCode: %v", errCode)
+	}
+	return int(bootStatus), nil
 }

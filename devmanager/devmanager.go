@@ -54,6 +54,8 @@ type DeviceInterface interface {
 	DestroyVirtualDevice(logicID int32, vDevID uint32) error
 	GetDevType() string
 	GetProductType() (string, error)
+	SetDeviceReset(logicID int32) error
+	GetDeviceBootStatus(logicID int32) (int, error)
 }
 
 // DeviceManager common device manager for Ascend910/310P/310
@@ -461,4 +463,14 @@ func (d *DeviceManager) GetProductType() (string, error) {
 		}
 	}
 	return "", nil
+}
+
+// SetDeviceReset reset spec device
+func (d *DeviceManager) SetDeviceReset(logicID int32) error {
+	return d.DcMgr.DcSetDeviceReset(logicID)
+}
+
+// GetDeviceBootStatus get device boot status
+func (d *DeviceManager) GetDeviceBootStatus(logicID int32) (int, error) {
+	return d.DcMgr.DcGetDeviceBootStatus(logicID)
 }
