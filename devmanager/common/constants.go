@@ -90,3 +90,8 @@ const (
 	// Ascend910 ascend 910 chip
 	Ascend910 = "Ascend910"
 )
+
+const (
+	// BootStartFinish chip hot reset finish
+	BootStartFinish = 3
+)
