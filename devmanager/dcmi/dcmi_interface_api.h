@@ -119,6 +119,18 @@ enum dcmi_freq_type {
     DCMI_FREQ_VECTORCORE_CURRENT = 12
 };
 
+enum dcmi_reset_channel {
+   OUTBAND_CHANNEL = 0, // out-of-band reset
+   INBAND_CHANNEL // in-band reset
+};
+
+enum dcmi_boot_status {
+    DCMI_BOOT_STATUS_UNINIT = 0, // not init
+    DCMI_BOOT_STATUS_BIOS, // BIOS starting
+    DCMI_BOOT_STATUS_OS, // OS starting
+    DCMI_BOOT_STATUS_FINISH // started
+};
+
 #define DCMI_VDEV_RES_NAME_LEN 16
 #define DCMI_VDEV_FOR_RESERVE 32
 #define DCMI_SOC_SPLIT_MAX 32
@@ -290,6 +302,10 @@ DCMIDLLEXPORT int dcmi_get_card_id_device_id_from_logicid(int *card_id, int *dev
 DCMIDLLEXPORT int dcmi_get_card_id_device_id_from_phyid(int *card_id, int *device_id, unsigned int device_phy_id);
 
 DCMIDLLEXPORT int dcmi_get_product_type(int card_id, int device_id, char *product_type_str, int buf_size);
+
+DCMIDLLEXPORT int dcmi_set_device_reset(int card_id, int device_id, enum dcmi_reset_channel channel_type);
+
+DCMIDLLEXPORT int dcmi_get_device_boot_status(int card_id, int device_id, enum dcmi_boot_status *boot_status);
 
 #endif
 

@@ -179,3 +179,13 @@ func (d *DeviceManagerMock) GetCardIDDeviceID(logicID int32) (int32, int32, erro
 func (d *DeviceManagerMock) GetProductType() (string, error) {
 	return "", nil
 }
+
+// SetDeviceReset set device reset success
+func (d *DeviceManagerMock) SetDeviceReset(logicID int32) error {
+	return nil
+}
+
+// GetDeviceBootStatus get device boot status success
+func (d *DeviceManagerMock) GetDeviceBootStatus(logicID int32) (int, error) {
+	return common.BootStartFinish, nil
+}

@@ -182,3 +182,13 @@ func (d *DeviceManagerMockErr) GetCardIDDeviceID(logicID int32) (int32, int32, e
 func (d *DeviceManagerMockErr) GetProductType() (string, error) {
 	return "", errors.New("not found product type name")
 }
+
+// SetDeviceReset set device reset failed
+func (d *DeviceManagerMockErr) SetDeviceReset(logicID int32) error {
+	return errors.New(errorMsg)
+}
+
+// GetDeviceBootStatus get device boot status failed
+func (d *DeviceManagerMockErr) GetDeviceBootStatus(logicID int32) (int, error) {
+	return common.RetError, errors.New(errorMsg)
+}
