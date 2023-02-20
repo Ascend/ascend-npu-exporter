@@ -54,7 +54,7 @@ type DeviceInterface interface {
 	DestroyVirtualDevice(logicID int32, vDevID uint32) error
 	GetDevType() string
 	GetProductType() (string, error)
-	SetDeviceReset(logicID int32) error
+	SetDeviceReset(cardID, deviceID int32) error
 	GetDeviceBootStatus(logicID int32) (int, error)
 }
 
@@ -466,8 +466,8 @@ func (d *DeviceManager) GetProductType() (string, error) {
 }
 
 // SetDeviceReset reset spec device
-func (d *DeviceManager) SetDeviceReset(logicID int32) error {
-	return d.DcMgr.DcSetDeviceReset(logicID)
+func (d *DeviceManager) SetDeviceReset(cardID, deviceID int32) error {
+	return d.DcMgr.DcSetDeviceReset(cardID, deviceID)
 }
 
 // GetDeviceBootStatus get device boot status
