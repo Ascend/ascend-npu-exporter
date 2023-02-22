@@ -81,7 +81,7 @@ func AutoInit(dType string) (*DeviceManager, error) {
 	devManager := &DeviceManager{}
 	devType := common.GetDeviceTypeByChipName(chipInfo.Name)
 	switch devType {
-	case common.Ascend910:
+	case common.Ascend910, common.Ascend910B:
 		devManager.DcMgr = &A910Manager{}
 	case common.Ascend310P:
 		devManager.DcMgr = &A310PManager{}
