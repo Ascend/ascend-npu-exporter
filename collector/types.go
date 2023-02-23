@@ -18,7 +18,7 @@ package collector
 import (
 	"time"
 
-	"huawei.com/npu-exporter/v3/devmanager/common"
+	"huawei.com/npu-exporter/v5/devmanager/common"
 )
 
 // HealthEnum enum

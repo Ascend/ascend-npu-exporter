@@ -24,8 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"huawei.com/npu-exporter/v3/common-utils/cache"
-	"huawei.com/npu-exporter/v3/common-utils/hwlog"
+	"huawei.com/npu-exporter/v5/common-utils/cache"
+	"huawei.com/npu-exporter/v5/common-utils/hwlog"
 )
 
 const (
