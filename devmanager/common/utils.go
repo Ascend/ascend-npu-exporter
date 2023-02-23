@@ -114,3 +114,16 @@ func IsValidTemplateName(devType, templateName string) bool {
 	}
 	return isTemplateNameValid
 }
+
+// RemoveDuplicate remove duplicate device
+func RemoveDuplicate(list *[]string) []string {
+	listValueMap := make(map[string]string, len(*list))
+	var rmDupValueList []string
+	for _, value := range *list {
+		listValueMap[value] = value
+	}
+	for _, value := range listValueMap {
+		rmDupValueList = append(rmDupValueList, value)
+	}
+	return rmDupValueList
+}
