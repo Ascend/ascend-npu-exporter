@@ -49,7 +49,7 @@ spec:
         servertype: soc
       containers:
       - name: npu-exporter
-        image: npu-exporter:v3.0.0
+        image: npu-exporter:v5.0.RC1
         resources:
           requests:
               memory: 1000Mi

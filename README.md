@@ -30,14 +30,14 @@ Prometheus（普罗米修斯）是一个开源的系统监控和警报工具包�
     **ll** _/home/test/_**ascend-npu-exporter/output**
 
     ```
-    drwxr-xr-x  2 root root     4096 Jan 29 15:01 ./
-    drwxr-xr-x 11 root root     4096 Jan 29 15:01 ../
-    -r--------  1 root root      623 Jan 29 15:01 Dockerfile
-    -r--------  1 root root      964 Jan 29 15:01 Dockerfile-310P-1usoc
-    -r-x------  1 root root 15808008 Jan 29 15:01 npu-exporter
-    -r--------  1 root root     4087 Jan 29 15:01 npu-exporter-310P-1usoc-v3.0.0.yaml
-    -r--------  1 root root     3436 Jan 29 15:01 npu-exporter-v3.0.0.yaml
-    -r-x------  1 root root     2554 Jan 29 15:01 run_for_310P_1usoc.sh
+    drwxr-xr-x  2 root root     4096 Feb 23 07:10 .
+    drwxr-xr-x 10 root root     4096 Feb 23 07:10 ..
+    -r--------  1 root root      623 Feb 23 07:10 Dockerfile
+    -r--------  1 root root      964 Feb 23 07:10 Dockerfile-310P-1usoc
+    -r-x------  1 root root 15861352 Feb 23 07:10 npu-exporter
+    -r--------  1 root root     4089 Feb 23 07:10 npu-exporter-310P-1usoc-v5.0.RC1.yaml
+    -r--------  1 root root     3438 Feb 23 07:10 npu-exporter-v5.0.RC1.yaml
+    -r-x------  1 root root     2554 Feb 23 07:10 run_for_310P_1usoc.sh
     ```
 
 # 组件安装

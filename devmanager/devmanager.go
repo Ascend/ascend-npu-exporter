@@ -19,9 +19,9 @@ import (
 	"errors"
 	"fmt"
 
-	"huawei.com/npu-exporter/v3/common-utils/hwlog"
-	"huawei.com/npu-exporter/v3/devmanager/common"
-	"huawei.com/npu-exporter/v3/devmanager/dcmi"
+	"huawei.com/npu-exporter/v5/common-utils/hwlog"
+	"huawei.com/npu-exporter/v5/devmanager/common"
+	"huawei.com/npu-exporter/v5/devmanager/dcmi"
 )
 
 // DeviceInterface for common device interface

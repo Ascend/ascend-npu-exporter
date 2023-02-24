@@ -16,8 +16,9 @@
 package rand
 
 import (
-	"github.com/smartystreets/goconvey/convey"
 	"testing"
+
+	"github.com/smartystreets/goconvey/convey"
 )
 
 func TestRead(t *testing.T) {

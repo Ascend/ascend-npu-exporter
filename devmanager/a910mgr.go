@@ -16,8 +16,8 @@
 package devmanager
 
 import (
-	"huawei.com/npu-exporter/v3/devmanager/common"
-	"huawei.com/npu-exporter/v3/devmanager/dcmi"
+	"huawei.com/npu-exporter/v5/devmanager/common"
+	"huawei.com/npu-exporter/v5/devmanager/dcmi"
 )
 
 // A910Manager Ascend910 device manager

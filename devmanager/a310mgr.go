@@ -15,7 +15,7 @@
 // Package devmanager this Ascend310 device manager
 package devmanager
 
-import "huawei.com/npu-exporter/v3/devmanager/dcmi"
+import "huawei.com/npu-exporter/v5/devmanager/dcmi"
 
 // A310Manager Ascend310 device manager
 type A310Manager struct {

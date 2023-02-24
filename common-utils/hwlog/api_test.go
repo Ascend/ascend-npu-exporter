@@ -25,7 +25,7 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/smartystreets/goconvey/convey"
 
-	"huawei.com/npu-exporter/v3/common-utils/utils"
+	"huawei.com/npu-exporter/v5/common-utils/utils"
 )
 
 func TestNewLogger(t *testing.T) {
