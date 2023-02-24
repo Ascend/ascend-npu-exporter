@@ -16,7 +16,7 @@
 package devmanager
 
 import (
-	"huawei.com/npu-exporter/v3/devmanager/common"
+	"huawei.com/npu-exporter/v5/devmanager/common"
 )
 
 // DeviceManagerMock common device manager mock for Ascend910/310P/310
@@ -181,7 +181,7 @@ func (d *DeviceManagerMock) GetProductType() (string, error) {
 }
 
 // SetDeviceReset set device reset success
-func (d *DeviceManagerMock) SetDeviceReset(logicID int32) error {
+func (d *DeviceManagerMock) SetDeviceReset(cardID, deviceID int32) error {
 	return nil
 }
 

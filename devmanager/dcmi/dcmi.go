@@ -292,10 +292,10 @@ import (
 	"strings"
 	"unsafe"
 
-	"huawei.com/npu-exporter/v3/common-utils/hwlog"
-	"huawei.com/npu-exporter/v3/common-utils/utils"
+	"huawei.com/npu-exporter/v5/common-utils/hwlog"
+	"huawei.com/npu-exporter/v5/common-utils/utils"
 
-	"huawei.com/npu-exporter/v3/devmanager/common"
+	"huawei.com/npu-exporter/v5/devmanager/common"
 )
 
 // CDcmiMemoryInfoV3 the c struct of memoryInfo for v3
@@ -341,7 +341,7 @@ type DcDriverInterface interface {
 	DcGetVDeviceInfo(int32) (common.VirtualDevInfo, error)
 	DcDestroyVDevice(int32, uint32) error
 	DcGetProductType(int32, int32) (string, error)
-	DcSetDeviceReset(int32) error
+	DcSetDeviceReset(int32, int32) error
 	DcGetDeviceBootStatus(int32) (int, error)
 }
 
@@ -1150,20 +1150,13 @@ func (d *DcManager) DcGetProductType(cardID, deviceID int32) (string, error) {
 }
 
 // DcSetDeviceReset reset spec device chip
-func (d *DcManager) DcSetDeviceReset(logicID int32) error {
-	if !common.IsValidLogicIDOrPhyID(logicID) {
-		return fmt.Errorf("input invalid logicID: %d", logicID)
-	}
-	cardID, deviceID, err := d.DcGetCardIDDeviceID(logicID)
-	if err != nil {
-		return fmt.Errorf("failed to get cardID and deviceID by logicID(%d)", logicID)
-	}
+func (d *DcManager) DcSetDeviceReset(cardID, deviceID int32) error {
 	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
 		return fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
 	}
 	var channelType C.enum_dcmi_reset_channel = C.INBAND_CHANNEL
 	if errCode := C.dcmi_set_device_reset(C.int(cardID), C.int(deviceID), channelType); errCode != 0 {
-		return fmt.Errorf("device reset errCode: %v", errCode)
+		return fmt.Errorf("cardID(%d) and deviceID(%d) hot reset errCode: %v", cardID, deviceID, errCode)
 	}
 	return nil
 }

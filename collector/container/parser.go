@@ -30,8 +30,8 @@ import (
 
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
-	"huawei.com/npu-exporter/v3/common-utils/hwlog"
-	"huawei.com/npu-exporter/v3/common-utils/utils"
+	"huawei.com/npu-exporter/v5/common-utils/hwlog"
+	"huawei.com/npu-exporter/v5/common-utils/utils"
 )
 
 const (

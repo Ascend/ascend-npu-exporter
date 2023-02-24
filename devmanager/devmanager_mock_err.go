@@ -17,7 +17,7 @@ package devmanager
 import (
 	"errors"
 
-	"huawei.com/npu-exporter/v3/devmanager/common"
+	"huawei.com/npu-exporter/v5/devmanager/common"
 )
 
 var errorMsg = "mock error"
@@ -184,7 +184,7 @@ func (d *DeviceManagerMockErr) GetProductType() (string, error) {
 }
 
 // SetDeviceReset set device reset failed
-func (d *DeviceManagerMockErr) SetDeviceReset(logicID int32) error {
+func (d *DeviceManagerMockErr) SetDeviceReset(cardID, deviceID int32) error {
 	return errors.New(errorMsg)
 }
 

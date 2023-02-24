@@ -19,9 +19,9 @@ import (
 	"errors"
 	"fmt"
 
-	"huawei.com/npu-exporter/v3/common-utils/hwlog"
-	"huawei.com/npu-exporter/v3/devmanager/common"
-	"huawei.com/npu-exporter/v3/devmanager/dcmi"
+	"huawei.com/npu-exporter/v5/common-utils/hwlog"
+	"huawei.com/npu-exporter/v5/devmanager/common"
+	"huawei.com/npu-exporter/v5/devmanager/dcmi"
 )
 
 // DeviceInterface for common device interface
@@ -54,7 +54,7 @@ type DeviceInterface interface {
 	DestroyVirtualDevice(logicID int32, vDevID uint32) error
 	GetDevType() string
 	GetProductType() (string, error)
-	SetDeviceReset(logicID int32) error
+	SetDeviceReset(cardID, deviceID int32) error
 	GetDeviceBootStatus(logicID int32) (int, error)
 }
 
@@ -81,7 +81,7 @@ func AutoInit(dType string) (*DeviceManager, error) {
 	devManager := &DeviceManager{}
 	devType := common.GetDeviceTypeByChipName(chipInfo.Name)
 	switch devType {
-	case common.Ascend910:
+	case common.Ascend910, common.Ascend910B:
 		devManager.DcMgr = &A910Manager{}
 	case common.Ascend310P:
 		devManager.DcMgr = &A310PManager{}
@@ -466,8 +466,8 @@ func (d *DeviceManager) GetProductType() (string, error) {
 }
 
 // SetDeviceReset reset spec device
-func (d *DeviceManager) SetDeviceReset(logicID int32) error {
-	return d.DcMgr.DcSetDeviceReset(logicID)
+func (d *DeviceManager) SetDeviceReset(cardID, deviceID int32) error {
+	return d.DcMgr.DcSetDeviceReset(cardID, deviceID)
 }
 
 // GetDeviceBootStatus get device boot status

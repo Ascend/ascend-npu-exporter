@@ -26,12 +26,12 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"huawei.com/npu-exporter/v3/collector/container"
-	"huawei.com/npu-exporter/v3/common-utils/cache"
-	"huawei.com/npu-exporter/v3/common-utils/hwlog"
-	"huawei.com/npu-exporter/v3/devmanager"
-	"huawei.com/npu-exporter/v3/devmanager/common"
-	"huawei.com/npu-exporter/v3/versions"
+	"huawei.com/npu-exporter/v5/collector/container"
+	"huawei.com/npu-exporter/v5/common-utils/cache"
+	"huawei.com/npu-exporter/v5/common-utils/hwlog"
+	"huawei.com/npu-exporter/v5/devmanager"
+	"huawei.com/npu-exporter/v5/devmanager/common"
+	"huawei.com/npu-exporter/v5/versions"
 )
 
 var (
