@@ -27,11 +27,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
-	"huawei.com/npu-exporter/v3/collector/container"
-	"huawei.com/npu-exporter/v3/common-utils/cache"
-	"huawei.com/npu-exporter/v3/common-utils/hwlog"
-	"huawei.com/npu-exporter/v3/devmanager"
-	"huawei.com/npu-exporter/v3/devmanager/common"
+	"huawei.com/npu-exporter/v5/collector/container"
+	"huawei.com/npu-exporter/v5/common-utils/cache"
+	"huawei.com/npu-exporter/v5/common-utils/hwlog"
+	"huawei.com/npu-exporter/v5/devmanager"
+	"huawei.com/npu-exporter/v5/devmanager/common"
 )
 
 const (

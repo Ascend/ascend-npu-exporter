@@ -17,6 +17,7 @@ package common
 
 import (
 	"math"
+	"regexp"
 	"strings"
 )
 
@@ -81,7 +82,12 @@ func GetDeviceTypeByChipName(chipName string) string {
 	if strings.Contains(chipName, "310") {
 		return Ascend310
 	}
-	if strings.Contains(chipName, "910") {
+	reg910B := regexp.MustCompile(Pattern1980B)
+	if reg910B.MatchString(chipName) {
+		return Ascend910B
+	}
+	reg910A := regexp.MustCompile(Pattern1980)
+	if reg910A.MatchString(chipName) {
 		return Ascend910
 	}
 	return ""
@@ -107,4 +113,17 @@ func IsValidTemplateName(devType, templateName string) bool {
 	default:
 	}
 	return isTemplateNameValid
+}
+
+// RemoveDuplicate remove duplicate device
+func RemoveDuplicate(list *[]string) []string {
+	listValueMap := make(map[string]string, len(*list))
+	var rmDupValueList []string
+	for _, value := range *list {
+		listValueMap[value] = value
+	}
+	for _, value := range listValueMap {
+		rmDupValueList = append(rmDupValueList, value)
+	}
+	return rmDupValueList
 }

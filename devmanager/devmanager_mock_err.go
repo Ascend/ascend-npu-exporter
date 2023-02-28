@@ -17,7 +17,7 @@ package devmanager
 import (
 	"errors"
 
-	"huawei.com/npu-exporter/v3/devmanager/common"
+	"huawei.com/npu-exporter/v5/devmanager/common"
 )
 
 var errorMsg = "mock error"
@@ -178,13 +178,18 @@ func (d *DeviceManagerMockErr) GetCardIDDeviceID(logicID int32) (int32, int32, e
 	return 0, 0, errors.New(errorMsg)
 }
 
-// GetProductType get product type
-func (d *DeviceManagerMockErr) GetProductType() (string, error) {
+// GetProductType get product type failed
+func (d *DeviceManagerMockErr) GetProductType(cardID, deviceID int32) (string, error) {
 	return "", errors.New("not found product type name")
 }
 
+// GetAllProductType get all product type failed
+func (d *DeviceManagerMockErr) GetAllProductType() ([]string, error) {
+	return []string{}, errors.New("not found product type name")
+}
+
 // SetDeviceReset set device reset failed
-func (d *DeviceManagerMockErr) SetDeviceReset(logicID int32) error {
+func (d *DeviceManagerMockErr) SetDeviceReset(cardID, deviceID int32) error {
 	return errors.New(errorMsg)
 }
 

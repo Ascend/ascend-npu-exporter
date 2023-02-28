@@ -16,7 +16,7 @@
 package devmanager
 
 import (
-	"huawei.com/npu-exporter/v3/devmanager/common"
+	"huawei.com/npu-exporter/v5/devmanager/common"
 )
 
 // DeviceManagerMock common device manager mock for Ascend910/310P/310
@@ -175,13 +175,18 @@ func (d *DeviceManagerMock) GetCardIDDeviceID(logicID int32) (int32, int32, erro
 	return 0, 0, nil
 }
 
-// GetProductType get product type
-func (d *DeviceManagerMock) GetProductType() (string, error) {
+// GetProductType get product type success
+func (d *DeviceManagerMock) GetProductType(cardID, deviceID int32) (string, error) {
 	return "", nil
 }
 
+// GetAllProductType get all product type success
+func (d *DeviceManagerMock) GetAllProductType() ([]string, error) {
+	return []string{}, nil
+}
+
 // SetDeviceReset set device reset success
-func (d *DeviceManagerMock) SetDeviceReset(logicID int32) error {
+func (d *DeviceManagerMock) SetDeviceReset(cardID, deviceID int32) error {
 	return nil
 }
 

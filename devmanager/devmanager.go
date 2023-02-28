@@ -19,9 +19,9 @@ import (
 	"errors"
 	"fmt"
 
-	"huawei.com/npu-exporter/v3/common-utils/hwlog"
-	"huawei.com/npu-exporter/v3/devmanager/common"
-	"huawei.com/npu-exporter/v3/devmanager/dcmi"
+	"huawei.com/npu-exporter/v5/common-utils/hwlog"
+	"huawei.com/npu-exporter/v5/devmanager/common"
+	"huawei.com/npu-exporter/v5/devmanager/dcmi"
 )
 
 // DeviceInterface for common device interface
@@ -53,8 +53,9 @@ type DeviceInterface interface {
 	GetVirtualDeviceInfo(logicID int32) (common.VirtualDevInfo, error)
 	DestroyVirtualDevice(logicID int32, vDevID uint32) error
 	GetDevType() string
-	GetProductType() (string, error)
-	SetDeviceReset(logicID int32) error
+	GetProductType(cardID, deviceID int32) (string, error)
+	GetAllProductType() ([]string, error)
+	SetDeviceReset(cardID, deviceID int32) error
 	GetDeviceBootStatus(logicID int32) (int, error)
 }
 
@@ -81,7 +82,7 @@ func AutoInit(dType string) (*DeviceManager, error) {
 	devManager := &DeviceManager{}
 	devType := common.GetDeviceTypeByChipName(chipInfo.Name)
 	switch devType {
-	case common.Ascend910:
+	case common.Ascend910, common.Ascend910B:
 		devManager.DcMgr = &A910Manager{}
 	case common.Ascend310P:
 		devManager.DcMgr = &A310PManager{}
@@ -436,12 +437,18 @@ func (d *DeviceManager) GetCardIDDeviceID(logicID int32) (int32, int32, error) {
 	return d.DcMgr.DcGetCardIDDeviceID(logicID)
 }
 
-// GetProductType get product type
-func (d *DeviceManager) GetProductType() (string, error) {
+// GetProductType get product type by cardID and deviceID
+func (d *DeviceManager) GetProductType(cardID, deviceID int32) (string, error) {
+	return d.DcMgr.DcGetProductType(cardID, deviceID)
+}
+
+// GetAllProductType get all product type
+func (d *DeviceManager) GetAllProductType() ([]string, error) {
+	var productTypes []string
 	cardNum, cardList, err := d.GetCardList()
 	if cardNum == 0 || err != nil {
 		hwlog.RunLog.Errorf("failed to get card list, err: %#v", err)
-		return "", err
+		return productTypes, err
 	}
 	for _, cardID := range cardList {
 		devNum, err := d.GetDeviceNumInCard(cardID)
@@ -454,20 +461,22 @@ func (d *DeviceManager) GetProductType() (string, error) {
 			continue
 		}
 		for devID := int32(0); devID < devNum; devID++ {
-			productType, err := d.DcMgr.DcGetProductType(cardID, devID)
+			productType, err := d.GetProductType(cardID, devID)
 			if err != nil {
 				hwlog.RunLog.Debugf("get product type by card %d deviceID %d failed, err: %#v", cardID, devID, err)
 				continue
 			}
-			return productType, nil
+			productTypes = append(productTypes, productType)
+			break
 		}
 	}
-	return "", nil
+	productTypes = common.RemoveDuplicate(&productTypes)
+	return productTypes, nil
 }
 
 // SetDeviceReset reset spec device
-func (d *DeviceManager) SetDeviceReset(logicID int32) error {
-	return d.DcMgr.DcSetDeviceReset(logicID)
+func (d *DeviceManager) SetDeviceReset(cardID, deviceID int32) error {
+	return d.DcMgr.DcSetDeviceReset(cardID, deviceID)
 }
 
 // GetDeviceBootStatus get device boot status
