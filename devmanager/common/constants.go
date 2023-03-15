@@ -46,20 +46,18 @@ const (
 )
 
 const (
+	// InvaidVal InvalidVal for NPU Invalid vaule
+	InvaidVal = 0
 	// Success for interface return code
 	Success = 0
 	// RetError return error when the function failed
 	RetError = -1
 	// Percent constant of 100
 	Percent = 100
-	// FuncNotFound is not found in interface
-	FuncNotFound = -99998
 	// MaxErrorCodeCount number of error codes
 	MaxErrorCodeCount = 128
 	// UnRetError return unsigned int error
 	UnRetError = math.MaxUint32
-	// OneKilo for unit change kb to mb
-	OneKilo = 1024
 
 	// DeviceIPLength length of device ip address
 	DeviceIPLength = 4

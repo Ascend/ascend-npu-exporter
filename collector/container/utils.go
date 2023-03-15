@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
 	"huawei.com/npu-exporter/v5/common-utils/utils"
@@ -42,7 +43,13 @@ const (
 	DNSReWithDot  = `^[a-z0-9]+[a-z0-9-.]*[a-z0-9]+$`
 	maxContainers = 1024
 	maxCgroupPath = 2028
+
+	maxDevicesNum = 100000
+	maxEnvNum     = 10000
 )
+
+// CgroupVersion is the cgroups mode of the host system
+type CgroupVersion int
 
 // GetConnection return the grpc connection
 func GetConnection(endPoint string) (*grpc.ClientConn, error) {
@@ -110,4 +117,39 @@ func validDNSRe(dnsContent string) error {
 		return errors.New("param invalid, not meet requirement")
 	}
 	return nil
+}
+
+func makeUpDeviceInfo(c *v1alpha2.Container) (DevicesInfo, error) {
+	deviceInfo := DevicesInfo{}
+	var names []string
+
+	ns := c.Labels[labelK8sPodNamespace]
+	names = append(names, ns)
+	podName := c.Labels[labelK8sPodName]
+	names = append(names, podName)
+	containerName := c.Labels[labelContainerName]
+	names = append(names, containerName)
+	for _, v := range names {
+		if err := validDNSRe(v); err != nil {
+			return DevicesInfo{}, err
+		}
+	}
+
+	deviceInfo.ID = c.Id
+	deviceInfo.Name = ns + "_" + podName + "_" + containerName
+	return deviceInfo, nil
+}
+
+func isSameStringSlice(src, target []string) bool {
+	if len(src) != len(target) {
+		return false
+	}
+
+	for i, val := range src {
+		if val != target[i] {
+			return false
+		}
+	}
+
+	return true
 }
