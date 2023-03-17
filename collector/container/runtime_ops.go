@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -51,7 +51,7 @@ type RuntimeOperator interface {
 	Init() error
 	Close() error
 	GetContainers(ctx context.Context) ([]*v1alpha2.Container, error)
-	CgroupsPath(ctx context.Context, id string) (string, error)
+	GetContainerInfoByID(ctx context.Context, id string) (v1.Spec, error)
 }
 
 // RuntimeOperatorTool implements RuntimeOperator interface
@@ -101,9 +101,9 @@ func (operator *RuntimeOperatorTool) Init() error {
 
 	conn, err := GetConnection(operator.OciEndpoint)
 	if err != nil || conn == nil {
-		hwlog.RunLog.Errorf("failed to get OCI connection")
+		hwlog.RunLog.Warn("failed to get OCI connection")
 		if operator.UseBackup {
-			hwlog.RunLog.Errorf("try again")
+			hwlog.RunLog.Warn("use backup address to try again")
 			if utils.IsExist(strings.TrimPrefix(DefaultContainerdAddr, unixPre)) {
 				conn, err = GetConnection(DefaultContainerdAddr)
 
@@ -163,28 +163,25 @@ func (operator *RuntimeOperatorTool) GetContainers(ctx context.Context) ([]*v1al
 	return r.Containers, nil
 }
 
-// CgroupsPath returns the cgroup path from spec of specified container
-func (operator *RuntimeOperatorTool) CgroupsPath(ctx context.Context, id string) (string, error) {
+// GetContainerInfoByID use oci interface to get container
+func (operator *RuntimeOperatorTool) GetContainerInfoByID(ctx context.Context, id string) (v1.Spec, error) {
 	if utils.IsNil(operator.client) || operator.conn == nil {
-		return "", errors.New("oci client is empty")
+		return v1.Spec{}, errors.New("oci client is empty")
 	}
 	resp, err := operator.client.Get(setGrpcNamespaceHeader(ctx, operator.Namespace), &v1.GetContainerRequest{
 		Id: id,
 	})
 	if err != nil {
 		hwlog.RunLog.Error("get call OCI get method failed")
-		return "", err
+		return v1.Spec{}, err
 	}
 	s := v1.Spec{}
-	if err := json.Unmarshal(resp.Container.Spec.Value, &s); err != nil {
+	if err = json.Unmarshal(resp.Container.Spec.Value, &s); err != nil {
 		hwlog.RunLog.Error("unmarshal OCI response failed")
-		return "", err
+		return v1.Spec{}, err
 	}
-	if len(s.Linux.CgroupsPath) > maxCgroupPath {
-		hwlog.RunLog.Error("cgroupPath too long")
-		return "", err
-	}
-	return s.Linux.CgroupsPath, nil
+
+	return s, nil
 }
 
 type nsKey struct{}
