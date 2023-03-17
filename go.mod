@@ -6,6 +6,7 @@ require (
 	github.com/agiledragon/gomonkey/v2 v2.8.0
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/golang/protobuf v1.5.1
+	github.com/opencontainers/runc v1.1.2
 	github.com/prometheus/client_golang v1.11.1
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/stretchr/testify v1.7.0

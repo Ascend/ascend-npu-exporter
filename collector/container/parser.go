@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -20,16 +20,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
+	"huawei.com/npu-exporter/v5/collector/container/v1"
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
 	"huawei.com/npu-exporter/v5/common-utils/utils"
 )
@@ -54,7 +58,22 @@ const (
 	mountPointIdx               = 3
 	cgroupPrePath               = 1
 	cgroupSuffixPath            = 2
+
+	ascendDeviceInfo = "ASCEND_VISIBLE_DEVICES"
+	ascendEnvPart    = 2
+
+	charDevice = "c"
 )
+
+// don't change the order
+// all capabilities presents privileged
+var privilegeCaps = []string{"CAP_AUDIT_CONTROL", "CAP_AUDIT_READ", "CAP_AUDIT_WRITE", "CAP_BLOCK_SUSPEND",
+	"CAP_BPF", "CAP_CHECKPOINT_RESTORE", "CAP_CHOWN", "CAP_DAC_OVERRIDE", "CAP_DAC_READ_SEARCH", "CAP_FOWNER",
+	"CAP_FSETID", "CAP_IPC_LOCK", "CAP_IPC_OWNER", "CAP_KILL", "CAP_LEASE", "CAP_LINUX_IMMUTABLE", "CAP_MAC_ADMIN",
+	"CAP_MAC_OVERRIDE", "CAP_MKNOD", "CAP_NET_ADMIN", "CAP_NET_BIND_SERVICE", "CAP_NET_BROADCAST", "CAP_NET_RAW",
+	"CAP_PERFMON", "CAP_SETFCAP", "CAP_SETGID", "CAP_SETPCAP", "CAP_SETUID", "CAP_SYSLOG", "CAP_SYS_ADMIN",
+	"CAP_SYS_BOOT", "CAP_SYS_CHROOT", "CAP_SYS_MODULE", "CAP_SYS_NICE", "CAP_SYS_PACCT", "CAP_SYS_PTRACE",
+	"CAP_SYS_RAWIO", "CAP_SYS_RESOURCE", "CAP_SYS_TIME", "CAP_SYS_TTY_CONFIG", "CAP_WAKE_ALARM"}
 
 const (
 	// EndpointTypeContainerd K8S + Containerd
@@ -160,6 +179,104 @@ func (dp *DevicesParser) Close() {
 }
 
 func (dp *DevicesParser) parseDevices(ctx context.Context, c *v1alpha2.Container, rs chan<- DevicesInfo) error {
+	if cgroups.IsCgroup2UnifiedMode() {
+		hwlog.RunLog.Debugf("now use cgroup v2 to get container (%s) npu devices", c.Id)
+		return dp.parseDevicesV2(ctx, c, rs)
+	}
+
+	hwlog.RunLog.Debugf("now use cgroup v1 or hybrid cgroup to get npu devices")
+	return dp.parseDevicesV1(ctx, c, rs)
+}
+
+func (dp *DevicesParser) parseDevicesV2(ctx context.Context, c *v1alpha2.Container, rs chan<- DevicesInfo) error {
+	if rs == nil {
+		return errors.New("empty result channel")
+	}
+	deviceInfo := DevicesInfo{}
+	defer func(di *DevicesInfo) {
+		rs <- *di
+	}(&deviceInfo)
+
+	spec, err := dp.RuntimeOperator.GetContainerInfoByID(ctx, c.Id)
+	if err != nil {
+		return contactError(err, fmt.Sprintf("cannot get container devices by container id (%#v)", c.Id))
+	}
+	if spec.Linux == nil || len(spec.Linux.Devices) > maxDevicesNum {
+		return contactError(errors.New("device error"), fmt.Sprintf("devices in container is too much (%v) or empty",
+			maxDevicesNum))
+	}
+	if spec.Process == nil || len(spec.Process.Env) > maxEnvNum {
+		return contactError(errors.New("env error"), fmt.Sprintf("env in container is too much (%v) or empty",
+			maxEnvNum))
+	}
+
+	envs := spec.Process.Env
+	sort.Strings(envs)
+	for _, e := range envs {
+		if strings.Contains(e, ascendDeviceInfo) {
+			deviceInfo, err = dp.getDevicesWithAscendRuntime(e, c)
+			return err
+		}
+	}
+
+	deviceInfo, err = dp.getDevicesWithoutAscendRuntime(spec, c)
+	return err
+}
+
+func (dp *DevicesParser) getDevicesWithoutAscendRuntime(spec v1.Spec, c *v1alpha2.Container) (DevicesInfo, error) {
+	deviceInfo := DevicesInfo{}
+	devicesIDs, err := filterNPUDevices(spec)
+	if err != nil {
+		hwlog.RunLog.Debugf("filter npu devices failed by container id (%#v), err is %v", c.Id, err)
+		return DevicesInfo{}, err
+	}
+	hwlog.RunLog.Debugf("filter npu devices %#v in container (%s)", devicesIDs, c.Id)
+
+	if len(devicesIDs) != 0 {
+		if deviceInfo, err = makeUpDeviceInfo(c); err == nil {
+			deviceInfo.Devices = devicesIDs
+			return deviceInfo, nil
+		}
+		hwlog.RunLog.Error(err)
+		return DevicesInfo{}, err
+	}
+
+	return DevicesInfo{}, nil
+}
+
+func (dp *DevicesParser) getDevicesWithAscendRuntime(ascendDevEnv string, c *v1alpha2.Container) (DevicesInfo, error) {
+	hwlog.RunLog.Debugf("get device info by env (%#v) in %s, error is %s", ascendDevEnv, c.Id)
+	devInfo := strings.Split(ascendDevEnv, "=")
+	if len(devInfo) != ascendEnvPart {
+		return DevicesInfo{}, fmt.Errorf("an invalid %s env(%#v)", ascendDeviceInfo, ascendDevEnv)
+	}
+	devList := strings.Split(devInfo[1], ",")
+
+	devicesIDs := make([]int, len(devList))
+	for _, devID := range devList {
+		id, err := strconv.Atoi(devID)
+		if err != nil {
+			hwlog.RunLog.Errorf("container (%#v) has an invalid device ID (%#v) in %s, error is %s", c.Id, devID,
+				ascendDeviceInfo, err)
+			continue
+		}
+		devicesIDs = append(devicesIDs, id)
+	}
+
+	if len(devicesIDs) != 0 {
+		var err error
+		if deviceInfo, err := makeUpDeviceInfo(c); err == nil {
+			deviceInfo.Devices = devicesIDs
+			return deviceInfo, nil
+		}
+		hwlog.RunLog.Error(err)
+		return DevicesInfo{}, err
+	}
+
+	return DevicesInfo{}, nil
+}
+
+func (dp *DevicesParser) parseDevicesV1(ctx context.Context, c *v1alpha2.Container, rs chan<- DevicesInfo) error {
 	if rs == nil {
 		return errors.New("empty result channel")
 	}
@@ -169,39 +286,35 @@ func (dp *DevicesParser) parseDevices(ctx context.Context, c *v1alpha2.Container
 		rs <- *di
 	}(&deviceInfo)
 	if len(c.Id) > maxCgroupPath {
-		return errors.New("the containerId is too long")
+		return fmt.Errorf("the containerId (%s) is too long", c.Id)
 	}
-	p, err := dp.RuntimeOperator.CgroupsPath(ctx, c.Id)
+	spec, err := dp.RuntimeOperator.GetContainerInfoByID(ctx, c.Id)
 	if err != nil {
-		return contactError(err, "getting cgroup path of container fail")
+		return contactError(err, fmt.Sprintf("getting cgroup path of container(%#v) fail", c.Id))
+	}
+	if spec.Linux == nil || len(spec.Linux.CgroupsPath) > maxCgroupPath {
+		return contactError(err, "cgroupPath too long or empty")
 	}
 
-	p, err = GetCgroupPath(cgroupControllerDevices, p)
+	p, err := GetCgroupPath(cgroupControllerDevices, spec.Linux.CgroupsPath)
 	if err != nil {
 		return contactError(err, "parsing cgroup path from spec fail")
 	}
 	devicesIDs, hasAscend, err := ScanForAscendDevices(filepath.Join(p, devicesList))
+	hwlog.RunLog.Debugf("filter npu devices %#v in container (%s)", devicesIDs, c.Id)
 	if err == ErrNoCgroupHierarchy {
 		return nil
 	} else if err != nil {
 		return contactError(err, fmt.Sprintf("parsing Ascend devices of container %s fail", c.Id))
 	}
-	var names []string
-	ns := c.Labels[labelK8sPodNamespace]
-	names = append(names, ns)
-	podName := c.Labels[labelK8sPodName]
-	names = append(names, podName)
-	containerName := c.Labels[labelContainerName]
-	names = append(names, containerName)
-	for _, v := range names {
-		if err = validDNSRe(v); err != nil {
-			return err
-		}
-	}
+
 	if hasAscend {
-		deviceInfo.ID = c.Id
-		deviceInfo.Name = ns + "_" + podName + "_" + containerName
-		deviceInfo.Devices = devicesIDs
+		if deviceInfo, err = makeUpDeviceInfo(c); err == nil {
+			deviceInfo.Devices = devicesIDs
+			return nil
+		}
+		hwlog.RunLog.Error(err)
+		return err
 	}
 	return nil
 }
@@ -477,7 +590,7 @@ func ScanForAscendDevices(devicesListFile string) ([]int, bool, error) {
 			return nil, false, fmt.Errorf("second field of cgroup entry %q should have one colon", text)
 		}
 
-		if fields[0] == "c" && contains(majorID, majorMinor[0]) {
+		if fields[0] == charDevice && contains(majorID, majorMinor[0]) {
 			if majorMinor[1] == "*" {
 				return nil, false, nil
 			}
@@ -562,4 +675,32 @@ func contains(slice []string, target string) bool {
 
 func contactError(err error, msg string) error {
 	return fmt.Errorf("%s->%s", err.Error(), msg)
+}
+
+func filterNPUDevices(spec v1.Spec) ([]int, error) {
+	var caps []string
+	if spec.Process != nil && spec.Process.Capabilities != nil {
+		caps = spec.Process.Capabilities.Permitted
+	}
+	sort.Strings(caps)
+	same := isSameStringSlice(caps, privilegeCaps)
+	if same {
+		return nil, errors.New("it's a privileged container and skip it")
+	}
+
+	const base = 10
+	devIDs := make([]int, 0, sliceLen8)
+	majorIDs := npuMajor()
+	for _, dev := range spec.Linux.Devices {
+		if dev.Minor > math.MaxInt32 {
+			hwlog.RunLog.Debugf("get wrong device ID (%v)", dev.Minor)
+			continue
+		}
+		major := strconv.FormatInt(dev.Major, base)
+		if dev.Type == charDevice && contains(majorIDs, major) {
+			devIDs = append(devIDs, int(dev.Minor))
+		}
+	}
+
+	return devIDs, nil
 }
