@@ -19,6 +19,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -40,7 +42,7 @@ const (
 	// DefaultContainerdAddr default containerd sock address
 	DefaultContainerdAddr = "unix:///run/containerd/containerd.sock"
 	// DefaultDockerAddr default docker containerd sock address
-	DefaultDockerAddr    = "unix:///run/docker/containerd/docker-containerd.sock"
+	DefaultDockerAddr    = "unix:///run/docker.sock"
 	defaultDockerOnEuler = "unix:///run/docker/containerd/containerd.sock"
 	grpcHeader           = "containerd-namespace"
 	unixPre              = "unix://"
@@ -52,6 +54,7 @@ type RuntimeOperator interface {
 	Close() error
 	GetContainers(ctx context.Context) ([]*v1alpha2.Container, error)
 	GetContainerInfoByID(ctx context.Context, id string) (v1.Spec, error)
+	CgroupPath(ctx context.Context, id string) (string, error)
 }
 
 // RuntimeOperatorTool implements RuntimeOperator interface
@@ -68,6 +71,11 @@ type RuntimeOperatorTool struct {
 	Namespace string
 	// UseBackup use back up address or not
 	UseBackup bool
+	// EndpointType containerd or docker
+	EndpointType int
+	*dockerCli
+	// LowerDockerVersion represent docker version earlier than 14.00.0
+	LowerDockerVersion bool
 }
 
 // Init initializes container runtime operator
@@ -96,14 +104,35 @@ func (operator *RuntimeOperatorTool) Init() error {
 	if err != nil || criConn == nil {
 		return errors.New("connecting to CRI server failed")
 	}
+	// cri is for k8s
 	operator.criClient = v1alpha2.NewRuntimeServiceClient(criConn)
 	operator.criConn = criConn
 
+	dcli := createDockerCli(operator.OciEndpoint)
+	version, err := dcli.getDockerVersion()
+	if err != nil {
+		hwlog.RunLog.Error(err)
+		return errors.New("cannot get docker version info by docker api")
+	}
+	isLowerVersion := isLowerDockerVersion(version)
+	hwlog.RunLog.Infof("isLowerVersion is %v", isLowerVersion)
+	// use lower docker version
+	if operator.EndpointType == EndpointTypeDockerd && isLowerVersion {
+		hwlog.RunLog.Infof("docker is %#v version, lower than %s. use http method to get container info", version, lowerDockerVersion)
+		operator.dockerCli = createDockerCli(operator.OciEndpoint)
+		operator.LowerDockerVersion = isLowerVersion
+		return nil
+	}
+
+	return createContainerdCli(operator)
+}
+
+func createContainerdCli(operator *RuntimeOperatorTool) error {
 	conn, err := GetConnection(operator.OciEndpoint)
 	if err != nil || conn == nil {
 		hwlog.RunLog.Warn("failed to get OCI connection")
 		if operator.UseBackup {
-			hwlog.RunLog.Warn("use backup address to try again")
+			hwlog.RunLog.Warn("use other address to try again")
 			if utils.IsExist(strings.TrimPrefix(DefaultContainerdAddr, unixPre)) {
 				conn, err = GetConnection(DefaultContainerdAddr)
 
@@ -113,6 +142,7 @@ func (operator *RuntimeOperatorTool) Init() error {
 		}
 	}
 	if err != nil {
+		hwlog.RunLog.Error(err)
 		return err
 	}
 	operator.client = v1.NewContainersClient(conn)
@@ -184,6 +214,20 @@ func (operator *RuntimeOperatorTool) GetContainerInfoByID(ctx context.Context, i
 	return s, nil
 }
 
+// CgroupPath return tue cgroup path from spec of specified container
+func (operator *RuntimeOperatorTool) CgroupPath(ctx context.Context, id string) (string, error) {
+	if operator.LowerDockerVersion && operator.EndpointType == EndpointTypeDockerd && operator.dockerCli != nil {
+		return getCgroupPathForLowerDocker(operator, id)
+	}
+
+	spec, err := operator.GetContainerInfoByID(ctx, id)
+	if err != nil || spec.Linux == nil {
+		hwlog.RunLog.Error("get cgroup path failed by container (%#v)", id)
+		return "", err
+	}
+	return spec.Linux.CgroupsPath, nil
+}
+
 type nsKey struct{}
 
 func setGrpcNamespaceHeader(ctx context.Context, namespace string) context.Context {
@@ -196,4 +240,49 @@ func setGrpcNamespaceHeader(ctx context.Context, namespace string) context.Conte
 		md = metadata.Join(ns, md)
 	}
 	return metadata.NewOutgoingContext(ctx, md)
+}
+
+func getCgroupPathForLowerDocker(operator *RuntimeOperatorTool, containerID string) (string, error) {
+	rs, err := operator.inspectContainer(containerID)
+	if err != nil {
+		return "", err
+	}
+	var cgroupPath string
+	if strings.HasPrefix(rs.HostConfig.CgroupParent, "/") {
+		cgroupPath = fmt.Sprintf("%s/%s", rs.HostConfig.CgroupParent, containerID)
+		return cgroupPath, nil
+	}
+	cgroupPath = fmt.Sprintf("%s:docker:%s", rs.HostConfig.CgroupParent, containerID)
+	return cgroupPath, nil
+}
+
+func isLowerDockerVersion(version string) bool {
+	const verPart = 3
+	if version == "" {
+		hwlog.RunLog.Info("docker version is empty and set lower version to false")
+		return false
+	}
+	verArr := strings.Split(version, ".")
+	if len(verArr) != verPart {
+		hwlog.RunLog.Infof("docker version is %s, is not %v parts and set lower version to false", version, verPart)
+		return false
+	}
+	lowerVerArr := strings.Split(lowerDockerVersion, ".")
+	for i, val := range verArr {
+		valInt, err := strconv.Atoi(val)
+		if err != nil {
+			hwlog.RunLog.Warnf("docker version %s is a wrong format and set lower version to false", val, verPart)
+			return false
+		}
+		lowerValInt, err := strconv.Atoi(lowerVerArr[i])
+		if err != nil {
+			hwlog.RunLog.Warnf("docker version %s is a wrong format and set lower version to false", lowerVerArr, verPart)
+			return false
+		}
+
+		if lowerValInt > valInt {
+			return true
+		}
+	}
+	return false
 }
