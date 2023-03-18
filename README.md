@@ -13,7 +13,7 @@ Prometheus（普罗米修斯）是一个开源的系统监控和警报工具包�
 
 # 编译NPU-Exporter
 
-1.  通过git拉取源码，并切换sync-dev分支，获得ascend-npu-exporter。
+1.  通过git拉取源码，并切换到对应分支。
 
     示例：源码放在/home/test/ascend-npu-exporter目录下
 

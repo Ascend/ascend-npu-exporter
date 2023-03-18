@@ -161,7 +161,7 @@ func readCntMonitoringFlags() container.CntNpuMonitorOpts {
 		opts.OciEndpoint = container.DefaultContainerdAddr
 		opts.CriEndpoint = container.DefaultContainerdAddr
 	default:
-		hwlog.RunLog.Error("invalid container mode setting,reset to docker")
+		hwlog.RunLog.Warn("invalid container mode setting,reset to docker")
 		opts.EndpointType = container.EndpointTypeDockerd
 		opts.OciEndpoint = container.DefaultDockerAddr
 		opts.CriEndpoint = container.DefaultDockerShim

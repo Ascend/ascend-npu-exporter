@@ -120,11 +120,13 @@ func MakeDevicesParser(opts CntNpuMonitorOpts) *DevicesParser {
 		runtimeOperator.CriEndpoint = opts.CriEndpoint
 		runtimeOperator.OciEndpoint = opts.OciEndpoint
 		parser.RuntimeOperator = runtimeOperator
+		runtimeOperator.EndpointType = EndpointTypeContainerd
 	case EndpointTypeDockerd:
 		runtimeOperator.Namespace = namespaceMoby
 		parser.RuntimeOperator = runtimeOperator
 		runtimeOperator.CriEndpoint = opts.CriEndpoint
 		runtimeOperator.OciEndpoint = opts.OciEndpoint
+		runtimeOperator.EndpointType = EndpointTypeDockerd
 
 	default:
 		hwlog.RunLog.Errorf("Invalid type value %d", opts.EndpointType)
@@ -288,15 +290,12 @@ func (dp *DevicesParser) parseDevicesV1(ctx context.Context, c *v1alpha2.Contain
 	if len(c.Id) > maxCgroupPath {
 		return fmt.Errorf("the containerId (%s) is too long", c.Id)
 	}
-	spec, err := dp.RuntimeOperator.GetContainerInfoByID(ctx, c.Id)
+	p, err := dp.RuntimeOperator.CgroupPath(ctx, c.Id)
 	if err != nil {
 		return contactError(err, fmt.Sprintf("getting cgroup path of container(%#v) fail", c.Id))
 	}
-	if spec.Linux == nil || len(spec.Linux.CgroupsPath) > maxCgroupPath {
-		return contactError(err, "cgroupPath too long or empty")
-	}
 
-	p, err := GetCgroupPath(cgroupControllerDevices, spec.Linux.CgroupsPath)
+	p, err = GetCgroupPath(cgroupControllerDevices, p)
 	if err != nil {
 		return contactError(err, "parsing cgroup path from spec fail")
 	}
@@ -685,7 +684,8 @@ func filterNPUDevices(spec v1.Spec) ([]int, error) {
 	sort.Strings(caps)
 	same := isSameStringSlice(caps, privilegeCaps)
 	if same {
-		return nil, errors.New("it's a privileged container and skip it")
+		hwlog.RunLog.Debug("it's a privileged container and skip it")
+		return nil, nil
 	}
 
 	const base = 10
