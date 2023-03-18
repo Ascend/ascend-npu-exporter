@@ -228,7 +228,7 @@ func (dp *DevicesParser) getDevicesWithoutAscendRuntime(spec v1.Spec, c *v1alpha
 	devicesIDs, err := filterNPUDevices(spec)
 	if err != nil {
 		hwlog.RunLog.Debugf("filter npu devices failed by container id (%#v), err is %v", c.Id, err)
-		return DevicesInfo{}, err
+		return DevicesInfo{}, nil
 	}
 	hwlog.RunLog.Debugf("filter npu devices %#v in container (%s)", devicesIDs, c.Id)
 
@@ -693,8 +693,7 @@ func filterNPUDevices(spec v1.Spec) ([]int, error) {
 	majorIDs := npuMajor()
 	for _, dev := range spec.Linux.Devices {
 		if dev.Minor > math.MaxInt32 {
-			hwlog.RunLog.Debugf("get wrong device ID (%v)", dev.Minor)
-			continue
+			return nil, fmt.Errorf("get wrong device ID (%v)", dev.Minor)
 		}
 		major := strconv.FormatInt(dev.Major, base)
 		if dev.Type == charDevice && contains(majorIDs, major) {
