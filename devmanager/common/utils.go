@@ -79,6 +79,9 @@ func GetDeviceTypeByChipName(chipName string) string {
 	if strings.Contains(chipName, "310P") {
 		return Ascend310P
 	}
+	if strings.Contains(chipName, "310B") {
+		return Ascend310B
+	}
 	if strings.Contains(chipName, "310") {
 		return Ascend310
 	}
