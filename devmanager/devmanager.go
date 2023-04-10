@@ -86,7 +86,7 @@ func AutoInit(dType string) (*DeviceManager, error) {
 		devManager.DcMgr = &A910Manager{}
 	case common.Ascend310P:
 		devManager.DcMgr = &A310PManager{}
-	case common.Ascend310:
+	case common.Ascend310, common.Ascend310B:
 		devManager.DcMgr = &A310Manager{}
 	default:
 		return nil, fmt.Errorf("unsupport device type (%s)", devType)

@@ -83,6 +83,8 @@ const (
 
 	// Ascend310 ascend 310 chip
 	Ascend310 = "Ascend310"
+	// Ascend310B ascend 310B chip
+	Ascend310B = "Ascend310B"
 	// Ascend310P ascend 310P chip
 	Ascend310P = "Ascend310P"
 	// Ascend910 ascend 910 chip
