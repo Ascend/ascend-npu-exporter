@@ -154,7 +154,8 @@ func assembleNPUInfo(cardID int32, logicID int32, dmgr devmanager.DeviceInterfac
 	if dmgr.GetDevType() == common.Ascend310P {
 		cardPower, err := dmgr.GetMcuPowerInfo(cardID)
 		if err != nil {
-			cardPower = float32(common.RetError)
+			hwlog.RunLog.Error(err)
+			cardPower = float32(common.InvaidVal)
 		}
 		// Ascend310P use cardPower to replace chipPower
 		chipInfo.Power = cardPower
@@ -460,19 +461,19 @@ func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 var packChipInfo = func(logicID int32, dmgr devmanager.DeviceInterface) *HuaWeiAIChip {
 	freq, err := dmgr.GetDeviceFrequency(logicID, common.AICore)
 	if err != nil {
-		freq = common.RetError
+		freq = common.InvaidVal
 	}
 	power, err := dmgr.GetDevicePowerInfo(logicID)
 	if err != nil {
-		power = common.RetError
+		power = common.InvaidVal
 	}
 	temp, err := dmgr.GetDeviceTemperature(logicID)
 	if err != nil {
-		temp = common.DefaultTemperatureWhenQueryFailed
+		temp = common.InvaidVal
 	}
 	vol, err := dmgr.GetDeviceVoltage(logicID)
 	if err != nil {
-		vol = common.RetError
+		vol = common.InvaidVal
 	}
 	mem, err := dmgr.GetDeviceMemoryInfo(logicID)
 	if err != nil {
@@ -488,7 +489,7 @@ var packChipInfo = func(logicID int32, dmgr devmanager.DeviceInterface) *HuaWeiA
 	}
 	util, err := dmgr.GetDeviceUtilizationRate(logicID, common.AICore)
 	if err != nil {
-		util = common.UnRetError // valid data range 0-100
+		util = common.InvaidVal // valid data range 0-100
 	}
 
 	_, errCode, err := dmgr.GetDeviceErrorCode(logicID)

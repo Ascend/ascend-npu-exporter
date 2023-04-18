@@ -46,20 +46,18 @@ const (
 )
 
 const (
+	// InvaidVal InvalidVal for NPU Invalid vaule
+	InvaidVal = 0
 	// Success for interface return code
 	Success = 0
 	// RetError return error when the function failed
 	RetError = -1
 	// Percent constant of 100
 	Percent = 100
-	// FuncNotFound is not found in interface
-	FuncNotFound = -99998
 	// MaxErrorCodeCount number of error codes
 	MaxErrorCodeCount = 128
 	// UnRetError return unsigned int error
 	UnRetError = math.MaxUint32
-	// OneKilo for unit change kb to mb
-	OneKilo = 1024
 
 	// DeviceIPLength length of device ip address
 	DeviceIPLength = 4
@@ -85,6 +83,8 @@ const (
 
 	// Ascend310 ascend 310 chip
 	Ascend310 = "Ascend310"
+	// Ascend310B ascend 310B chip
+	Ascend310B = "Ascend310B"
 	// Ascend310P ascend 310P chip
 	Ascend310P = "Ascend310P"
 	// Ascend910 ascend 910 chip

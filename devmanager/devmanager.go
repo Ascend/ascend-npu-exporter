@@ -86,7 +86,7 @@ func AutoInit(dType string) (*DeviceManager, error) {
 		devManager.DcMgr = &A910Manager{}
 	case common.Ascend310P:
 		devManager.DcMgr = &A310PManager{}
-	case common.Ascend310:
+	case common.Ascend310, common.Ascend310B:
 		devManager.DcMgr = &A310Manager{}
 	default:
 		return nil, fmt.Errorf("unsupport device type (%s)", devType)
@@ -359,6 +359,7 @@ func (d *DeviceManager) GetChipInfo(logicID int32) (*common.ChipInfo, error) {
 func (d *DeviceManager) GetPhysicIDFromLogicID(logicID int32) (int32, error) {
 	physicID, err := d.DcMgr.DcGetPhysicIDFromLogicID(logicID)
 	if err != nil {
+		hwlog.RunLog.Error(err)
 		return common.RetError, fmt.Errorf("failed to get physicID by logicID(%d)", logicID)
 	}
 

@@ -28,6 +28,7 @@ import (
 	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	"huawei.com/npu-exporter/v5/collector/container"
+	"huawei.com/npu-exporter/v5/collector/container/v1"
 	"huawei.com/npu-exporter/v5/common-utils/cache"
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
 	"huawei.com/npu-exporter/v5/devmanager"
@@ -58,9 +59,9 @@ func (operator *mockContainerRuntimeOperator) GetContainers(ctx context.Context)
 	return []*v1alpha2.Container{}, nil
 }
 
-// CgroupsPath implements ContainerRuntimeOperator
-func (operator *mockContainerRuntimeOperator) CgroupsPath(ctx context.Context, id string) (string, error) {
-	return "/cgroups/" + id, nil
+// GetContainerInfoByID implements ContainerRuntimeOperator
+func (operator *mockContainerRuntimeOperator) GetContainerInfoByID(ctx context.Context, id string) (v1.Spec, error) {
+	return v1.Spec{}, nil
 }
 
 func mockScan4AscendDevices(_ string) ([]int, bool, error) {
