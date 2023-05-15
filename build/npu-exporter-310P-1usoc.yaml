@@ -86,8 +86,11 @@ spec:
           - name: docker-shim  # delete when only use containerd
             mountPath: /run/dockershim.sock
             readOnly: true
-          - name: docker  # delete when only use containerd
+          - name: docker  # delete when only use containerd    todo 仅仅在1usoc中
             mountPath: /run/docker/containerd/containerd.sock
+            readOnly: true
+          - name: cri-dockerd  # delete when only use containerd
+            mountPath: /var/run/cri-dockerd.sock
             readOnly: true
           - name: containerd
             mountPath: /run/containerd
@@ -129,6 +132,9 @@ spec:
         - name: docker  # delete when only use containerd
           hostPath:
             path: /run/docker/containerd/containerd.sock
+        - name: cri-dockerd
+          hostPath:
+            path: /var/run/cri-dockerd.sock
         - name: containerd
           hostPath:
             path: /run/containerd

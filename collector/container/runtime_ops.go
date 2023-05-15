@@ -37,6 +37,8 @@ const (
 	labelContainerName   = "io.kubernetes.container.name"
 	// DefaultDockerShim default docker shim sock address
 	DefaultDockerShim = "unix:///run/dockershim.sock"
+	// DefaultCRIDockerd default cri-dockerd  sock address
+	DefaultCRIDockerd = "unix:///run/cri-dockerd.sock"
 	// DefaultContainerdAddr default containerd sock address
 	DefaultContainerdAddr = "unix:///run/containerd/containerd.sock"
 	// DefaultDockerAddr default docker containerd sock address
@@ -94,6 +96,14 @@ func (operator *RuntimeOperatorTool) Init() error {
 	}
 	criConn, err := GetConnection(operator.CriEndpoint)
 	if err != nil || criConn == nil {
+		hwlog.RunLog.Warn("connecting to CRI server failed")
+		if operator.UseBackup {
+			if utils.IsExist(strings.TrimPrefix(DefaultCRIDockerd, unixPrefix)) {
+				criConn, err = GetConnection(DefaultCRIDockerd)
+			}
+		}
+	}
+	if err != nil {
 		return errors.New("connecting to CRI server failed")
 	}
 	operator.criClient = v1alpha2.NewRuntimeServiceClient(criConn)
