@@ -98,7 +98,7 @@ func (operator *RuntimeOperatorTool) Init() error {
 	if err != nil || criConn == nil {
 		hwlog.RunLog.Warn("connecting to CRI server failed")
 		if operator.UseBackup {
-			if utils.IsExist(strings.TrimPrefix(DefaultCRIDockerd, unixPrefix)) {
+			if utils.IsExist(strings.TrimPrefix(DefaultCRIDockerd, unixPre)) {
 				criConn, err = GetConnection(DefaultCRIDockerd)
 			}
 		}
