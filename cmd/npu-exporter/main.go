@@ -172,6 +172,7 @@ func readCntMonitoringFlags() container.CntNpuMonitorOpts {
 	}
 	if endpoint != "" {
 		opts.CriEndpoint = endpoint
+		opts.UserBackUp = false
 	}
 	return opts
 }

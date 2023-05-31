@@ -91,6 +91,9 @@ spec:
           - name: docker  # delete when only use containerd
             mountPath: /var/run/docker
             readOnly: true
+          - name: cri-dockerd  # reserve when k8s version is 1.24+ and the container runtime is docker
+            mountPath: /var/run/cri-dockerd.sock
+            readOnly: true
           - name: containerd
             mountPath: /run/containerd
             readOnly: true
@@ -119,6 +122,9 @@ spec:
         - name: docker  # delete when only use containerd
           hostPath:
             path: /var/run/docker
+        - name: cri-dockerd # reserve when k8s version is 1.24+ and the container runtime is docker
+          hostPath:
+            path: /var/run/cri-dockerd.sock
         - name: containerd
           hostPath:
             path: /run/containerd

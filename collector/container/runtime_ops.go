@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"syscall"
 
@@ -37,6 +38,8 @@ const (
 	labelContainerName   = "io.kubernetes.container.name"
 	// DefaultDockerShim default docker shim sock address
 	DefaultDockerShim = "unix:///run/dockershim.sock"
+	// DefaultCRIDockerd default cri-dockerd  sock address
+	DefaultCRIDockerd = "unix:///run/cri-dockerd.sock"
 	// DefaultContainerdAddr default containerd sock address
 	DefaultContainerdAddr = "unix:///run/containerd/containerd.sock"
 	// DefaultDockerAddr default docker containerd sock address
@@ -92,13 +95,37 @@ func (operator *RuntimeOperatorTool) Init() error {
 		hwlog.RunLog.Error("check socket path failed")
 		return err
 	}
+
+	if err := operator.initCriClient(); err != nil {
+		return fmt.Errorf("init CRI client failed, %s", err)
+	}
+
+	if err := operator.initOciClient(); err != nil {
+		return fmt.Errorf("init OCI client failed, %s", err)
+	}
+	return nil
+}
+
+func (operator *RuntimeOperatorTool) initCriClient() error {
 	criConn, err := GetConnection(operator.CriEndpoint)
 	if err != nil || criConn == nil {
+		hwlog.RunLog.Warn("connecting to CRI server failed")
+		if operator.UseBackup {
+			hwlog.RunLog.Warn("use cri-dockerd address to try again")
+			if utils.IsExist(strings.TrimPrefix(DefaultCRIDockerd, unixPre)) {
+				criConn, err = GetConnection(DefaultCRIDockerd)
+			}
+		}
+	}
+	if err != nil {
 		return errors.New("connecting to CRI server failed")
 	}
 	operator.criClient = v1alpha2.NewRuntimeServiceClient(criConn)
 	operator.criConn = criConn
+	return nil
+}
 
+func (operator *RuntimeOperatorTool) initOciClient() error {
 	conn, err := GetConnection(operator.OciEndpoint)
 	if err != nil || conn == nil {
 		hwlog.RunLog.Warn("failed to get OCI connection")
