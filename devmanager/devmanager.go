@@ -57,6 +57,9 @@ type DeviceInterface interface {
 	GetAllProductType() ([]string, error)
 	SetDeviceReset(cardID, deviceID int32) error
 	GetDeviceBootStatus(logicID int32) (int, error)
+	GetDeviceAllErrorCode(logicID int32) (int32, []int64, error)
+	SubscribeDeviceFaultEvent(logicID int32) error
+	SetFaultEventCallFunc(func(common.DevFaultInfo)) error
 }
 
 // DeviceManager common device manager for Ascend910/310P/310
@@ -483,4 +486,50 @@ func (d *DeviceManager) SetDeviceReset(cardID, deviceID int32) error {
 // GetDeviceBootStatus get device boot status
 func (d *DeviceManager) GetDeviceBootStatus(logicID int32) (int, error) {
 	return d.DcMgr.DcGetDeviceBootStatus(logicID)
+}
+
+// GetDeviceAllErrorCode get npu device all error code
+func (d *DeviceManager) GetDeviceAllErrorCode(logicID int32) (int32, []int64, error) {
+	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	if err != nil {
+		hwlog.RunLog.Error(err)
+		return common.RetError, nil, fmt.Errorf("failed to get cardID in get device error code by logicID(%d)",
+			logicID)
+	}
+	errCount, errCodes, err := d.DcMgr.DcGetDeviceAllErrorCode(cardID, deviceID)
+	if err != nil {
+		hwlog.RunLog.Error(err)
+		return common.RetError, nil, fmt.Errorf("failed to get device error code by logicID(%d)", logicID)
+	}
+	return errCount, errCodes, nil
+}
+
+// SubscribeDeviceFaultEvent get npu device error code by subscribe
+func (d *DeviceManager) SubscribeDeviceFaultEvent(logicID int32) error {
+	var cardID, deviceID int32
+	if logicID == common.SubscribeAllDevice {
+		cardID = common.SubscribeAllDevice
+		deviceID = common.SubscribeAllDevice
+	} else {
+		var err error
+		cardID, deviceID, err = d.DcMgr.DcGetCardIDDeviceID(logicID)
+		if err != nil {
+			hwlog.RunLog.Error(err)
+			return fmt.Errorf("failed to get cardID in subscribe device error code by logicID(%d)", logicID)
+		}
+	}
+	if err := d.DcMgr.DcSubscribeDeviceFaultEvent(cardID, deviceID); err != nil {
+		hwlog.RunLog.Error(err)
+		return fmt.Errorf("failed to subscribe device error code by logicID(%d)", logicID)
+	}
+	return nil
+}
+
+// SetFaultEventCallFunc set fault event call func
+func (d *DeviceManager) SetFaultEventCallFunc(businessFunc func(common.DevFaultInfo)) error {
+	if businessFunc == nil {
+		return errors.New("business func can't be nil")
+	}
+	d.DcMgr.DcSetFaultEventCallFunc(businessFunc)
+	return nil
 }
