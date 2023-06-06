@@ -100,6 +100,13 @@ func get910TemplateNameList() map[string]struct{} {
 	return map[string]struct{}{"vir16": {}, "vir08": {}, "vir04": {}, "vir02": {}, "vir01": {}}
 }
 
+func get910BTemplateNameList() map[string]struct{} {
+	return map[string]struct{}{
+		"vir02_hc": {}, "vir02_hc_5g": {}, "vir03_hc_7g": {}, "vir04_1c_5g": {}, "vir05_1c": {}, "vir05_1c_7g": {},
+		"vir06_1c_15g": {}, "vir10_3c": {}, "vir10_3c_m": {}, "vir10_3c_nm": {}, "vir10_3c_14g": {},
+		"vir10_3c_14g_m": {}, "vir10_3c_14g_nm": {}, "vir12_3c_30g": {}, "vir12_3c_30g_m": {}, "vir12_3c_30g_nm": {}}
+}
+
 func get310PTemplateNameList() map[string]struct{} {
 	return map[string]struct{}{"vir04": {}, "vir02": {}, "vir01": {}, "vir04_3c": {}, "vir02_1c": {},
 		"vir04_4c_dvpp": {}, "vir04_3c_ndvpp": {}}
@@ -113,6 +120,8 @@ func IsValidTemplateName(devType, templateName string) bool {
 		_, isTemplateNameValid = get310PTemplateNameList()[templateName]
 	case Ascend910:
 		_, isTemplateNameValid = get910TemplateNameList()[templateName]
+	case Ascend910B:
+		_, isTemplateNameValid = get910BTemplateNameList()[templateName]
 	default:
 	}
 	return isTemplateNameValid
