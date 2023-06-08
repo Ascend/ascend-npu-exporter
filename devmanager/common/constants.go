@@ -92,7 +92,7 @@ const (
 	// Ascend910B ascend 1980B(910B) chip
 	Ascend910B = "Ascend910B"
 
-	// NeverStopTimeout never stop interface time out
+	// NeverStopTimeout never stop interface timeout
 	NeverStopTimeout = -1
 
 	// SubscribeAllDevice subscribe all device ID
@@ -112,5 +112,17 @@ const (
 )
 
 const (
-// Fault
+	// FaultRecover device fault recover
+	FaultRecover = int8(0)
+	// FaultOccur device fault occur
+	FaultOccur = int8(1)
+	// FaultOnce once device fault
+	FaultOnce = int8(2)
+)
+
+const (
+	// AMPMode for AMP chip work mode
+	AMPMode = "AMP"
+	// SMPMode for SMP chip work mode
+	SMPMode = "SMP"
 )

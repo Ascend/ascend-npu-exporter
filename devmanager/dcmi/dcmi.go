@@ -33,22 +33,22 @@ package dcmi
 
    // dcmi
    int (*dcmi_init_func)();
-   int dcmi_init_new(){
+   static int dcmi_init_new(){
    	CALL_FUNC(dcmi_init)
    }
 
    int (*dcmi_get_card_num_list_func)(int *card_num,int *card_list,int list_length);
-   int dcmi_get_card_num_list_new(int *card_num,int *card_list,int list_length){
+   static int dcmi_get_card_num_list_new(int *card_num,int *card_list,int list_length){
    	CALL_FUNC(dcmi_get_card_num_list,card_num,card_list,list_length)
    }
 
    int (*dcmi_get_device_num_in_card_func)(int card_id,int *device_num);
-   int dcmi_get_device_num_in_card_new(int card_id,int *device_num){
+   static int dcmi_get_device_num_in_card_new(int card_id,int *device_num){
    	CALL_FUNC(dcmi_get_device_num_in_card,card_id,device_num)
    }
 
    int (*dcmi_get_device_logic_id_func)(int *device_logic_id,int card_id,int device_id);
-   int dcmi_get_device_logic_id_new(int *device_logic_id,int card_id,int device_id){
+   static int dcmi_get_device_logic_id_new(int *device_logic_id,int card_id,int device_id){
    	CALL_FUNC(dcmi_get_device_logic_id,device_logic_id,card_id,device_id)
    }
 
@@ -181,7 +181,7 @@ package dcmi
    }
 
    int (*dcmi_mcu_get_power_info_func)(int card_id, int *power);
-   int dcmi_mcu_get_power_info_new(int card_id, int *power){
+   static int dcmi_mcu_get_power_info_new(int card_id, int *power){
     CALL_FUNC(dcmi_mcu_get_power_info,card_id,power)
    }
 
@@ -200,8 +200,24 @@ package dcmi
     CALL_FUNC(dcmi_get_device_boot_status,card_id,device_id,boot_status)
    }
 
+	void goEventFaultCallBack(struct dcmi_dms_fault_event);
+	static void event_handler(struct dcmi_event *fault_event) {
+		goEventFaultCallBack(fault_event->event_t.dms_event);
+	}
+
+	int (*dcmi_subscribe_fault_event_func)(int card_id, int device_id, struct dcmi_event_filter filter,
+		void (*f_name)(struct dcmi_event *fault_event));
+   	int dcmi_subscribe_fault_event(int card_id, int device_id, struct dcmi_event_filter filter){
+    	CALL_FUNC(dcmi_subscribe_fault_event,card_id,device_id,filter,event_handler)
+   	}
+
+	int (*dcmi_get_npu_work_mode_func)(int card_id, unsigned char *work_mode);
+	int dcmi_get_npu_work_mode(int card_id, unsigned char *work_mode){
+    	CALL_FUNC(dcmi_get_npu_work_mode,card_id,work_mode)
+	}
+
    // load .so files and functions
-   int dcmiInit_dl(const char* dcmiLibPath){
+   static int dcmiInit_dl(const char* dcmiLibPath){
    	if (dcmiLibPath == NULL) {
    	   	fprintf (stderr,"lib path is null\n");
    	   	return SO_NOT_FOUND;
@@ -274,10 +290,14 @@ package dcmi
 
 	dcmi_get_device_boot_status_func = dlsym(dcmiHandle,"dcmi_get_device_boot_status");
 
+	dcmi_subscribe_fault_event_func = dlsym(dcmiHandle,"dcmi_subscribe_fault_event");
+
+	dcmi_get_npu_work_mode_func = dlsym(dcmiHandle, "dcmi_get_npu_work_mode");
+
    	return SUCCESS;
    }
 
-   int dcmiShutDown(void){
+   static int dcmiShutDown(void){
    	if (dcmiHandle == NULL) {
    		return SUCCESS;
    	}
@@ -286,6 +306,7 @@ package dcmi
 */
 import "C"
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -341,14 +362,21 @@ type DcDriverInterface interface {
 	DcGetVDeviceInfo(int32) (common.VirtualDevInfo, error)
 	DcDestroyVDevice(int32, uint32) error
 	DcGetProductType(int32, int32) (string, error)
+	DcGetNpuWorkMode(int32) (int, error)
 	DcSetDeviceReset(int32, int32) error
 	DcGetDeviceBootStatus(int32) (int, error)
+
+	DcGetDeviceAllErrorCode(int32, int32) (int32, []int64, error)
+	DcSubscribeDeviceFaultEvent(int32, int32) error
+	DcSetFaultEventCallFunc(func(common.DevFaultInfo))
 }
 
 const (
 	dcmiLibraryName = "libdcmi.so"
 	templateNameLen = 32
 )
+
+var faultEventCallFunc func(common.DevFaultInfo)
 
 // DcManager for manager dcmi interface
 type DcManager struct{}
@@ -1149,6 +1177,16 @@ func (d *DcManager) DcGetProductType(cardID, deviceID int32) (string, error) {
 	return C.GoString(cProductType), nil
 }
 
+// DcGetNpuWorkMode get npu work mode, this function is only for Ascend910, A310/310P not support
+func (d *DcManager) DcGetNpuWorkMode(cardID int32) (int, error) {
+	var cWorkMode C.uchar
+	err := C.dcmi_get_npu_work_mode(C.int(cardID), &cWorkMode)
+	if err != 0 {
+		return common.RetError, fmt.Errorf("get npu work mode failed, errCode: %d", err)
+	}
+	return int(cWorkMode), nil
+}
+
 // DcSetDeviceReset reset spec device chip
 func (d *DcManager) DcSetDeviceReset(cardID, deviceID int32) error {
 	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
@@ -1178,4 +1216,67 @@ func (d *DcManager) DcGetDeviceBootStatus(logicID int32) (int, error) {
 		return common.RetError, fmt.Errorf("device boot status errCode: %v", errCode)
 	}
 	return int(bootStatus), nil
+}
+
+// DcGetDeviceAllErrorCode get the error count and all error codes of the device
+func (d *DcManager) DcGetDeviceAllErrorCode(cardID, deviceID int32) (int32, []int64, error) {
+	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
+		return common.RetError, nil, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID,
+			deviceID)
+	}
+	var errCount C.int
+	var errCodeArray [common.MaxErrorCodeCount]C.uint
+	if retCode := C.dcmi_get_device_errorcode_v2(C.int(cardID), C.int(deviceID), &errCount, &errCodeArray[0],
+		common.MaxErrorCodeCount); int32(retCode) != common.Success {
+		return common.RetError, nil, fmt.Errorf("failed to obtain the device errorcode based on cardID("+
+			"%d) and deviceID(%d), error code: %d, error count: %d", cardID, deviceID, int32(retCode),
+			int32(errCount))
+	}
+
+	if int32(errCount) < 0 || int32(errCount) > common.MaxErrorCodeCount {
+		return common.RetError, nil, fmt.Errorf("get wrong errorcode count, "+
+			"cardID(%d) and deviceID(%d), errorcode count: %d", cardID, deviceID, int32(errCount))
+	}
+	errCodes := make([]int64, 0, len(errCodeArray))
+	for _, errCode := range errCodeArray {
+		if int64(errCode) != 0 {
+			errCodes = append(errCodes, int64(errCode))
+		}
+	}
+	return int32(errCount), errCodes, nil
+}
+
+// DcSubscribeDeviceFaultEvent subscribe device fault, callback with func 'faultEventCallFunc'
+func (d *DcManager) DcSubscribeDeviceFaultEvent(cardID, deviceID int32) error {
+	if faultEventCallFunc == nil {
+		return errors.New("callFunc is invalid, can't start subscribe")
+	}
+
+	var filter C.struct_dcmi_event_filter
+	if rCode := C.dcmi_subscribe_fault_event(C.int(cardID), C.int(deviceID), filter); int32(rCode) != common.Success {
+		return fmt.Errorf("subscribe fault event failed, cardID(%d) and deviceID(%d), error code: %d",
+			cardID, deviceID, int32(rCode))
+	}
+	return nil
+}
+
+// DcSetFaultEventCallFunc set fault event call back func
+func (d *DcManager) DcSetFaultEventCallFunc(businessFunc func(common.DevFaultInfo)) {
+	faultEventCallFunc = businessFunc
+}
+
+//export goEventFaultCallBack
+func goEventFaultCallBack(event C.struct_dcmi_dms_fault_event) {
+	if faultEventCallFunc == nil {
+		hwlog.RunLog.Errorf("no fault event call back func")
+		return
+	}
+	devFaultInfo := common.DevFaultInfo{
+		EventID:         int64(event.event_id),
+		LogicID:         int32(event.deviceid),
+		Severity:        int8(event.severity),
+		Assertion:       int8(event.assertion),
+		AlarmRaisedTime: int64(event.alarm_raised_time),
+	}
+	faultEventCallFunc(devFaultInfo)
 }
