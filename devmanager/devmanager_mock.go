@@ -194,3 +194,18 @@ func (d *DeviceManagerMock) SetDeviceReset(cardID, deviceID int32) error {
 func (d *DeviceManagerMock) GetDeviceBootStatus(logicID int32) (int, error) {
 	return common.BootStartFinish, nil
 }
+
+// GetDeviceAllErrorCode get device all error code success
+func (d *DeviceManagerMock) GetDeviceAllErrorCode(logicID int32) (int32, []int64, error) {
+	return 0, []int64{}, nil
+}
+
+// SubscribeDeviceFaultEvent subscribe device fault event success
+func (d *DeviceManagerMock) SubscribeDeviceFaultEvent(logicID int32) error {
+	return nil
+}
+
+// SetFaultEventCallFunc set fault event call func success
+func (d *DeviceManagerMock) SetFaultEventCallFunc(businessFunc func(common.DevFaultInfo)) error {
+	return nil
+}

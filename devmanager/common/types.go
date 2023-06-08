@@ -156,3 +156,12 @@ type VirtualDevInfo struct {
 	FreeResource  CgoSocFreeResource
 	VDevInfo      []CgoVDevQueryStru
 }
+
+// DevFaultInfo device's fault info
+type DevFaultInfo struct {
+	EventID         int64
+	LogicID         int32
+	Severity        int8
+	Assertion       int8
+	AlarmRaisedTime int64
+}
