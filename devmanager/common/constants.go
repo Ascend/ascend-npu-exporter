@@ -91,6 +91,12 @@ const (
 	Ascend910 = "Ascend910"
 	// Ascend910B ascend 1980B(910B) chip
 	Ascend910B = "Ascend910B"
+
+	// NeverStopTimeout never stop interface time out
+	NeverStopTimeout = -1
+
+	// SubscribeAllDevice subscribe all device ID
+	SubscribeAllDevice = -1
 )
 
 const (
@@ -103,4 +109,8 @@ const (
 	Pattern1980B = `^910B\d{1}`
 	// Pattern1980 regular expression for 1980
 	Pattern1980 = `^910B?`
+)
+
+const (
+// Fault
 )
