@@ -119,3 +119,10 @@ const (
 	// FaultOnce once device fault
 	FaultOnce = int8(2)
 )
+
+const (
+	// AMPMode for AMP chip work mode
+	AMPMode = "AMP"
+	// SMPMode for SMP chip work mode
+	SMPMode = "SMP"
+)

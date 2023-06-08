@@ -362,6 +362,8 @@ DCMIDLLEXPORT int dcmi_get_device_boot_status(int card_id, int device_id, enum d
 
 DCMIDLLEXPORT int dcmi_subscribe_fault_event(int card_id, int device_id, struct dcmi_event_filter filter);
 
+DCMIDLLEXPORT int dcmi_get_npu_work_mode(int card_id, unsigned char *work_mode)
+
 #endif
 
 #if defined DCMI_VERSION_1

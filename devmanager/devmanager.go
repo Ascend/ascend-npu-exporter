@@ -55,6 +55,7 @@ type DeviceInterface interface {
 	GetDevType() string
 	GetProductType(cardID, deviceID int32) (string, error)
 	GetAllProductType() ([]string, error)
+	GetNpuWorkMode() string
 	SetDeviceReset(cardID, deviceID int32) error
 	GetDeviceBootStatus(logicID int32) (int, error)
 	GetDeviceAllErrorCode(logicID int32) (int32, []int64, error)
@@ -476,6 +477,26 @@ func (d *DeviceManager) GetAllProductType() ([]string, error) {
 	}
 	productTypes = common.RemoveDuplicate(&productTypes)
 	return productTypes, nil
+}
+
+func (d *DeviceManager) GetNpuWorkMode() string {
+	_, cardList, err := d.DcMgr.DcGetCardList()
+	if err != nil {
+		hwlog.RunLog.Error(err)
+		return ""
+	}
+	if len(cardList) > 0 {
+		mode, err := d.DcMgr.DcGetNpuWorkMode(cardList[0])
+		if err != nil {
+			hwlog.RunLog.Error(err)
+			return ""
+		}
+		if mode == 0 {
+			return common.AMPMode
+		}
+		return common.SMPMode
+	}
+	return ""
 }
 
 // SetDeviceReset reset spec device

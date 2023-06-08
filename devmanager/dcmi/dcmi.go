@@ -211,6 +211,11 @@ package dcmi
     	CALL_FUNC(dcmi_subscribe_fault_event,card_id,device_id,filter,event_handler)
    	}
 
+	int (*dcmi_get_npu_work_mode_func)(int card_id, unsigned char *work_mode);
+	int dcmi_get_npu_work_mode(int card_id, unsigned char *work_mode){
+    	CALL_FUNC(dcmi_get_npu_work_mode,card_id,work_mode)
+	}
+
    // load .so files and functions
    static int dcmiInit_dl(const char* dcmiLibPath){
    	if (dcmiLibPath == NULL) {
@@ -287,6 +292,8 @@ package dcmi
 
 	dcmi_subscribe_fault_event_func = dlsym(dcmiHandle,"dcmi_subscribe_fault_event");
 
+	dcmi_get_npu_work_mode_func = dlsym(dcmiHandle, "dcmi_get_npu_work_mode");
+
    	return SUCCESS;
    }
 
@@ -355,6 +362,7 @@ type DcDriverInterface interface {
 	DcGetVDeviceInfo(int32) (common.VirtualDevInfo, error)
 	DcDestroyVDevice(int32, uint32) error
 	DcGetProductType(int32, int32) (string, error)
+	DcGetNpuWorkMode(int32) (int, error)
 	DcSetDeviceReset(int32, int32) error
 	DcGetDeviceBootStatus(int32) (int, error)
 
@@ -1167,6 +1175,16 @@ func (d *DcManager) DcGetProductType(cardID, deviceID int32) (string, error) {
 		return "", fmt.Errorf("get product type failed, errCode: %d", err)
 	}
 	return C.GoString(cProductType), nil
+}
+
+// DcGetNpuWorkMode get npu work mode, this function is only for Ascend910, A310/310P not support
+func (d *DcManager) DcGetNpuWorkMode(cardID int32) (int, error) {
+	var cWorkMode C.uchar
+	err := C.dcmi_get_npu_work_mode(C.int(cardID), &cWorkMode)
+	if err != 0 {
+		return common.RetError, fmt.Errorf("get npu work mode failed, errCode: %d", err)
+	}
+	return int(cWorkMode), nil
 }
 
 // DcSetDeviceReset reset spec device chip

@@ -185,6 +185,11 @@ func (d *DeviceManagerMock) GetAllProductType() ([]string, error) {
 	return []string{}, nil
 }
 
+// GetNpuWorkMode get npu chip work mode SMP success
+func (d *DeviceManagerMock) GetNpuWorkMode() string {
+	return common.SMPMode
+}
+
 // SetDeviceReset set device reset success
 func (d *DeviceManagerMock) SetDeviceReset(cardID, deviceID int32) error {
 	return nil

@@ -188,6 +188,11 @@ func (d *DeviceManagerMockErr) GetAllProductType() ([]string, error) {
 	return []string{}, errors.New("not found product type name")
 }
 
+// GetNpuWorkMode get npu work mode failed
+func (d *DeviceManagerMockErr) GetNpuWorkMode() string {
+	return ""
+}
+
 // SetDeviceReset set device reset failed
 func (d *DeviceManagerMockErr) SetDeviceReset(cardID, deviceID int32) error {
 	return errors.New(errorMsg)
