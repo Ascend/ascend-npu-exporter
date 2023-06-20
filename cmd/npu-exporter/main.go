@@ -64,6 +64,7 @@ const (
 	defaultLogFile          = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
 	containerModeDocker     = "docker"
 	containerModeContainerd = "containerd"
+	containerModeIsula      = "isula"
 	unixPre                 = "unix://"
 	timeout                 = 10
 	maxHeaderBytes          = 1024
@@ -160,6 +161,10 @@ func readCntMonitoringFlags() container.CntNpuMonitorOpts {
 		opts.EndpointType = container.EndpointTypeContainerd
 		opts.OciEndpoint = container.DefaultContainerdAddr
 		opts.CriEndpoint = container.DefaultContainerdAddr
+	case containerModeIsula:
+		opts.EndpointType = container.EndpointTypeIsula
+		opts.OciEndpoint = container.DefaultIsuladAddr
+		opts.CriEndpoint = container.DefaultIsuladAddr
 	default:
 		hwlog.RunLog.Error("invalid container mode setting,reset to docker")
 		opts.EndpointType = container.EndpointTypeDockerd
