@@ -137,17 +137,3 @@ func makeUpDeviceInfo(c *CommonContainer) (DevicesInfo, error) {
 	deviceInfo.Name = ns + "_" + podName + "_" + containerName
 	return deviceInfo, nil
 }
-
-func isSameStringSlice(src, target []string) bool {
-	if len(src) != len(target) {
-		return false
-	}
-
-	for i, val := range src {
-		if val != target[i] {
-			return false
-		}
-	}
-
-	return true
-}
