@@ -247,18 +247,18 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 	obj, err := n.cache.Get(key)
 	npuChipInfoInit.Do(func() {
 		if err != nil {
-			hwlog.RunLog.Warn("no cache, start to get npulist and rebuild cache")
-			devManager, err := devmanager.AutoInit("")
+			hwlog.RunLog.Debugf("no cache, start to get npulist and rebuild cache")
+			devManager, err := devmanager.GetDeviceManager()
 			if err != nil {
-				hwlog.RunLog.Warnf("get device manager failed, error is: %#v ", err)
+				hwlog.RunLog.Debugf("get device manager failed, error is: %#v ", err)
 				return
 			}
 			npuInfo := getNPUInfo(devManager)
 			if err = n.cache.Set(key, npuInfo, n.cacheTime); err != nil {
-				hwlog.RunLog.Error(err)
+				hwlog.RunLog.Errorf("no cache for prometheus, try to build cache failed, error is: %v", err)
 				return
 			}
-			hwlog.RunLog.Warn("rebuild cache successfully")
+			hwlog.RunLog.Debugf("rebuild cache successfully")
 			obj = npuInfo
 		}
 	})

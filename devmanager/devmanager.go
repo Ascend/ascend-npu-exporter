@@ -18,6 +18,7 @@ package devmanager
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
 	"huawei.com/npu-exporter/v5/devmanager/common"
@@ -59,6 +60,31 @@ type DeviceInterface interface {
 	GetDeviceBootStatus(logicID int32) (int, error)
 }
 
+var (
+	devManager     *DeviceManager
+	devManagerOnce sync.Once
+)
+
+// GetDeviceManager singleton to init global device manager and init dcmi interface
+func GetDeviceManager() (*DeviceManager, error) {
+	devManagerOnce.Do(func() {
+		// a common dcmi Manager is initiated for init dcmi interface, you can specify an specific manager in later
+		dcMgr := dcmi.DcManager{}
+		if err := dcMgr.DcInit(); err != nil {
+			hwlog.RunLog.Errorf("deviceManager init failed, prepare dcmi failed, err: %#v", err)
+			return
+		}
+		devManager = &DeviceManager{}
+		devManager.DcMgr = &dcMgr
+	})
+	if devManager == nil {
+		return nil, errors.New("device Manager is nil, may encounter an exception during initialization. " +
+			"You can check the system log to confirm")
+	}
+
+	return devManager, nil
+}
+
 // DeviceManager common device manager for Ascend910/310P/310
 type DeviceManager struct {
 	// DcMgr for common dev manager
@@ -79,15 +105,18 @@ func AutoInit(dType string) (*DeviceManager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("auto init failed, err: %s", err)
 	}
-	devManager := &DeviceManager{}
+	var devMgr *DeviceManager
+	if devMgr, err = GetDeviceManager(); err != nil {
+		return nil, err
+	}
 	devType := common.GetDeviceTypeByChipName(chipInfo.Name)
 	switch devType {
 	case common.Ascend910, common.Ascend910B:
-		devManager.DcMgr = &A910Manager{}
+		devMgr.DcMgr = &A910Manager{}
 	case common.Ascend310P:
-		devManager.DcMgr = &A310PManager{}
+		devMgr.DcMgr = &A310PManager{}
 	case common.Ascend310, common.Ascend310B:
-		devManager.DcMgr = &A310Manager{}
+		devMgr.DcMgr = &A310Manager{}
 	default:
 		return nil, fmt.Errorf("unsupport device type (%s)", devType)
 	}
@@ -95,23 +124,17 @@ func AutoInit(dType string) (*DeviceManager, error) {
 		return nil, fmt.Errorf("the value of dType(%s) is inconsistent with the actual chip type(%s)",
 			dType, devType)
 	}
-	devManager.DevType = devType
-	if err = devManager.Init(); err != nil {
-		return nil, fmt.Errorf("deviceManager init failed, err: %#v", err)
-	}
-	return devManager, nil
+	devMgr.DevType = devType
+	return devMgr, nil
 }
 
 func getChipInfoForInit() (common.ChipInfo, error) {
-	dcMgr := dcmi.DcManager{}
-	if err := dcMgr.DcInit(); err != nil {
-		return common.ChipInfo{}, fmt.Errorf("dc init failed, err: %#v", err)
+	var mgr *DeviceManager
+	var err error
+	if mgr, err = GetDeviceManager(); err != nil {
+		return common.ChipInfo{}, fmt.Errorf("get chip info failed, err: %#v", err)
 	}
-	defer func() {
-		if err := dcMgr.DcShutDown(); err != nil {
-			hwlog.RunLog.Error(err)
-		}
-	}()
+	dcMgr := mgr.DcMgr
 	// get card list
 	carNum, cardList, err := dcMgr.DcGetCardList()
 	if err != nil {
