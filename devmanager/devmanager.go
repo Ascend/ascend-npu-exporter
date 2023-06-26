@@ -300,6 +300,17 @@ func (d *DeviceManager) GetDeviceMemoryInfo(logicID int32) (*common.MemoryInfo, 
 		hwlog.RunLog.Error(err)
 		return nil, fmt.Errorf("failed to get memory info by logicID(%d)", logicID)
 	}
+
+	// 910B does not support query info of DDR
+	if d.DevType == common.Ascend910B {
+		return &common.MemoryInfo{
+			MemorySize:      0,
+			MemoryAvailable: 0,
+			Frequency:       0,
+			Utilization:     0,
+		}, nil
+	}
+
 	memInfo, err := d.DcMgr.DcGetMemoryInfo(cardID, deviceID)
 	if err != nil {
 		hwlog.RunLog.Error(err)

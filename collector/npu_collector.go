@@ -90,7 +90,7 @@ type npuCollector struct {
 	cacheTime     time.Duration
 }
 
-// NewNpuCollector new a instance of prometheus Collector
+// NewNpuCollector create an instance of prometheus Collector
 func NewNpuCollector(ctx context.Context, cacheTime time.Duration, updateTime time.Duration,
 	deviceParser *container.DevicesParser) (prometheus.Collector, error) {
 	npuCollect := &npuCollector{
