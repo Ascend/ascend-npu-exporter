@@ -45,16 +45,6 @@ const (
 	devicePathPattern = `^/dev/davinci\d+$`
 )
 
-// don't change the order
-// all capabilities presents privileged
-var privilegeCaps = []string{"CAP_AUDIT_CONTROL", "CAP_AUDIT_READ", "CAP_AUDIT_WRITE", "CAP_BLOCK_SUSPEND",
-	"CAP_BPF", "CAP_CHECKPOINT_RESTORE", "CAP_CHOWN", "CAP_DAC_OVERRIDE", "CAP_DAC_READ_SEARCH", "CAP_FOWNER",
-	"CAP_FSETID", "CAP_IPC_LOCK", "CAP_IPC_OWNER", "CAP_KILL", "CAP_LEASE", "CAP_LINUX_IMMUTABLE", "CAP_MAC_ADMIN",
-	"CAP_MAC_OVERRIDE", "CAP_MKNOD", "CAP_NET_ADMIN", "CAP_NET_BIND_SERVICE", "CAP_NET_BROADCAST", "CAP_NET_RAW",
-	"CAP_PERFMON", "CAP_SETFCAP", "CAP_SETGID", "CAP_SETPCAP", "CAP_SETUID", "CAP_SYSLOG", "CAP_SYS_ADMIN",
-	"CAP_SYS_BOOT", "CAP_SYS_CHROOT", "CAP_SYS_MODULE", "CAP_SYS_NICE", "CAP_SYS_PACCT", "CAP_SYS_PTRACE",
-	"CAP_SYS_RAWIO", "CAP_SYS_RESOURCE", "CAP_SYS_TIME", "CAP_SYS_TTY_CONFIG", "CAP_WAKE_ALARM"}
-
 const (
 	// EndpointTypeContainerd K8S + Containerd
 	EndpointTypeContainerd = iota
@@ -174,9 +164,9 @@ func (dp *DevicesParser) parseDevicesInContainerd(ctx context.Context, c *Common
 	if err != nil {
 		return contactError(err, fmt.Sprintf("cannot get container devices by container id (%#v)", c.Id))
 	}
-	if spec.Linux == nil || len(spec.Linux.Devices) > maxDevicesNum {
-		return contactError(errors.New("device error"), fmt.Sprintf("devices in container is too much (%v) or empty",
-			maxDevicesNum))
+	if spec.Linux == nil || spec.Linux.Resources == nil || len(spec.Linux.Resources.Devices) > maxDevicesNum {
+		return contactError(errors.New("device error"),
+			fmt.Sprintf("devices in container is too much (%v) or empty", maxDevicesNum))
 	}
 	if spec.Process == nil || len(spec.Process.Env) > maxEnvNum {
 		return contactError(errors.New("env error"), fmt.Sprintf("env in container is too much (%v) or empty",
@@ -464,26 +454,24 @@ func contactError(err error, msg string) error {
 }
 
 func filterNPUDevices(spec v1.Spec) ([]int, error) {
-	var caps []string
-	if spec.Process != nil && spec.Process.Capabilities != nil {
-		caps = spec.Process.Capabilities.Permitted
-	}
-	sort.Strings(caps)
-	same := isSameStringSlice(caps, privilegeCaps)
-	if same {
-		return nil, errors.New("it's a privileged container and skip it")
+	if spec.Linux == nil || spec.Linux.Resources == nil {
+		return nil, errors.New("empty spec info")
 	}
 
 	const base = 10
 	devIDs := make([]int, 0, sliceLen8)
 	majorIDs := npuMajor()
-	for _, dev := range spec.Linux.Devices {
-		if dev.Minor > math.MaxInt32 {
+	for _, dev := range spec.Linux.Resources.Devices {
+		if dev.Minor == nil || dev.Major == nil {
+			// do not monitor privileged container
+			continue
+		}
+		if *dev.Minor > math.MaxInt32 {
 			return nil, fmt.Errorf("get wrong device ID (%v)", dev.Minor)
 		}
-		major := strconv.FormatInt(dev.Major, base)
+		major := strconv.FormatInt(*dev.Major, base)
 		if dev.Type == charDevice && contains(majorIDs, major) {
-			devIDs = append(devIDs, int(dev.Minor))
+			devIDs = append(devIDs, int(*dev.Minor))
 		}
 	}
 
