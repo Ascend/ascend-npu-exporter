@@ -208,14 +208,14 @@ func (dp *DevicesParser) getDevicesWithoutAscendRuntime(spec v1.Spec, c *CommonC
 }
 
 func (dp *DevicesParser) getDevicesWithAscendRuntime(ascendDevEnv string, c *CommonContainer) (DevicesInfo, error) {
-	hwlog.RunLog.Debugf("get device info by env (%#v) in %s, error is %s", ascendDevEnv, c.Id)
+	hwlog.RunLog.Debugf("get device info by env (%#v) in %s", ascendDevEnv, c.Id)
 	devInfo := strings.Split(ascendDevEnv, "=")
 	if len(devInfo) != ascendEnvPart {
 		return DevicesInfo{}, fmt.Errorf("an invalid %s env(%#v)", ascendDeviceInfo, ascendDevEnv)
 	}
 	devList := strings.Split(devInfo[1], ",")
 
-	devicesIDs := make([]int, len(devList))
+	devicesIDs := make([]int, 0, len(devList))
 	for _, devID := range devList {
 		id, err := strconv.Atoi(devID)
 		if err != nil {
