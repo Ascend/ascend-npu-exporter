@@ -513,7 +513,13 @@ func (d *DeviceManager) GetAllProductType() ([]string, error) {
 	return productTypes, nil
 }
 
+// GetNpuWorkMode get work mode of NPU
 func (d *DeviceManager) GetNpuWorkMode() string {
+	if d.DevType == common.Ascend910B {
+		hwlog.RunLog.Warn("only AMP mode is available on 910B")
+		return common.AMPMode
+	}
+
 	_, cardList, err := d.DcMgr.DcGetCardList()
 	if err != nil {
 		hwlog.RunLog.Error(err)
