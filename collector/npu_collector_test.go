@@ -17,6 +17,7 @@ package collector
 
 import (
 	"context"
+
 	"os"
 	"testing"
 	"time"
@@ -25,9 +26,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
-
 	"huawei.com/npu-exporter/v5/collector/container"
+	"huawei.com/npu-exporter/v5/collector/container/isula"
 	"huawei.com/npu-exporter/v5/collector/container/v1"
 	"huawei.com/npu-exporter/v5/common-utils/cache"
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
@@ -55,13 +55,24 @@ func (operator *mockContainerRuntimeOperator) Close() error {
 }
 
 // ContainerIDs implements ContainerRuntimeOperator
-func (operator *mockContainerRuntimeOperator) GetContainers(ctx context.Context) ([]*v1alpha2.Container, error) {
-	return []*v1alpha2.Container{}, nil
+func (operator *mockContainerRuntimeOperator) GetContainers(ctx context.Context) ([]*container.CommonContainer, error) {
+	return []*container.CommonContainer{}, nil
 }
 
 // GetContainerInfoByID implements ContainerRuntimeOperator
 func (operator *mockContainerRuntimeOperator) GetContainerInfoByID(ctx context.Context, id string) (v1.Spec, error) {
 	return v1.Spec{}, nil
+}
+
+// GetIsulaContainerInfoByID implements ContainerRuntimeOperator
+func (operator *mockContainerRuntimeOperator) GetIsulaContainerInfoByID(ctx context.Context,
+	id string) (isula.ContainerJson, error) {
+	return isula.ContainerJson{}, nil
+}
+
+// GetContainerType implements ContainerRuntimeOperator
+func (operator *mockContainerRuntimeOperator) GetContainerType() string {
+	return container.DefaultContainer
 }
 
 func mockScan4AscendDevices(_ string) ([]int, bool, error) {
@@ -318,6 +329,4 @@ func init() {
 		OnlyToStdout: true,
 	}
 	hwlog.InitRunLogger(&config, nil)
-	gomonkey.ApplyFunc(container.ScanForAscendDevices, mockScan4AscendDevices)
-	gomonkey.ApplyFunc(container.GetCgroupPath, mockGetCgroupPath)
 }

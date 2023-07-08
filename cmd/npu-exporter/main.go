@@ -299,7 +299,7 @@ func indexHandler(w http.ResponseWriter, _ *http.Request) {
 
 func initHwLogger() error {
 	if err := hwlog.InitRunLogger(hwLogConfig, context.Background()); err != nil {
-		fmt.Printf("hwlog init failed, error is %#v", err)
+		fmt.Printf("hwlog init failed, error is %#v\n", err)
 		return err
 	}
 	return nil
