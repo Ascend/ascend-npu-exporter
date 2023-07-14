@@ -352,12 +352,12 @@ func (dp *DevicesParser) doParse(resultOut chan<- DevicesInfos) {
 	wg.Add(l)
 
 	for _, container := range containers {
-		go func(container *CommonContainer) {
-			if err := dp.parseDevices(ctx, container, r); err != nil {
+		go func(container *CommonContainer, c context.Context) {
+			if err := dp.parseDevices(c, container, r); err != nil {
 				dp.err <- err
 			}
 			wg.Done()
-		}(container)
+		}(container, ctx)
 	}
 	ctx, cancelFn := context.WithTimeout(ctx, withDefault(dp.Timeout, parsingNpuDefaultTimeout))
 	defer cancelFn()
