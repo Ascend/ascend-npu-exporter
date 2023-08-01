@@ -1,4 +1,4 @@
-﻿/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+﻿/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -25,6 +25,7 @@ extern "C" {
 
 #define MAX_CHIP_NAME_LEN 32  // Maximum length of chip name
 #define TEMPLATE_NAME_LEN 32
+#define DIE_ID_COUNT 5  // Number of die ID characters
 
 /*----------------------------------------------*
  * Structure description                        *
@@ -36,6 +37,9 @@ struct dcmi_chip_info {
     unsigned int aicore_cnt;
 };
 
+struct dcmi_die_id {
+    unsigned int soc_die[DIE_ID_COUNT];
+};
 
 struct dcmi_hbm_info {
     unsigned long long memory_size;
@@ -133,6 +137,11 @@ enum dcmi_boot_status {
 
 enum dcmi_event_type {
     DCMI_DMS_FAULT_EVENT = 0,
+};
+
+enum dcmi_die_type {
+    NDIE,
+    VDIE
 };
 
 #define DCMI_VDEV_RES_NAME_LEN 16
@@ -292,6 +301,12 @@ struct dcmi_event_filter {
     unsigned char resv[DCMI_MAX_EVENT_RESV_LENGTH]; /* < Reserves 32 bytes. */
 };
 
+struct dcmi_proc_mem_info {
+    int proc_id;
+    // unit is byte
+    unsigned long proc_mem_usage;
+};
+
 #define DCMI_VERSION_1
 #define DCMI_VERSION_2
 
@@ -363,6 +378,13 @@ DCMIDLLEXPORT int dcmi_get_device_boot_status(int card_id, int device_id, enum d
 DCMIDLLEXPORT int dcmi_subscribe_fault_event(int card_id, int device_id, struct dcmi_event_filter filter);
 
 DCMIDLLEXPORT int dcmi_get_npu_work_mode(int card_id, unsigned char *work_mode);
+
+DCMIDLLEXPORT int dcmi_get_device_die_v2(
+    int card_id, int device_id, enum dcmi_die_type input_type, struct dcmi_die_id *die_id);
+
+DCMIDLLEXPORT int dcmi_get_device_resource_info (int card_id, int device_id, struct dcmi_proc_mem_info *proc_info,
+    int *proc_num);
+
 
 #endif
 

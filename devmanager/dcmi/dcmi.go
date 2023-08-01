@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -200,21 +200,33 @@ package dcmi
     CALL_FUNC(dcmi_get_device_boot_status,card_id,device_id,boot_status)
    }
 
-	void goEventFaultCallBack(struct dcmi_dms_fault_event);
-	static void event_handler(struct dcmi_event *fault_event) {
-		goEventFaultCallBack(fault_event->event_t.dms_event);
-	}
+    void goEventFaultCallBack(struct dcmi_dms_fault_event);
+    static void event_handler(struct dcmi_event *fault_event) {
+        goEventFaultCallBack(fault_event->event_t.dms_event);
+    }
 
-	int (*dcmi_subscribe_fault_event_func)(int card_id, int device_id, struct dcmi_event_filter filter,
-		void (*f_name)(struct dcmi_event *fault_event));
-   	int dcmi_subscribe_fault_event(int card_id, int device_id, struct dcmi_event_filter filter){
-    	CALL_FUNC(dcmi_subscribe_fault_event,card_id,device_id,filter,event_handler)
-   	}
+    int (*dcmi_subscribe_fault_event_func)(int card_id, int device_id, struct dcmi_event_filter filter,
+        void (*f_name)(struct dcmi_event *fault_event));
+       int dcmi_subscribe_fault_event(int card_id, int device_id, struct dcmi_event_filter filter){
+        CALL_FUNC(dcmi_subscribe_fault_event,card_id,device_id,filter,event_handler)
+       }
 
-	int (*dcmi_get_npu_work_mode_func)(int card_id, unsigned char *work_mode);
-	int dcmi_get_npu_work_mode(int card_id, unsigned char *work_mode){
-    	CALL_FUNC(dcmi_get_npu_work_mode,card_id,work_mode)
-	}
+    int (*dcmi_get_npu_work_mode_func)(int card_id, unsigned char *work_mode);
+    int dcmi_get_npu_work_mode(int card_id, unsigned char *work_mode){
+        CALL_FUNC(dcmi_get_npu_work_mode,card_id,work_mode)
+    }
+
+    int (*dcmi_get_device_die_v2_func)(int card_id, int device_id, enum dcmi_die_type input_type,
+    struct dcmi_die_id *die_id);
+    int dcmi_get_device_die_v2(int card_id, int device_id, enum dcmi_die_type input_type, struct dcmi_die_id *die_id){
+        CALL_FUNC(dcmi_get_device_die_v2,card_id,device_id,input_type,die_id)
+    }
+
+    int (*dcmi_get_device_resource_info_func)(int card_id, int device_id, struct dcmi_proc_mem_info *proc_info,
+    int *proc_num);
+    int dcmi_get_device_resource_info(int card_id, int device_id, struct dcmi_proc_mem_info *proc_info, int *proc_num){
+        CALL_FUNC(dcmi_get_device_resource_info,card_id,device_id,proc_info,proc_num)
+    }
 
    // load .so files and functions
    static int dcmiInit_dl(const char* dcmiLibPath){
@@ -284,15 +296,19 @@ package dcmi
 
    	dcmi_mcu_get_power_info_func = dlsym(dcmiHandle,"dcmi_mcu_get_power_info");
 
-	dcmi_get_product_type_func = dlsym(dcmiHandle,"dcmi_get_product_type");
+   	dcmi_get_product_type_func = dlsym(dcmiHandle,"dcmi_get_product_type");
 
-	dcmi_set_device_reset_func = dlsym(dcmiHandle,"dcmi_set_device_reset");
+   	dcmi_set_device_reset_func = dlsym(dcmiHandle,"dcmi_set_device_reset");
 
-	dcmi_get_device_boot_status_func = dlsym(dcmiHandle,"dcmi_get_device_boot_status");
+   	dcmi_get_device_boot_status_func = dlsym(dcmiHandle,"dcmi_get_device_boot_status");
 
-	dcmi_subscribe_fault_event_func = dlsym(dcmiHandle,"dcmi_subscribe_fault_event");
+   	dcmi_subscribe_fault_event_func = dlsym(dcmiHandle,"dcmi_subscribe_fault_event");
 
-	dcmi_get_npu_work_mode_func = dlsym(dcmiHandle, "dcmi_get_npu_work_mode");
+   	dcmi_get_npu_work_mode_func = dlsym(dcmiHandle, "dcmi_get_npu_work_mode");
+
+    dcmi_get_device_die_v2_func = dlsym(dcmiHandle, "dcmi_get_device_die_v2");
+
+    dcmi_get_device_resource_info_func = dlsym(dcmiHandle, "dcmi_get_device_resource_info");
 
    	return SUCCESS;
    }
@@ -310,6 +326,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"strconv"
 	"strings"
 	"unsafe"
 
@@ -348,6 +365,7 @@ type DcDriverInterface interface {
 	DcGetDeviceLogicID(int32, int32) (int32, error)
 	DcGetDeviceIPAddress(int32, int32) (string, error)
 	DcGetMcuPowerInfo(int32) (float32, error)
+	DcGetDieID(int32, int32, DcmiDieType) (string, error)
 
 	DcGetCardList() (int32, []int32, error)
 	DcGetDeviceNumInCard(int32) (int32, error)
@@ -369,6 +387,7 @@ type DcDriverInterface interface {
 	DcGetDeviceAllErrorCode(int32, int32) (int32, []int64, error)
 	DcSubscribeDeviceFaultEvent(int32, int32) error
 	DcSetFaultEventCallFunc(func(common.DevFaultInfo))
+	DcGetDevProcessInfo(int32, int32) (*common.DevProcessInfo, error)
 }
 
 const (
@@ -1279,4 +1298,77 @@ func goEventFaultCallBack(event C.struct_dcmi_dms_fault_event) {
 		AlarmRaisedTime: int64(event.alarm_raised_time),
 	}
 	faultEventCallFunc(devFaultInfo)
+}
+
+// DcGetDieID get chip die ID, like VDieID or NDieID, only Ascend910 has NDieID
+func (d *DcManager) DcGetDieID(cardID, deviceID int32, dcmiDieType DcmiDieType) (string, error) {
+	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
+		return "", fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
+	}
+
+	if dcmiDieType != VDIE && dcmiDieType != NDIE {
+		return "", fmt.Errorf("dcmi die type can only be one of %d or %d", VDIE, NDIE)
+	}
+
+	var dieIDObj C.struct_dcmi_die_id
+	if rCode := C.dcmi_get_device_die_v2(C.int(cardID), C.int(deviceID),
+		C.enum_dcmi_die_type(dcmiDieType), &dieIDObj); int32(rCode) != common.Success {
+		return "", fmt.Errorf("get chip die ID faied, cardID(%d) and deviceID(%d), error code: %d",
+			cardID, deviceID, int32(rCode))
+	}
+
+	var dieIDStr string
+	const hexBase = 16
+
+	hwlog.RunLog.Debugf("cardID(%d), deviceID(%d) get die type(%d) value %v", cardID, deviceID, dcmiDieType,
+		dieIDObj.soc_die)
+	for i := 0; i < DieIDCount; i++ {
+		s := strconv.FormatUint(uint64(dieIDObj.soc_die[i]), hexBase)
+		// Each part of the die id consists of 8 characters, and if the length is not enough,
+		//zero is added at the beginning
+		dieIDStr += fmt.Sprintf("%08s", s)
+	}
+	return strings.ToUpper(dieIDStr), nil
+}
+
+// DcGetDevProcessInfo chip process info
+func (d *DcManager) DcGetDevProcessInfo(cardID, deviceID int32) (*common.DevProcessInfo, error) {
+	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
+		return nil, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
+	}
+
+	var procList [common.MaxProcNum]C.struct_dcmi_proc_mem_info
+	var procNum C.int
+
+	if retCode := C.dcmi_get_device_resource_info(C.int(cardID), C.int(deviceID), &procList[0],
+		&procNum); int32(retCode) != common.Success {
+		return nil, fmt.Errorf("get device resource info failed, cardID(%d) and deviceID(%d) , error code: %d",
+			cardID, deviceID, int32(retCode))
+	}
+
+	if int32(procNum) < 0 {
+		return nil, fmt.Errorf("get invalid proccess num (%d), cardID(%d) and deviceID(%d)", int32(procNum), cardID,
+			deviceID)
+	}
+
+	return convertToDevResourceInfo(procList, int32(procNum)), nil
+}
+
+func convertToDevResourceInfo(procList [common.MaxProcNum]C.struct_dcmi_proc_mem_info,
+	procNum int32) *common.DevProcessInfo {
+	info := new(common.DevProcessInfo)
+	if procNum == 0 {
+		return info
+	}
+
+	info.ProcNum = procNum
+	for i := int32(0); i < procNum; i++ {
+		proc := common.DevProcInfo{
+			Pid:      int32(procList[i].proc_id),
+			MemUsage: float64(procList[i].proc_mem_usage) / common.UnitMB, // convert byte to MB
+		}
+		info.DevProcArray = append(info.DevProcArray, proc)
+	}
+
+	return info
 }

@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -102,7 +102,7 @@ func TestNewNpuCollector(t *testing.T) {
 			mockFunc: func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
 				_ = n.devicesParser.Init()
 				npuInfo := mockGetNPUInfo(nil)
-				if err := n.cache.Set(key, npuInfo, n.cacheTime); err != nil {
+				if err := n.cache.Set(npuListCacheKey, npuInfo, n.cacheTime); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -113,7 +113,7 @@ func TestNewNpuCollector(t *testing.T) {
 			mockFunc: func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
 				_ = n.devicesParser.Init()
 				var npuInfo []HuaWeiNPUCard
-				if err := n.cache.Set(key, npuInfo, n.cacheTime); err != nil {
+				if err := n.cache.Set(npuListCacheKey, npuInfo, n.cacheTime); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -278,6 +278,9 @@ func mockGetNPUInfo(dmgr devmanager.DeviceInterface) []HuaWeiNPUCard {
 				Temp:              0,
 				BandWidthUtilRate: 0,
 			},
+			DevProcessInfo: &common.DevProcessInfo{},
+			LinkStatus: LinkDown,
+			NetHealthStatus: UnHealthy,
 		}
 		chipInfo.DeviceID = int(devicePhysicID)
 		npuCard := HuaWeiNPUCard{
@@ -313,7 +316,7 @@ func TestStart(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			go start(context.Background(), tt.collector, &devmanager.DeviceManagerMock{})
 			time.Sleep(waitTime)
-			objm, err := tt.collector.cache.Get(key)
+			objm, err := tt.collector.cache.Get(npuListCacheKey)
 			assert.NotNil(t, objm)
 			assert.Nil(t, err)
 			go func() {

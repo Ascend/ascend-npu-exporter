@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -46,7 +46,7 @@ const (
 )
 
 const (
-	// InvaidVal InvalidVal for NPU Invalid vaule
+	// InvaidVal InvalidVal for NPU Invalid value
 	InvaidVal = 0
 	// Success for interface return code
 	Success = 0
@@ -125,4 +125,14 @@ const (
 	AMPMode = "AMP"
 	// SMPMode for SMP chip work mode
 	SMPMode = "SMP"
+
+	// NetworkInit init status
+	NetworkInit = 6
+	// NetworkSuccess chip network is healthy
+	NetworkSuccess = 0
+
+	// MaxProcNum process number in device side
+	MaxProcNum = 32
+	// UnitMB MB
+	UnitMB float64 = 1024 * 1024
 )

@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -164,4 +164,17 @@ type DevFaultInfo struct {
 	Severity        int8
 	Assertion       int8
 	AlarmRaisedTime int64
+}
+
+// DevProcessInfo device process info
+type DevProcessInfo struct {
+	DevProcArray []DevProcInfo
+	ProcNum      int32
+}
+
+// DevProcInfo process info in device side
+type DevProcInfo struct {
+	Pid int32
+	// the total amount of memory occupied by the device side OS and allocated by the business, unit is MB
+	MemUsage float64
 }
