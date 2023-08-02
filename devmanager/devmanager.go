@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -62,6 +62,8 @@ type DeviceInterface interface {
 	GetDeviceAllErrorCode(logicID int32) (int32, []int64, error)
 	SubscribeDeviceFaultEvent(logicID int32) error
 	SetFaultEventCallFunc(func(common.DevFaultInfo)) error
+	GetDieID(logicID int32, dcmiDieType dcmi.DcmiDieType) (string, error)
+	GetDevProcessInfo(logicID int32) (*common.DevProcessInfo, error)
 }
 
 var (
@@ -136,7 +138,7 @@ func getChipInfoForInit() (common.ChipInfo, error) {
 	var mgr *DeviceManager
 	var err error
 	if mgr, err = GetDeviceManager(); err != nil {
-		return common.ChipInfo{}, fmt.Errorf("get chip info failed, err: %#v", err)
+		return common.ChipInfo{}, fmt.Errorf("get chip info failed, err: %v", err)
 	}
 	dcMgr := mgr.DcMgr
 	// get card list
@@ -593,4 +595,26 @@ func (d *DeviceManager) SetFaultEventCallFunc(businessFunc func(common.DevFaultI
 	}
 	d.DcMgr.DcSetFaultEventCallFunc(businessFunc)
 	return nil
+}
+
+// GetDieID return die id by dcmi die type, vdie id or ndie id
+func (d *DeviceManager) GetDieID(logicID int32, dcmiDieType dcmi.DcmiDieType) (string, error) {
+	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	if err != nil {
+		hwlog.RunLog.Error(err)
+		return "", fmt.Errorf("failed to get cardID in get device error code by logicID(%d)", logicID)
+	}
+
+	return d.DcMgr.DcGetDieID(cardID, deviceID, dcmiDieType)
+}
+
+// GetDevProcessInfo get process and process memory in device side
+func (d *DeviceManager) GetDevProcessInfo(logicID int32) (*common.DevProcessInfo, error) {
+	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	if err != nil {
+		hwlog.RunLog.Error(err)
+		return nil, fmt.Errorf("failed to get cardID in get device error code by logicID(%d)", logicID)
+	}
+
+	return d.DcMgr.DcGetDevProcessInfo(cardID, deviceID)
 }

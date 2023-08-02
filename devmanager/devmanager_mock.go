@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -17,6 +17,7 @@ package devmanager
 
 import (
 	"huawei.com/npu-exporter/v5/devmanager/common"
+	"huawei.com/npu-exporter/v5/devmanager/dcmi"
 )
 
 // DeviceManagerMock common device manager mock for Ascend910/310P/310
@@ -213,4 +214,14 @@ func (d *DeviceManagerMock) SubscribeDeviceFaultEvent(logicID int32) error {
 // SetFaultEventCallFunc set fault event call func success
 func (d *DeviceManagerMock) SetFaultEventCallFunc(businessFunc func(common.DevFaultInfo)) error {
 	return nil
+}
+
+// GetDieID get die id success
+func (d *DeviceManagerMock) GetDieID(logicID int32, dcmiDieType dcmi.DcmiDieType) (string, error) {
+	return "ABCDEFGHIGKLMNOPQRSTUVWXYZ01234567890123", nil
+}
+
+// GetDevProcessInfo get process info
+func (d *DeviceManagerMock) GetDevProcessInfo(logicID int32) (*common.DevProcessInfo, error) {
+	return &common.DevProcessInfo{}, nil
 }

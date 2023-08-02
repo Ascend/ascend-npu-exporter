@@ -343,6 +343,8 @@ func (dp *DevicesParser) doParse(resultOut chan<- DevicesInfos) {
 
 	l := len(containers)
 	if l == 0 || l > maxContainers {
+		hwlog.RunLog.Debugf("get %d containers from cri interface, return empty data", l)
+		dp.result <- make(DevicesInfos)
 		return
 	}
 

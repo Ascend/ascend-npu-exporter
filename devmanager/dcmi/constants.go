@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -21,6 +21,9 @@ type MainCmd uint32
 // VDevMngSubCmd virtual device manager sub command
 type VDevMngSubCmd uint32
 
+// DcmiDieType present chip die type
+type DcmiDieType int32
+
 const (
 	// dcmiMaxVdevNum is max number of vdevice, value is from driver specification
 	dcmiMaxVdevNum = 32
@@ -42,4 +45,11 @@ const (
 	VmngSubCmdGetTotalResource VDevMngSubCmd = 1
 	// VmngSubCmdGetFreeResource get free resource info
 	VmngSubCmdGetFreeResource VDevMngSubCmd = 2
+
+	// NDIE NDie ID, only Ascend910 has
+	NDIE DcmiDieType = 0
+	// VDIE VDie ID, it can be the uuid of chip
+	VDIE DcmiDieType = 1
+	// DieIDCount die id array max length
+	DieIDCount = 5
 )

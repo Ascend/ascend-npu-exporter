@@ -13,7 +13,7 @@ Prometheus（普罗米修斯）是一个开源的系统监控和警报工具包�
 
 # 编译NPU-Exporter
 
-1.  通过git拉取源码，并切换sync-dev分支，获得ascend-npu-exporter。
+1.  通过git拉取源码，获得ascend-npu-exporter。
 
     示例：源码放在/home/test/ascend-npu-exporter目录下
 
@@ -35,8 +35,8 @@ Prometheus（普罗米修斯）是一个开源的系统监控和警报工具包�
     -r--------  1 root root      623 Feb 23 07:10 Dockerfile
     -r--------  1 root root      964 Feb 23 07:10 Dockerfile-310P-1usoc
     -r-x------  1 root root 15861352 Feb 23 07:10 npu-exporter
-    -r--------  1 root root     4089 Feb 23 07:10 npu-exporter-310P-1usoc-v5.0.RC1.yaml
-    -r--------  1 root root     3438 Feb 23 07:10 npu-exporter-v5.0.RC1.yaml
+    -r--------  1 root root     4089 Feb 23 07:10 npu-exporter-310P-1usoc-v5.0.RC2.yaml
+    -r--------  1 root root     3438 Feb 23 07:10 npu-exporter-v5.0.RC2.yaml
     -r-x------  1 root root     2554 Feb 23 07:10 run_for_310P_1usoc.sh
     ```
 
@@ -53,6 +53,9 @@ Prometheus（普罗米修斯）是一个开源的系统监控和警报工具包�
 
 | 版本       | 发布日期   | 修改说明       |
 | ---------- | ---------- | -------------- |
+| v5.0.0-RC2 | 2023-725 | 配套MindX 5.0.RC2版本 |
+| v5.0.0-RC1.1 | 2023-628 | MindX 5.0.RC1补丁版本 |
+| v5.0.0-RC1 | 2023-330 | 配套MindX 5.0.RC1版本 |
 | v3.0.0 | 2022-1230 | 首次发布 |
 
 
