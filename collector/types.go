@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -24,19 +24,28 @@ import (
 // HealthEnum enum
 type HealthEnum string
 
+// LinkEnum interface status
+type LinkEnum string
+
 const (
 	// Healthy status of  Health
 	Healthy HealthEnum = "Healthy"
 	// UnHealthy status of unhealth
 	UnHealthy HealthEnum = "UnHealthy"
+
+	// LinkUp npu interface up
+	LinkUp LinkEnum = "UP"
+	// LinkDown npu interface down
+	LinkDown LinkEnum = "DOWN"
+
 	// convert base
 	base             = 10
 	containerNameLen = 3
 	// cache key
-	key = "npu-exporter-npu-list"
+	npuListCacheKey = "npu-exporter-npu-list"
 	// cache key for parsing-device result
-	containersDevicesInfoKey = "npu-exporter-containers-devices"
-	initSize                 = 8
+	containersDevicesCacheKey = "npu-exporter-containers-devices"
+	initSize                  = 8
 )
 
 // HuaWeiAIChip chip info
@@ -51,7 +60,7 @@ type HuaWeiAIChip struct {
 	HealthStatus HealthEnum `json:"health_status"`
 	// the error code of the chip
 	ErrorCode int64 `json:"error_code"`
-	// the utiliaiton of the chip
+	// the utilization of the chip
 	Utilization int `json:"utilization"`
 	// the temperature of the chip
 	Temperature int `json:"temperature"`
@@ -63,6 +72,18 @@ type HuaWeiAIChip struct {
 	Frequency int `json:"frequency"`
 	// the chip physic ID
 	DeviceID int `json:"device_id"`
+	// the vdie id
+	VDieID string `json:"vdie_id"`
+	// the interface status
+	LinkStatus LinkEnum `json:"link_status"`
+	// TxValue transform speed
+	TxValue float64 `json:"tx_value"`
+	// RxValue receive speed
+	RxValue float64 `json:"rx_value"`
+	// NetHealthStatus chip network health status
+	NetHealthStatus HealthEnum `json:"net_health_status"`
+	// DevProcessInfo chip process info
+	DevProcessInfo *common.DevProcessInfo
 }
 
 // HuaWeiNPUCard device

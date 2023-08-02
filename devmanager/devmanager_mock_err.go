@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -11,6 +11,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+
 // Package devmanager this for device driver manager error mock
 package devmanager
 
@@ -18,6 +19,7 @@ import (
 	"errors"
 
 	"huawei.com/npu-exporter/v5/devmanager/common"
+	"huawei.com/npu-exporter/v5/devmanager/dcmi"
 )
 
 var errorMsg = "mock error"
@@ -216,4 +218,14 @@ func (d *DeviceManagerMockErr) SubscribeDeviceFaultEvent(logicID int32) error {
 // SetFaultEventCallFunc set fault event call func failed
 func (d *DeviceManagerMockErr) SetFaultEventCallFunc(businessFunc func(common.DevFaultInfo)) error {
 	return errors.New(errorMsg)
+}
+
+// GetDieID get die id failed
+func (d *DeviceManagerMockErr) GetDieID(logicID int32, dcmiDieType dcmi.DcmiDieType) (string, error) {
+	return "", errors.New(errorMsg)
+}
+
+// GetDevProcessInfo get process info
+func (d *DeviceManagerMockErr) GetDevProcessInfo(logicID int32) (*common.DevProcessInfo, error) {
+	return nil, errors.New(errorMsg)
 }
