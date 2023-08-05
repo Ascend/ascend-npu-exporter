@@ -21,33 +21,28 @@ import "math"
 type DeviceType int32
 
 const (
-	// Memory  Ascend310 & Ascend910
-	Memory DeviceType = iota + 1
+	// utilization
 	// AICore Ascend310 & Ascend910
-	AICore
-	// AICPU  Ascend310 & Ascend910
-	AICPU
-	// CTRLCPU  Ascend310 & Ascend910
-	CTRLCPU
-	// MEMBandWidth memory bandwidth Ascend310 & Ascend910
-	MEMBandWidth
-	// HBM Ascend910 only
-	HBM
-	// AICoreCurrentFreq AI core current frequency Ascend910 only
-	AICoreCurrentFreq
-	// DDR now is not supported
-	DDR
-	// AICoreNormalFreq AI core normal frequency Ascend910 only
-	AICoreNormalFreq
-	// HBMBandWidth Ascend910 only
-	HBMBandWidth
-	// VectorCore now is not supported
+	AICore DeviceType = 2
+
+	// frequency
+	// MemoryFreq Ascend310 & Ascend310P
+	MemoryFreq DeviceType = 1
+	// CtrlCpuFreq Ascend310 & Ascend910 & Ascend910B & Ascend310P
+	CtrlCpuFreq DeviceType = 2
+	// HBMFreq Ascend310 & Ascend910 & Ascend910B
+	HBMFreq DeviceType = 6
+	// AICoreCurrentFreq Ascend310 & Ascend910 & Ascend910B & Ascend310P
+	AICoreCurrentFreq DeviceType = 7
+	// AICoreRatedFreq Ascend310 & Ascend910 & Ascend910B & Ascend310P
+	AICoreRatedFreq = 9
+	// VectorCore Ascend310P
 	VectorCore DeviceType = 12
 )
 
 const (
-	// InvaidVal InvalidVal for NPU Invalid value
-	InvaidVal = 0
+	// InvalidVal InvalidVal for NPU Invalid value
+	InvalidVal = 0
 	// Success for interface return code
 	Success = 0
 	// RetError return error when the function failed

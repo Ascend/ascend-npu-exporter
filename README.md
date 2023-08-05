@@ -62,19 +62,4 @@ Prometheus（普罗米修斯）是一个开源的系统监控和警报工具包�
 
 # 附录
 ### metrics标签
-
-| 标签名称                       | 标签说明                                              | 数值单位         |
-| ------------------------------ | ----------------------------------------------------- | ---------------- |
-| machine_npu_nums               | 昇腾系列AI处理器数目                                  | 个               |
-| machine_npu_name               | 昇腾系列AI处理器名称                                  | N/A              |
-| npu_chip_info_error_code       | 昇腾系列AI处理器错误码                                | N/A              |
-| npu_chip_info_health_status    | 昇腾系列AI处理器健康状态                              | 1：健康0：不健康 |
-| npu_chip_info_power            | 昇腾系列AI处理器功耗(310P板载功耗，910和310为芯片功耗)                                 | 瓦特（W）        |
-| npu_chip_info_temperature      | 昇腾系列AI处理器温度                                  | 摄氏度（℃）      |
-| npu_chip_info_used_memory      | 昇腾系列AI处理器已使用内存                            | MB               |
-| npu_chip_info_total_memory     | 昇腾系列AI处理器总内存                                | MB               |
-| npu_chip_info_hbm_used_memory  | 昇腾系列AI处理器HBM已使用内存（昇腾910 AI处理器专属） | MB               |
-| npu_chip_info_hbm_total_memory | 昇腾系列AI处理器HBM总内存（昇腾910 AI处理器专属）     | MB               |
-| npu_chip_info_utilization      | 昇腾系列AI处理器AI Core利用率                         | %                |
-| npu_chip_info_voltage          | 昇腾系列AI处理器电压                                  | 伏特（V）        |
-| npu_container_info             | 昇腾系列AI处理器在容器中的分配状态                     | N/A              |
+参见[NPU-Exporter Prometheus Metrics接口](https://www.hiascend.com/document/detail/zh/mindx-dl/50rc2/clusterscheduling/clusterscheduling/dlug_guide_03_000138.html)
