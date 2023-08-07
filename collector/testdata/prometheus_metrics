@@ -1,6 +1,16 @@
 # HELP machine_npu_nums Amount of npu installed on the machine.
 # TYPE machine_npu_nums gauge
 machine_npu_nums 8
+# HELP npu_chip_info_aicore_current_freq the npu ai core current frequency, unit is 'MHz'
+# TYPE npu_chip_info_aicore_current_freq gauge
+npu_chip_info_aicore_current_freq{id="0",vdie_id=""} 0 1606402000
+npu_chip_info_aicore_current_freq{id="1",vdie_id=""} 0 1606402000
+npu_chip_info_aicore_current_freq{id="2",vdie_id=""} 0 1606402000
+npu_chip_info_aicore_current_freq{id="3",vdie_id=""} 0 1606402000
+npu_chip_info_aicore_current_freq{id="4",vdie_id=""} 0 1606402000
+npu_chip_info_aicore_current_freq{id="5",vdie_id=""} 0 1606402000
+npu_chip_info_aicore_current_freq{id="6",vdie_id=""} 0 1606402000
+npu_chip_info_aicore_current_freq{id="7",vdie_id=""} 0 1606402000
 # HELP npu_chip_info_bandwidth_rx the npu interface receive speed, unit is 'MB/s'
 # TYPE npu_chip_info_bandwidth_rx gauge
 npu_chip_info_bandwidth_rx{id="0",vdie_id=""} 0 1606402000

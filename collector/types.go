@@ -68,8 +68,8 @@ type HuaWeiAIChip struct {
 	Power float32 `json:"power"`
 	// the work voltage of the chip
 	Voltage float32 `json:"voltage"`
-	// the AI core frequency of the chip
-	Frequency int `json:"frequency"`
+	// the AI core current frequency of the chip
+	AICoreCurrentFreq uint32 `json:"aicore_current_freq"`
 	// the chip physic ID
 	DeviceID int `json:"device_id"`
 	// the vdie id

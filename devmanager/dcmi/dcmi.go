@@ -355,7 +355,7 @@ type DcDriverInterface interface {
 	DcGetDeviceTemperature(int32, int32) (int32, error)
 	DcGetDeviceVoltage(int32, int32) (float32, error)
 	DcGetDevicePowerInfo(int32, int32) (float32, error)
-	DcGetDeviceFrequency(int32, int32, common.DeviceType) (int32, error)
+	DcGetDeviceFrequency(int32, int32, common.DeviceType) (uint32, error)
 	DcGetMemoryInfo(int32, int32) (*common.MemoryInfo, error)
 	DcGetHbmInfo(int32, int32) (*common.HbmInfo, error)
 	DcGetDeviceErrorCode(int32, int32) (int32, int64, error)
@@ -850,25 +850,27 @@ func (d *DcManager) DcGetDevicePowerInfo(cardID, deviceID int32) (float32, error
 }
 
 // DcGetDeviceFrequency get device frequency, unit MHz
-// Ascend910 with frequency type: 1,6,7,9
-// Ascend310 with frequency type: 1,2,3,4,5
+// Ascend910B with frequency type: 2,6,7,9
+// Ascend910 with frequency type: 2,6,7,9
+// Ascend310 with frequency type: 1,2,6,7,9
+// Ascend310P with frequency type: 1,2,7,9,12
 // more information see common.DeviceType
-func (d *DcManager) DcGetDeviceFrequency(cardID, deviceID int32, devType common.DeviceType) (int32, error) {
+func (d *DcManager) DcGetDeviceFrequency(cardID, deviceID int32, devType common.DeviceType) (uint32, error) {
 	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
-		return common.RetError, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
+		return common.InvalidVal, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
 	}
 	var cFrequency C.uint
 	if retCode := C.dcmi_get_device_frequency(C.int(cardID), C.int(deviceID), C.enum_dcmi_freq_type(devType),
 		&cFrequency); int32(retCode) != common.Success {
-		return common.RetError, fmt.Errorf("failed to obtain the frequency based on card_id(%d) and device_id(%d), "+
+		return common.InvalidVal, fmt.Errorf("failed to obtain the frequency based on card_id(%d) and device_id(%d), "+
 			"error code: %d", cardID, deviceID, int32(retCode))
 	}
 	// check whether cFrequency is too big
-	if common.IsGreaterThanOrEqualInt32(int64(cFrequency)) {
-		return common.RetError, fmt.Errorf("frequency value out of range(max is int32), "+
+	if common.IsGreaterThanOrEqualInt32(int64(cFrequency)) || int64(cFrequency) < 0 {
+		return common.InvalidVal, fmt.Errorf("frequency value out of range [0, int32), "+
 			"card_id(%d) and device_id(%d), frequency: %d", cardID, deviceID, int64(cFrequency))
 	}
-	return int32(cFrequency), nil
+	return uint32(cFrequency), nil
 }
 
 // DcGetMemoryInfo use v3 interface to query memory info
