@@ -94,7 +94,7 @@ func (d *DeviceManagerMockErr) GetDevicePowerInfo(logicID int32) (float32, error
 }
 
 // GetDeviceFrequency get npu device work frequency
-func (d *DeviceManagerMockErr) GetDeviceFrequency(logicID int32, deviceType common.DeviceType) (int32, error) {
+func (d *DeviceManagerMockErr) GetDeviceFrequency(logicID int32, deviceType common.DeviceType) (uint32, error) {
 	return 1, errors.New(errorMsg)
 }
 

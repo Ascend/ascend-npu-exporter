@@ -77,6 +77,8 @@ var (
 		"the npu interface receive speed, unit is 'MB/s'", []string{"id", "vdie_id"}, nil)
 	npuChipInfoDescDevProcessInfo = prometheus.NewDesc("npu_chip_info_process_info",
 		"the npu process info, unit is 'MB'", []string{"id", "vdie_id", "process_id"}, nil)
+	npuChipInfoDescAICoreFreqInfo = prometheus.NewDesc("npu_chip_info_aicore_current_freq",
+		"the npu ai core current frequency, unit is 'MHz'", []string{"id", "vdie_id"}, nil)
 	npuContainerInfo = prometheus.NewDesc("npu_container_info",
 		"the container name and deviceID relationship", []string{"containerID", "containerName", "npuID", "vdie_id"},
 		nil)
@@ -177,7 +179,7 @@ func assembleNPUInfo(cardID int32, logicID int32, dmgr devmanager.DeviceInterfac
 		cardPower, err := dmgr.GetMcuPowerInfo(cardID)
 		if err != nil {
 			hwlog.RunLog.Error(err)
-			cardPower = float32(common.InvaidVal)
+			cardPower = float32(common.InvalidVal)
 		}
 		// Ascend310P use cardPower to replace chipPower
 		chipInfo.Power = cardPower
@@ -263,6 +265,7 @@ func (n *npuCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- npuChipInfoDescBandwidthRx
 	ch <- npuChipInfoDescLinkStatus
 	ch <- npuChipInfoDescDevProcessInfo
+	ch <- npuChipInfoDescAICoreFreqInfo
 }
 
 // Collect implements prometheus.Collector
@@ -310,7 +313,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 			}
 			updateNPUCommonInfo(ch, &card, chip)
 			updateNPUMemoryInfo(ch, &card, chip)
-			updateNPUOtherInfo(ch, &card, chip)
+			updateNPUNetworkInfo(ch, &card, chip)
 			updateProcessInfo(ch, &card, chip)
 			updateContainerInfo(ch, &card, chip, devInfo)
 		}
@@ -352,36 +355,6 @@ func getContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) map[int]*
 		}
 	}
 	return res
-}
-
-func updateNPUOtherInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
-	if !validate(ch, npu, chip, chip.ChipIfo) {
-		hwlog.RunLog.Error("Invalid param in function updateNPUOtherInfo")
-		return
-	}
-	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
-		prometheus.MustNewConstMetric(npuChipInfoDescHealthStatus, prometheus.GaugeValue,
-			float64(getHealthCode(chip.HealthStatus)), []string{strconv.FormatInt(int64(chip.DeviceID), base),
-				chip.VDieID}...))
-	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescErrorCode,
-		prometheus.GaugeValue, float64(chip.ErrorCode), []string{strconv.FormatInt(int64(chip.DeviceID), base),
-			chip.VDieID}...))
-	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescNpuName,
-		prometheus.GaugeValue, 1, []string{strconv.FormatInt(int64(chip.DeviceID), base), fmt.Sprintf("%s-%s-%s",
-			chip.ChipIfo.Name, chip.ChipIfo.Type, chip.ChipIfo.Version), chip.VDieID}...))
-	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescLinkStatus,
-		prometheus.GaugeValue, float64(getLinkStatusCode(chip.LinkStatus)),
-		[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID}...))
-	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
-		prometheus.MustNewConstMetric(npuChipInfoDescBandwidthTx, prometheus.GaugeValue, chip.TxValue,
-			[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID}...))
-	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
-		prometheus.MustNewConstMetric(npuChipInfoDescBandwidthRx, prometheus.GaugeValue, chip.RxValue,
-			[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID}...))
-	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
-		prometheus.MustNewConstMetric(npuChipInfoDescNetworkStatus, prometheus.GaugeValue,
-			float64(getHealthCode(chip.NetHealthStatus)), []string{strconv.FormatInt(int64(chip.DeviceID), base),
-				chip.VDieID}...))
 }
 
 func validate(ch chan<- prometheus.Metric, objs ...interface{}) bool {
@@ -427,6 +400,26 @@ func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 			float64(chip.Meminf.MemorySize), []string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID}...))
 }
 
+func updateNPUNetworkInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
+	if !validate(ch, npu, chip) {
+		hwlog.RunLog.Error("Invalid param in function updateNPUNetworkInfo")
+		return
+	}
+	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescLinkStatus,
+		prometheus.GaugeValue, float64(getLinkStatusCode(chip.LinkStatus)),
+		[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID}...))
+	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
+		prometheus.MustNewConstMetric(npuChipInfoDescBandwidthTx, prometheus.GaugeValue, chip.TxValue,
+			[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID}...))
+	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
+		prometheus.MustNewConstMetric(npuChipInfoDescBandwidthRx, prometheus.GaugeValue, chip.RxValue,
+			[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID}...))
+	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
+		prometheus.MustNewConstMetric(npuChipInfoDescNetworkStatus, prometheus.GaugeValue,
+			float64(getHealthCode(chip.NetHealthStatus)), []string{strconv.FormatInt(int64(chip.DeviceID), base),
+				chip.VDieID}...))
+}
+
 func updateContainerInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
 	devInfo *container.DevicesInfo) {
 	containerName := getContainerNameArray(devInfo)
@@ -466,7 +459,7 @@ func updateContainerNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCar
 }
 
 func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
-	if !validate(ch, npu, chip) {
+	if !validate(ch, npu, chip, chip.ChipIfo) {
 		hwlog.RunLog.Error("Invalid param in function updateNpuCommonInfo")
 		return
 	}
@@ -481,6 +474,19 @@ func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 			chip.VDieID}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescVoltage,
 		prometheus.GaugeValue, float64(chip.Voltage), []string{strconv.FormatInt(int64(chip.DeviceID), base),
+			chip.VDieID}...))
+	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
+		prometheus.MustNewConstMetric(npuChipInfoDescHealthStatus, prometheus.GaugeValue,
+			float64(getHealthCode(chip.HealthStatus)), []string{strconv.FormatInt(int64(chip.DeviceID), base),
+				chip.VDieID}...))
+	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescErrorCode,
+		prometheus.GaugeValue, float64(chip.ErrorCode), []string{strconv.FormatInt(int64(chip.DeviceID), base),
+			chip.VDieID}...))
+	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescNpuName,
+		prometheus.GaugeValue, 1, []string{strconv.FormatInt(int64(chip.DeviceID), base), fmt.Sprintf("%s-%s-%s",
+			chip.ChipIfo.Name, chip.ChipIfo.Type, chip.ChipIfo.Version), chip.VDieID}...))
+	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescAICoreFreqInfo,
+		prometheus.GaugeValue, float64(chip.AICoreCurrentFreq), []string{strconv.FormatInt(int64(chip.DeviceID), base),
 			chip.VDieID}...))
 }
 
@@ -510,21 +516,21 @@ var packChipInfo = func(logicID int32, dmgr devmanager.DeviceInterface) *HuaWeiA
 }
 
 func packChipInfoPart1(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
-	freq, err := dmgr.GetDeviceFrequency(logicID, common.AICore)
+	freq, err := dmgr.GetDeviceFrequency(logicID, common.AICoreCurrentFreq)
 	if err != nil {
-		freq = common.InvaidVal
+		freq = common.InvalidVal
 	}
 	power, err := dmgr.GetDevicePowerInfo(logicID)
 	if err != nil {
-		power = common.InvaidVal
+		power = common.InvalidVal
 	}
 	temp, err := dmgr.GetDeviceTemperature(logicID)
 	if err != nil {
-		temp = common.InvaidVal
+		temp = common.InvalidVal
 	}
 	vol, err := dmgr.GetDeviceVoltage(logicID)
 	if err != nil {
-		vol = common.InvaidVal
+		vol = common.InvalidVal
 	}
 	mem, err := dmgr.GetDeviceMemoryInfo(logicID)
 	if err != nil {
@@ -539,7 +545,7 @@ func packChipInfoPart1(logicID int32, dmgr devmanager.DeviceInterface, hwChip *H
 		hbmInfo = &common.HbmInfo{}
 	}
 
-	hwChip.Frequency = int(freq)
+	hwChip.AICoreCurrentFreq = freq
 	hwChip.Power = power
 	hwChip.HealthStatus = getHealth(logicID, dmgr)
 	hwChip.Temperature = int(temp)
@@ -552,7 +558,7 @@ func packChipInfoPart1(logicID int32, dmgr devmanager.DeviceInterface, hwChip *H
 func packChipInfoPart2(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
 	util, err := dmgr.GetDeviceUtilizationRate(logicID, common.AICore)
 	if err != nil {
-		util = common.InvaidVal // valid data range 0-100
+		util = common.InvalidVal // valid data range 0-100
 	}
 	_, errCode, err := dmgr.GetDeviceErrorCode(logicID)
 	if err != nil {

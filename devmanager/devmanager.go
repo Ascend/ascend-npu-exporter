@@ -40,7 +40,7 @@ type DeviceInterface interface {
 	GetDeviceVoltage(logicID int32) (float32, error)
 	GetDevicePowerInfo(logicID int32) (float32, error)
 	GetMcuPowerInfo(cardID int32) (float32, error)
-	GetDeviceFrequency(logicID int32, deviceType common.DeviceType) (int32, error)
+	GetDeviceFrequency(logicID int32, deviceType common.DeviceType) (uint32, error)
 	GetDeviceMemoryInfo(logicID int32) (*common.MemoryInfo, error)
 	GetDeviceHbmInfo(logicID int32) (*common.HbmInfo, error)
 	GetDeviceErrorCode(logicID int32) (int32, int64, error)
@@ -303,16 +303,16 @@ func (d *DeviceManager) GetDevicePowerInfo(logicID int32) (float32, error) {
 }
 
 // GetDeviceFrequency get npu device work frequency
-func (d *DeviceManager) GetDeviceFrequency(logicID int32, deviceType common.DeviceType) (int32, error) {
+func (d *DeviceManager) GetDeviceFrequency(logicID int32, deviceType common.DeviceType) (uint32, error) {
 	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
-		return common.RetError, fmt.Errorf("failed to get frequency by logicID(%d)", logicID)
+		return common.InvalidVal, fmt.Errorf("failed to get frequency by logicID(%d)", logicID)
 	}
 	frequency, err := d.DcMgr.DcGetDeviceFrequency(cardID, deviceID, deviceType)
 	if err != nil {
 		hwlog.RunLog.Error(err)
-		return common.RetError, fmt.Errorf("failed to get frequency by logicID(%d)", logicID)
+		return common.InvalidVal, fmt.Errorf("failed to get frequency by logicID(%d)", logicID)
 	}
 
 	return frequency, nil
