@@ -76,7 +76,8 @@ var (
 	npuChipInfoDescBandwidthRx = prometheus.NewDesc("npu_chip_info_bandwidth_rx",
 		"the npu interface receive speed, unit is 'MB/s'", []string{"id", "vdie_id"}, nil)
 	npuChipInfoDescDevProcessInfo = prometheus.NewDesc("npu_chip_info_process_info",
-		"the npu process info, unit is 'MB'", []string{"id", "vdie_id", "process_id"}, nil)
+		"the npu process info, unit is 'MB'. if process run on host, container_id and container_name will be empty",
+		[]string{"id", "vdie_id", "process_id", "container_id", "container_name"}, nil)
 	npuChipInfoDescAICoreFreqInfo = prometheus.NewDesc("npu_chip_info_aicore_current_freq",
 		"the npu ai core current frequency, unit is 'MHz'", []string{"id", "vdie_id"}, nil)
 	npuContainerInfo = prometheus.NewDesc("npu_container_info",
@@ -309,12 +310,12 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 		for _, chip := range card.DeviceList {
 			devInfo, ok := containerMap[chip.DeviceID]
 			if !ok {
-				devInfo = nil
+				devInfo = container.DevicesInfo{}
 			}
 			updateNPUCommonInfo(ch, &card, chip)
 			updateNPUMemoryInfo(ch, &card, chip)
 			updateNPUNetworkInfo(ch, &card, chip)
-			updateProcessInfo(ch, &card, chip)
+			updateProcessInfo(ch, &card, chip, devInfo)
 			updateContainerInfo(ch, &card, chip, devInfo)
 		}
 	}
@@ -322,7 +323,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(machineInfoNPUDesc, prometheus.GaugeValue, float64(totalCount))
 }
 
-func getContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) map[int]*container.DevicesInfo {
+func getContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) map[int]container.DevicesInfo {
 	if ch == nil {
 		hwlog.RunLog.Error("metric channel is nil")
 		return nil
@@ -348,10 +349,10 @@ func getContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) map[int]*
 		hwlog.RunLog.Error("Error container npu info cache and convert failed")
 		return nil
 	}
-	res := make(map[int]*container.DevicesInfo, initSize)
+	res := make(map[int]container.DevicesInfo, initSize)
 	for _, v := range cntNpuInfos {
 		for _, deviceID := range v.Devices {
-			res[deviceID] = &v
+			res[deviceID] = v
 		}
 	}
 	return res
@@ -373,8 +374,8 @@ func validate(ch chan<- prometheus.Metric, objs ...interface{}) bool {
 	return true
 }
 
-func getContainerNameArray(devInfo *container.DevicesInfo) []string {
-	if devInfo == nil {
+func getContainerNameArray(devInfo container.DevicesInfo) []string {
+	if devInfo.Name == "" {
 		return nil
 	}
 
@@ -421,7 +422,7 @@ func updateNPUNetworkInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip 
 }
 
 func updateContainerInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
-	devInfo *container.DevicesInfo) {
+	devInfo container.DevicesInfo) {
 	containerName := getContainerNameArray(devInfo)
 	if len(containerName) != containerNameLen {
 		return
@@ -490,20 +491,29 @@ func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 			chip.VDieID}...))
 }
 
-func updateProcessInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
+func updateProcessInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
+	devInfo container.DevicesInfo) {
+	containerName := ""
+	containerID := ""
+	cNameArray := getContainerNameArray(devInfo)
+	if len(cNameArray) == containerNameLen {
+		containerName = strings.Join(cNameArray, "_")
+		containerID = devInfo.ID
+	}
+
 	if chip.DevProcessInfo.ProcNum == 0 {
 		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 			prometheus.MustNewConstMetric(npuChipInfoDescDevProcessInfo, prometheus.GaugeValue, 0,
-				[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, ""}...))
+				[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, "", containerID,
+					containerName}...))
 		return
 	}
-
 	for i := int32(0); i < chip.DevProcessInfo.ProcNum; i++ {
 		procInfo := chip.DevProcessInfo.DevProcArray[i]
 		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 			prometheus.MustNewConstMetric(npuChipInfoDescDevProcessInfo, prometheus.GaugeValue, procInfo.MemUsage,
 				[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID,
-					strconv.FormatInt(int64(procInfo.Pid), base)}...))
+					strconv.FormatInt(int64(procInfo.Pid), base), containerID, containerName}...))
 	}
 }
 
