@@ -131,6 +131,12 @@ func excuteTestCollector(t *testing.T, tt struct {
 	name     string
 	path     string
 }) {
+	metricsName := []string{"machine_npu_nums", "npu_chip_info_aicore_current_freq", "npu_chip_info_bandwidth_rx",
+		"npu_chip_info_bandwidth_tx", "npu_chip_info_error_code", "npu_chip_info_hbm_total_memory",
+		"npu_chip_info_hbm_used_memory", "npu_chip_info_health_status", "npu_chip_info_link_status",
+		"npu_chip_info_name", "npu_chip_info_network_status", "npu_chip_info_power", "npu_chip_info_temperature",
+		"npu_chip_info_total_memory", "npu_chip_info_used_memory", "npu_chip_info_utilization",
+		"npu_chip_info_voltage", "npu_exporter_version_info"}
 	startStub := gomonkey.ApplyFunc(start, tt.mockFunc)
 	defer startStub.Reset()
 	patch := gomonkey.ApplyFunc(devmanager.AutoInit, func(s string) (*devmanager.DeviceManager, error) {
@@ -150,7 +156,7 @@ func excuteTestCollector(t *testing.T, tt struct {
 	if err != nil {
 		t.Fatalf("test failes")
 	}
-	if err := testutil.CollectAndCompare(c, exp); err != nil {
+	if err := testutil.CollectAndCompare(c, exp, metricsName...); err != nil {
 		t.Fatal("Unexpected metrics returned:", err)
 	}
 }
