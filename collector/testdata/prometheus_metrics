@@ -101,16 +101,6 @@ npu_chip_info_network_status{id="4",vdie_id=""} 0 1606402000
 npu_chip_info_network_status{id="5",vdie_id=""} 0 1606402000
 npu_chip_info_network_status{id="6",vdie_id=""} 0 1606402000
 npu_chip_info_network_status{id="7",vdie_id=""} 0 1606402000
-# HELP npu_chip_info_process_info the npu process info, unit is 'MB'
-# TYPE npu_chip_info_process_info gauge
-npu_chip_info_process_info{id="0",process_id="",vdie_id=""} 0 1606402000
-npu_chip_info_process_info{id="1",process_id="",vdie_id=""} 0 1606402000
-npu_chip_info_process_info{id="2",process_id="",vdie_id=""} 0 1606402000
-npu_chip_info_process_info{id="3",process_id="",vdie_id=""} 0 1606402000
-npu_chip_info_process_info{id="4",process_id="",vdie_id=""} 0 1606402000
-npu_chip_info_process_info{id="5",process_id="",vdie_id=""} 0 1606402000
-npu_chip_info_process_info{id="6",process_id="",vdie_id=""} 0 1606402000
-npu_chip_info_process_info{id="7",process_id="",vdie_id=""} 0 1606402000
 # HELP npu_chip_info_power the npu power
 # TYPE npu_chip_info_power gauge
 npu_chip_info_power{id="0",vdie_id=""} 0 1606402000

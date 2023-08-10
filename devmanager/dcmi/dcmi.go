@@ -1319,8 +1319,8 @@ func (d *DcManager) DcGetDieID(cardID, deviceID int32, dcmiDieType DcmiDieType) 
 			cardID, deviceID, int32(rCode))
 	}
 
-	var dieIDStr string
 	const hexBase = 16
+	dieIDStr := make([]string, DieIDCount)
 
 	hwlog.RunLog.Debugf("cardID(%d), deviceID(%d) get die type(%d) value %v", cardID, deviceID, dcmiDieType,
 		dieIDObj.soc_die)
@@ -1328,9 +1328,9 @@ func (d *DcManager) DcGetDieID(cardID, deviceID int32, dcmiDieType DcmiDieType) 
 		s := strconv.FormatUint(uint64(dieIDObj.soc_die[i]), hexBase)
 		// Each part of the die id consists of 8 characters, and if the length is not enough,
 		//zero is added at the beginning
-		dieIDStr += fmt.Sprintf("%08s", s)
+		dieIDStr[i] = fmt.Sprintf("%08s", s)
 	}
-	return strings.ToUpper(dieIDStr), nil
+	return strings.ToUpper(strings.Join(dieIDStr, "-")), nil
 }
 
 // DcGetDevProcessInfo chip process info
