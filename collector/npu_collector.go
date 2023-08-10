@@ -493,24 +493,19 @@ func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 
 func updateProcessInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
 	devInfo container.DevicesInfo) {
-	if devInfo.Name == "" {
-		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
-			prometheus.MustNewConstMetric(npuChipInfoDescDevProcessInfo, prometheus.GaugeValue, 0,
-				[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, "", "", ""}...))
-		return
+	containerName := ""
+	containerID := ""
+	cNameArray := getContainerNameArray(devInfo)
+	if len(cNameArray) == containerNameLen {
+		containerName = strings.Join(cNameArray, "_")
+		containerID = devInfo.ID
 	}
-	containerName := getContainerNameArray(devInfo)
-	if len(containerName) != containerNameLen {
-		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
-			prometheus.MustNewConstMetric(npuChipInfoDescDevProcessInfo, prometheus.GaugeValue, 0,
-				[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, "", "", ""}...))
-		return
-	}
+
 	if chip.DevProcessInfo.ProcNum == 0 {
 		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 			prometheus.MustNewConstMetric(npuChipInfoDescDevProcessInfo, prometheus.GaugeValue, 0,
-				[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, "", devInfo.ID,
-					strings.Join(containerName, "_")}...))
+				[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, "", containerID,
+					containerName}...))
 		return
 	}
 	for i := int32(0); i < chip.DevProcessInfo.ProcNum; i++ {
@@ -518,7 +513,7 @@ func updateProcessInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *Hu
 		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 			prometheus.MustNewConstMetric(npuChipInfoDescDevProcessInfo, prometheus.GaugeValue, procInfo.MemUsage,
 				[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID,
-					strconv.FormatInt(int64(procInfo.Pid), base), devInfo.ID, strings.Join(containerName, "_")}...))
+					strconv.FormatInt(int64(procInfo.Pid), base), containerID, containerName}...))
 	}
 }
 
