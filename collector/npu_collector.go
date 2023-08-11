@@ -709,7 +709,7 @@ func hccnToolGetLink(args ...string) (string, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
-	hwlog.RunLog.Debugf(string(stderr.Bytes()))
+	hwlog.RunLog.Debugf("stderr is :%s", string(stderr.Bytes()))
 	if err != nil {
 		return "", err
 	}
