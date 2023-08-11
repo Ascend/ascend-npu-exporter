@@ -637,7 +637,7 @@ func getNPULinkStatus(phyID int32) LinkEnum {
 	outStr, err := hccnToolGetLink(args...)
 	hwlog.RunLog.Debugf("hccn_tool command exec result: %#v", outStr)
 	if err != nil {
-		hwlog.RunLog.Errorf("get npu link status failed, %#v", err)
+		hwlog.RunLog.Errorf("get npu link status failed, %s", err)
 		return LinkDown
 	}
 	replacedStr := strings.ReplaceAll(outStr, "\n", "")
@@ -660,7 +660,7 @@ func getNPUInterfaceTraffic(phyID int32) (float64, float64, error) {
 	outStr, err := hccnToolGetLink(args...)
 	hwlog.RunLog.Debugf("hccn_tool command exec result: %#v", outStr)
 	if err != nil {
-		hwlog.RunLog.Errorf("get npu interface status failed, %#v", err)
+		hwlog.RunLog.Errorf("get npu interface status failed, %s", err)
 		return noTraffic, noTraffic, err
 	}
 
