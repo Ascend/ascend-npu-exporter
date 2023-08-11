@@ -709,8 +709,8 @@ func hccnToolGetLink(args ...string) (string, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
+	hwlog.RunLog.Debugf(string(stderr.Bytes()))
 	if err != nil {
-		hwlog.RunLog.Debugf(string(stderr.Bytes()))
 		return "", err
 	}
 
