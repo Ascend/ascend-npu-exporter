@@ -18,7 +18,6 @@ package collector
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"os/exec"
@@ -711,7 +710,8 @@ func hccnToolGetLink(args ...string) (string, error) {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		return "", errors.New(string(stderr.Bytes()))
+		hwlog.RunLog.Debugf(string(stderr.Bytes()))
+		return "", err
 	}
 
 	return string(stdout.Bytes()), nil
