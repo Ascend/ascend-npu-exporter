@@ -228,6 +228,11 @@ package dcmi
         CALL_FUNC(dcmi_get_device_resource_info,card_id,device_id,proc_info,proc_num)
     }
 
+	int (*dcmi_get_device_board_info_func)(int card_id, int device_id, struct dcmi_board_info *board_info);
+	int dcmi_get_device_board_info(int card_id, int device_id, struct dcmi_board_info *board_info){
+		CALL_FUNC(dcmi_get_device_board_info,card_id,device_id,board_info)
+	}
+
    // load .so files and functions
    static int dcmiInit_dl(const char* dcmiLibPath){
    	if (dcmiLibPath == NULL) {
@@ -310,6 +315,8 @@ package dcmi
 
     dcmi_get_device_resource_info_func = dlsym(dcmiHandle, "dcmi_get_device_resource_info");
 
+	dcmi_get_device_board_info_func = dlsym(dcmiHandle, "dcmi_get_device_board_info");
+
    	return SUCCESS;
    }
 
@@ -388,6 +395,7 @@ type DcDriverInterface interface {
 	DcSubscribeDeviceFaultEvent(int32, int32) error
 	DcSetFaultEventCallFunc(func(common.DevFaultInfo))
 	DcGetDevProcessInfo(int32, int32) (*common.DevProcessInfo, error)
+	DcGetDeviceBoardInfo(int32, int32) (common.BoardInfo, error)
 }
 
 const (
@@ -1373,4 +1381,26 @@ func convertToDevResourceInfo(procList [common.MaxProcNum]C.struct_dcmi_proc_mem
 	}
 
 	return info
+}
+
+// DcGetDeviceBoardInfo return board info of device
+func (d *DcManager) DcGetDeviceBoardInfo(cardID, deviceID int32) (common.BoardInfo, error) {
+	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
+		return common.BoardInfo{}, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
+	}
+
+	var cBoardInfo C.struct_dcmi_board_info
+
+	if retCode := C.dcmi_get_device_board_info(C.int(cardID), C.int(deviceID),
+		&cBoardInfo); int32(retCode) != common.Success {
+		return common.BoardInfo{}, fmt.Errorf("get board info failed, cardID(%d) and deviceID(%d) , error code: %d",
+			cardID, deviceID, int32(retCode))
+	}
+
+	return common.BoardInfo{
+		BoardId: uint32(cBoardInfo.board_id),
+		PcbId:   uint32(cBoardInfo.pcb_id),
+		BomId:   uint32(cBoardInfo.bom_id),
+		SlotId:  uint32(cBoardInfo.slot_id),
+	}, nil
 }

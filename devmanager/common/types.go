@@ -178,3 +178,11 @@ type DevProcInfo struct {
 	// the total amount of memory occupied by the device side OS and allocated by the business, unit is MB
 	MemUsage float64
 }
+
+// BoardInfo board info of device
+type BoardInfo struct {
+	BoardId uint32
+	PcbId   uint32
+	BomId   uint32
+	SlotId  uint32
+}

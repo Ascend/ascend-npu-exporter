@@ -307,6 +307,13 @@ struct dcmi_proc_mem_info {
     unsigned long proc_mem_usage;
 };
 
+struct dcmi_board_info {
+    unsigned int board_id;
+    unsigned int pcb_id;
+    unsigned int bom_id;
+    unsigned int slot_id; // slot_id indicates pcie slot ID of the chip
+};
+
 #define DCMI_VERSION_1
 #define DCMI_VERSION_2
 
@@ -384,6 +391,8 @@ DCMIDLLEXPORT int dcmi_get_device_die_v2(
 
 DCMIDLLEXPORT int dcmi_get_device_resource_info (int card_id, int device_id, struct dcmi_proc_mem_info *proc_info,
     int *proc_num);
+
+DCMIDLLEXPORT int dcmi_get_device_board_info (int card_id, int device_id, struct dcmi_board_info *board_info);
 
 
 #endif

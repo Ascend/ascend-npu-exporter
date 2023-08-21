@@ -64,6 +64,7 @@ type DeviceInterface interface {
 	SetFaultEventCallFunc(func(common.DevFaultInfo)) error
 	GetDieID(logicID int32, dcmiDieType dcmi.DcmiDieType) (string, error)
 	GetDevProcessInfo(logicID int32) (*common.DevProcessInfo, error)
+	GetBoardInfo(logicID int32) (common.BoardInfo, error)
 }
 
 var (
@@ -617,4 +618,15 @@ func (d *DeviceManager) GetDevProcessInfo(logicID int32) (*common.DevProcessInfo
 	}
 
 	return d.DcMgr.DcGetDevProcessInfo(cardID, deviceID)
+}
+
+// GetBoardInfo return board info of device
+func (d *DeviceManager) GetBoardInfo(logicID int32) (common.BoardInfo, error) {
+	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	if err != nil {
+		hwlog.RunLog.Error(err)
+		return common.BoardInfo{}, fmt.Errorf("failed to get cardID in get device error code by logicID(%d)", logicID)
+	}
+
+	return d.DcMgr.DcGetDeviceBoardInfo(cardID, deviceID)
 }
