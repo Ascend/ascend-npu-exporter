@@ -45,7 +45,9 @@ const (
 	npuListCacheKey = "npu-exporter-npu-list"
 	// cache key for parsing-device result
 	containersDevicesCacheKey = "npu-exporter-containers-devices"
+	npuNetworkCacheKey        = "npu-exporter-network-info"
 	initSize                  = 8
+	networkInfo               = "networkInfo"
 )
 
 // HuaWeiAIChip chip info
