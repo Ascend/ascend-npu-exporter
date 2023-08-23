@@ -258,7 +258,6 @@ func npuNetworkInfoCollect(group *sync.WaitGroup, n *npuCollector, dmgr devmanag
 			}
 			if _, ok := <-ticker.C; !ok {
 				hwlog.RunLog.Errorf("%s ticker failed, task shutdown", npuNetworkCacheKey)
-				group.Done()
 				return
 			}
 		}
@@ -284,7 +283,6 @@ func containerInfoCollect(group *sync.WaitGroup, n *npuCollector) {
 			}
 			if _, ok := <-ticker.C; !ok {
 				hwlog.RunLog.Errorf("%s ticker failed, task shutdown", containersDevicesCacheKey)
-				group.Done()
 				return
 			}
 		}
