@@ -100,7 +100,9 @@ func MakeDevicesParser(opts CntNpuMonitorOpts) *DevicesParser {
 
 // DevicesInfo the container device information struct
 type DevicesInfo struct {
-	ID      string
+	// container id
+	ID string
+	// container name, the format is: PodNameSpace_PodName_ContainerName
 	Name    string
 	Devices []int
 }

@@ -132,7 +132,7 @@ func NewNpuCollector(ctx context.Context, cacheTime time.Duration, updateTime ti
 	return npuCollect, nil
 }
 
-func getNPUInfo(dmgr devmanager.DeviceInterface) []HuaWeiNPUCard {
+func getNPUInfo(dmgr devmanager.DeviceInterface, infoType string) []HuaWeiNPUCard {
 	var npuList []HuaWeiNPUCard
 	cardNum, cards, err := dmgr.GetCardList()
 	if cardNum == 0 || err != nil {
@@ -152,7 +152,7 @@ func getNPUInfo(dmgr devmanager.DeviceInterface) []HuaWeiNPUCard {
 			if err != nil {
 				continue
 			}
-			chipInfo = assembleNPUInfo(cardID, logID, dmgr)
+			chipInfo = assembleNPUInfo(cardID, logID, dmgr, infoType)
 			if chipInfo != nil {
 				deviceList = append(deviceList, chipInfo)
 			}
@@ -167,14 +167,18 @@ func getNPUInfo(dmgr devmanager.DeviceInterface) []HuaWeiNPUCard {
 	return npuList
 }
 
-func assembleNPUInfo(cardID int32, logicID int32, dmgr devmanager.DeviceInterface) *HuaWeiAIChip {
+func assembleNPUInfo(cardID int32, logicID int32, dmgr devmanager.DeviceInterface, infoType string) *HuaWeiAIChip {
 	phyID, err := dmgr.GetPhysicIDFromLogicID(logicID)
 	// check cardId, convert it to int type later
 	if err != nil {
 		return nil
 	}
-	chipInfo := packChipInfo(logicID, dmgr)
+	chipInfo := packChipInfo(logicID, dmgr, infoType)
 	chipInfo.DeviceID = int(phyID)
+	if infoType == networkInfo {
+		return chipInfo
+	}
+
 	if dmgr.GetDevType() == common.Ascend310P {
 		cardPower, err := dmgr.GetMcuPowerInfo(cardID)
 		if err != nil {
@@ -205,36 +209,84 @@ func start(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface
 	}
 	defer n.devicesParser.Close()
 	n.devicesParser.Timeout = n.updateTime
-	ticker := time.NewTicker(n.updateTime)
 	hwlog.RunLog.Infof("Starting update cache every %d seconds", n.updateTime/time.Second)
-	for {
-		select {
-		case _, ok := <-ticker.C:
-			if !ok {
-				return
-			}
-			n.devicesParser.FetchAndParse(nil)
-			npuInfo := getNPUInfo(dmgr)
+
+	group := &sync.WaitGroup{}
+
+	npuBaseInfoCollect(group, n, dmgr)
+	npuNetworkInfoCollect(group, n, dmgr)
+	containerInfoCollect(group, n)
+
+	group.Wait()
+	hwlog.RunLog.Info("received the stop signal,STOPPED")
+	return
+}
+
+func npuBaseInfoCollect(group *sync.WaitGroup, n *npuCollector, dmgr devmanager.DeviceInterface) {
+	group.Add(1)
+	go func() {
+		defer group.Done()
+		ticker := time.NewTicker(n.updateTime)
+		defer ticker.Stop()
+		for {
+			npuInfo := getNPUInfo(dmgr, "")
 			if err := n.cache.Set(npuListCacheKey, npuInfo, n.cacheTime); err != nil {
 				hwlog.RunLog.Error(err)
+			} else {
+				hwlog.RunLog.Infof("update cache,key is %s", npuListCacheKey)
 			}
-			hwlog.RunLog.Infof("update cache,key is %s", npuListCacheKey)
-		case result := <-n.devicesParser.RecvResult():
-			if err := n.cache.Set(containersDevicesCacheKey, result, n.cacheTime); err != nil {
-				hwlog.RunLog.Error(err)
+			if _, ok := <-ticker.C; !ok {
+				hwlog.RunLog.Errorf("%s ticker failed, task shutdown", npuListCacheKey)
+				return
 			}
-			hwlog.RunLog.Infof("update cache,key is %s", containersDevicesCacheKey)
-		case err := <-n.devicesParser.RecvErr():
-			hwlog.RunLog.Errorf("received error from device parser: %#v", err)
-		case _, ok := <-ctx.Done():
-			if !ok {
-				hwlog.RunLog.Error("closed")
-			}
-			ticker.Stop()
-			hwlog.RunLog.Warn("received the stop signal,STOPPED")
-			return
 		}
-	}
+	}()
+}
+
+func npuNetworkInfoCollect(group *sync.WaitGroup, n *npuCollector, dmgr devmanager.DeviceInterface) {
+	group.Add(1)
+	go func() {
+		defer group.Done()
+		ticker := time.NewTicker(n.updateTime)
+		defer ticker.Stop()
+		for {
+			netWorkInfo := getNPUInfo(dmgr, networkInfo)
+			if err := n.cache.Set(npuNetworkCacheKey, netWorkInfo, n.cacheTime); err != nil {
+				hwlog.RunLog.Error(err)
+			} else {
+				hwlog.RunLog.Infof("update cache,key is %s", npuNetworkCacheKey)
+			}
+			if _, ok := <-ticker.C; !ok {
+				hwlog.RunLog.Errorf("%s ticker failed, task shutdown", npuNetworkCacheKey)
+				return
+			}
+		}
+	}()
+}
+
+func containerInfoCollect(group *sync.WaitGroup, n *npuCollector) {
+	group.Add(1)
+	go func() {
+		defer group.Done()
+		ticker := time.NewTicker(n.updateTime)
+		defer ticker.Stop()
+		for {
+			n.devicesParser.FetchAndParse(nil)
+			select {
+			case result := <-n.devicesParser.RecvResult():
+				if err := n.cache.Set(containersDevicesCacheKey, result, n.cacheTime); err != nil {
+					hwlog.RunLog.Error(err)
+				}
+				hwlog.RunLog.Infof("update cache,key is %s", containersDevicesCacheKey)
+			case err := <-n.devicesParser.RecvErr():
+				hwlog.RunLog.Errorf("received error from device parser: %#v", err)
+			}
+			if _, ok := <-ticker.C; !ok {
+				hwlog.RunLog.Errorf("%s ticker failed, task shutdown", containersDevicesCacheKey)
+				return
+			}
+		}
+	}()
 }
 
 // Describe implements prometheus.Collector
@@ -274,29 +326,8 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 		hwlog.RunLog.Error("Invalid param in function Collect")
 		return
 	}
-	obj, err := n.cache.Get(npuListCacheKey)
-	npuChipInfoInit.Do(func() {
-		if err != nil {
-			hwlog.RunLog.Debugf("no cache, start to get npulist and rebuild cache")
-			devManager, err := devmanager.GetDeviceManager()
-			if err != nil {
-				hwlog.RunLog.Debugf("get device manager failed, error is: %#v ", err)
-				return
-			}
-			npuInfo := getNPUInfo(devManager)
-			if err = n.cache.Set(npuListCacheKey, npuInfo, n.cacheTime); err != nil {
-				hwlog.RunLog.Errorf("no cache for prometheus, try to build cache failed, error is: %v", err)
-				return
-			}
-			hwlog.RunLog.Debugf("rebuild cache successfully")
-			obj = npuInfo
-		}
-	})
-	npuList, ok := obj.([]HuaWeiNPUCard)
-	if !ok {
-		hwlog.RunLog.Error("Error npu info cache and convert failed")
-		n.cache.Delete(npuListCacheKey)
-	}
+	npuList := getNPUInfoInCache(ch, n)
+	networkInfoMap := getNetworkInfoInCache(ch, n)
 	containerMap := getContainerNPUInfo(ch, n)
 	ch <- prometheus.MustNewConstMetric(versionInfoDesc, prometheus.GaugeValue, 1, []string{versions.BuildVersion}...)
 	var totalCount = 0
@@ -311,6 +342,9 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 			if !ok {
 				devInfo = container.DevicesInfo{}
 			}
+			if networkInfo, ok := networkInfoMap[chip.DeviceID]; ok {
+				updateNetworkInfo(chip, networkInfo)
+			}
 			updateNPUCommonInfo(ch, &card, chip)
 			updateNPUMemoryInfo(ch, &card, chip)
 			updateNPUNetworkInfo(ch, &card, chip)
@@ -320,6 +354,64 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	ch <- prometheus.MustNewConstMetric(machineInfoNPUDesc, prometheus.GaugeValue, float64(totalCount))
+}
+
+func getNPUInfoInCache(ch chan<- prometheus.Metric, n *npuCollector) []HuaWeiNPUCard {
+	if ch == nil {
+		hwlog.RunLog.Error("metric channel is nil")
+		return nil
+	}
+	obj, err := n.cache.Get(npuListCacheKey)
+	npuChipInfoInit.Do(func() {
+		if err != nil {
+			hwlog.RunLog.Debugf("no cache, start to get npulist and rebuild cache")
+			devManager, err := devmanager.GetDeviceManager()
+			if err != nil {
+				hwlog.RunLog.Debugf("get device manager failed, error is: %#v ", err)
+				return
+			}
+			npuInfo := getNPUInfo(devManager, "")
+			if err = n.cache.Set(npuListCacheKey, npuInfo, n.cacheTime); err != nil {
+				hwlog.RunLog.Errorf("no cache for prometheus, try to build cache failed, error is: %v", err)
+				return
+			}
+			hwlog.RunLog.Debugf("rebuild cache successfully")
+			obj = npuInfo
+		}
+	})
+	npuList, ok := obj.([]HuaWeiNPUCard)
+	if !ok {
+		hwlog.RunLog.Error("Error npu info cache and convert failed")
+		n.cache.Delete(npuListCacheKey)
+		return nil
+	}
+
+	return npuList
+}
+
+func getNetworkInfoInCache(ch chan<- prometheus.Metric, n *npuCollector) map[int]HuaWeiAIChip {
+	res := make(map[int]HuaWeiAIChip, initSize)
+	if ch == nil {
+		hwlog.RunLog.Error("metric channel is nil")
+		return res
+	}
+	obj, err := n.cache.Get(npuNetworkCacheKey)
+	if err != nil {
+		hwlog.RunLog.Warn("npu network info not found in cache, please wait for the cache to be rebuilt")
+		return res
+	}
+	networkInfoList, ok := obj.([]HuaWeiNPUCard)
+	if !ok {
+		hwlog.RunLog.Error("Error npu network info cache and convert failed")
+		n.cache.Delete(npuNetworkCacheKey)
+		return res
+	}
+	for _, v := range networkInfoList {
+		for _, dev := range v.DeviceList {
+			res[dev.DeviceID] = *dev
+		}
+	}
+	return res
 }
 
 func getContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) map[int]container.DevicesInfo {
@@ -337,7 +429,7 @@ func getContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) map[int]c
 			select {
 			case obj = <-resultChan:
 			case <-time.After(time.Second):
-				hwlog.RunLog.Warn("rebuild cache timeout")
+				hwlog.RunLog.Warn("rebuild container info cache timeout")
 				return
 			}
 			hwlog.RunLog.Warn("rebuild cache successfully")
@@ -346,6 +438,7 @@ func getContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) map[int]c
 	cntNpuInfos, ok := obj.(container.DevicesInfos)
 	if !ok {
 		hwlog.RunLog.Error("Error container npu info cache and convert failed")
+		n.cache.Delete(containersDevicesCacheKey)
 		return nil
 	}
 	res := make(map[int]container.DevicesInfo, initSize)
@@ -355,6 +448,12 @@ func getContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) map[int]c
 		}
 	}
 	return res
+}
+
+func updateNetworkInfo(origin *HuaWeiAIChip, networkInfo HuaWeiAIChip) {
+	origin.LinkStatus = networkInfo.LinkStatus
+	origin.TxValue = networkInfo.TxValue
+	origin.RxValue = networkInfo.RxValue
 }
 
 func validate(ch chan<- prometheus.Metric, objs ...interface{}) bool {
@@ -516,10 +615,20 @@ func updateProcessInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *Hu
 	}
 }
 
-var packChipInfo = func(logicID int32, dmgr devmanager.DeviceInterface) *HuaWeiAIChip {
+var packChipInfo = func(logicID int32, dmgr devmanager.DeviceInterface, infoType string) *HuaWeiAIChip {
 	chip := &HuaWeiAIChip{}
-	packChipInfoPart1(logicID, dmgr, chip)
-	packChipInfoPart2(logicID, dmgr, chip)
+
+	info, err := dmgr.GetChipInfo(logicID)
+	if err != nil {
+		info = &common.ChipInfo{}
+	}
+	chip.ChipIfo = info
+
+	if infoType != networkInfo {
+		packChipInfoPart2(logicID, dmgr, chip)
+		packChipInfoPart1(logicID, dmgr, chip)
+		return chip
+	}
 	networkPackInfo(logicID, dmgr, chip)
 	return chip
 }
@@ -545,10 +654,6 @@ func packChipInfoPart1(logicID int32, dmgr devmanager.DeviceInterface, hwChip *H
 	if err != nil {
 		mem = &common.MemoryInfo{}
 	}
-	chip, err := dmgr.GetChipInfo(logicID)
-	if err != nil {
-		chip = &common.ChipInfo{}
-	}
 	hbmInfo, err := dmgr.GetDeviceHbmInfo(logicID)
 	if err != nil {
 		hbmInfo = &common.HbmInfo{}
@@ -560,7 +665,6 @@ func packChipInfoPart1(logicID int32, dmgr devmanager.DeviceInterface, hwChip *H
 	hwChip.Temperature = int(temp)
 	hwChip.Voltage = vol
 	hwChip.Meminf = mem
-	hwChip.ChipIfo = chip
 	hwChip.HbmInfo = hbmInfo
 }
 
@@ -582,6 +686,15 @@ func packChipInfoPart2(logicID int32, dmgr devmanager.DeviceInterface, hwChip *H
 		hwlog.RunLog.Error(err)
 		info = new(common.DevProcessInfo)
 	}
+	hwChip.NetHealthStatus = UnHealthy
+	if strings.Contains(hwChip.ChipIfo.Name, "910") {
+		netCode, err := dmgr.GetDeviceNetWorkHealth(logicID)
+		hwlog.RunLog.Debugf("chip %d network healthy code is %d", logicID, netCode)
+		if err != nil {
+			netCode = math.MaxUint32
+		}
+		hwChip.NetHealthStatus = getNetworkHealthy(netCode)
+	}
 
 	hwChip.ErrorCode = errCode
 	hwChip.Utilization = int(util)
@@ -591,8 +704,6 @@ func packChipInfoPart2(logicID int32, dmgr devmanager.DeviceInterface, hwChip *H
 
 func networkPackInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
 	hwChip.LinkStatus = LinkDown
-	hwChip.NetHealthStatus = UnHealthy
-
 	if !strings.Contains(hwChip.ChipIfo.Name, "910") {
 		return
 	}
@@ -605,13 +716,6 @@ func networkPackInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *Hua
 		hwChip.TxValue = tx
 		hwChip.RxValue = rx
 	}
-	netCode, err := dmgr.GetDeviceNetWorkHealth(logicID)
-	hwlog.RunLog.Debugf("chip %d network healthy code is %d", logicID, netCode)
-	if err != nil {
-		netCode = math.MaxUint32
-	}
-
-	hwChip.NetHealthStatus = getNetworkHealthy(netCode)
 	hwChip.LinkStatus = getNPULinkStatus(phyID)
 }
 
