@@ -229,3 +229,11 @@ func (d *DeviceManagerMockErr) GetDieID(logicID int32, dcmiDieType dcmi.DcmiDieT
 func (d *DeviceManagerMockErr) GetDevProcessInfo(logicID int32) (*common.DevProcessInfo, error) {
 	return nil, errors.New(errorMsg)
 }
+
+func (d *DeviceManagerMockErr) GetPCIeBusInfo(logicID int32) (string, error) {
+	return "", errors.New(errorMsg)
+}
+
+func (d *DeviceManagerMockErr) GetBoardInfo(logicID int32) (common.BoardInfo, error) {
+	return common.BoardInfo{}, errors.New(errorMsg)
+}

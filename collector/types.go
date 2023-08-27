@@ -86,6 +86,8 @@ type HuaWeiAIChip struct {
 	NetHealthStatus HealthEnum `json:"net_health_status"`
 	// DevProcessInfo chip process info
 	DevProcessInfo *common.DevProcessInfo
+	// PCIeBusInfo bus info
+	PCIeBusInfo string
 }
 
 // HuaWeiNPUCard device
