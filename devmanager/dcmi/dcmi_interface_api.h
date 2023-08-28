@@ -37,6 +37,18 @@ struct dcmi_chip_info {
     unsigned int aicore_cnt;
 };
 
+struct dcmi_pcie_info_all {
+    unsigned int venderid;           /* 厂商id */
+    unsigned int subvenderid;        /* 厂商子id */
+    unsigned int deviceid;           /* 设备id */
+    unsigned int subdeviceid;        /* 设备子id */
+    int domain;
+    unsigned int bdf_busid;
+    unsigned int bdf_deviceid;
+    unsigned int bdf_funcid;
+    unsigned char reserve[32];       /* the size of dcmi_pcie_info_all is 64 */
+};
+
 struct dcmi_die_id {
     unsigned int soc_die[DIE_ID_COUNT];
 };
@@ -328,6 +340,8 @@ DCMIDLLEXPORT int dcmi_get_device_num_in_card(int card_id, int *device_num);
 DCMIDLLEXPORT int dcmi_get_device_id_in_card(int card_id, int *device_id_max, int *mcu_id, int *cpu_id);
 
 DCMIDLLEXPORT int dcmi_get_device_type(int card_id, int device_id, enum dcmi_unit_type *device_type);
+
+DCMIDLLEXPORT int dcmi_get_device_pcie_info_v2(int card_id, int device_id, struct dcmi_pcie_info_all *pcie_info);
 
 DCMIDLLEXPORT int dcmi_get_device_chip_info(int card_id, int device_id, struct dcmi_chip_info *chip_info);
 

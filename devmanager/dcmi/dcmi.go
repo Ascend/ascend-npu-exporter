@@ -227,11 +227,16 @@ package dcmi
     int dcmi_get_device_resource_info(int card_id, int device_id, struct dcmi_proc_mem_info *proc_info, int *proc_num){
         CALL_FUNC(dcmi_get_device_resource_info,card_id,device_id,proc_info,proc_num)
     }
+    
+    int (*dcmi_get_device_pcie_info_v2_func)(int card_id, int device_id, struct dcmi_pcie_info_all *pcie_info);
+    int dcmi_get_device_pcie_info_v2(int card_id, int device_id, struct dcmi_pcie_info_all *pcie_info){
+        CALL_FUNC(dcmi_get_device_pcie_info_v2,card_id,device_id,pcie_info)
+    }
 
-	int (*dcmi_get_device_board_info_func)(int card_id, int device_id, struct dcmi_board_info *board_info);
-	int dcmi_get_device_board_info(int card_id, int device_id, struct dcmi_board_info *board_info){
-		CALL_FUNC(dcmi_get_device_board_info,card_id,device_id,board_info)
-	}
+    int (*dcmi_get_device_board_info_func)(int card_id, int device_id, struct dcmi_board_info *board_info);
+    int dcmi_get_device_board_info(int card_id, int device_id, struct dcmi_board_info *board_info){
+        CALL_FUNC(dcmi_get_device_board_info,card_id,device_id,board_info)
+    }
 
    // load .so files and functions
    static int dcmiInit_dl(const char* dcmiLibPath){
@@ -315,7 +320,9 @@ package dcmi
 
     dcmi_get_device_resource_info_func = dlsym(dcmiHandle, "dcmi_get_device_resource_info");
 
-	dcmi_get_device_board_info_func = dlsym(dcmiHandle, "dcmi_get_device_board_info");
+    dcmi_get_device_pcie_info_v2_func = dlsym(dcmiHandle, "dcmi_get_device_pcie_info_v2");
+
+    dcmi_get_device_board_info_func = dlsym(dcmiHandle, "dcmi_get_device_board_info");
 
    	return SUCCESS;
    }
@@ -373,6 +380,7 @@ type DcDriverInterface interface {
 	DcGetDeviceIPAddress(int32, int32) (string, error)
 	DcGetMcuPowerInfo(int32) (float32, error)
 	DcGetDieID(int32, int32, DcmiDieType) (string, error)
+	DcGetPCIeBusInfo(int32, int32) (string, error)
 
 	DcGetCardList() (int32, []int32, error)
 	DcGetDeviceNumInCard(int32) (int32, error)
@@ -1381,6 +1389,26 @@ func convertToDevResourceInfo(procList [common.MaxProcNum]C.struct_dcmi_proc_mem
 	}
 
 	return info
+}
+
+// DcGetPCIeBusInfo pcie bus info
+func (d *DcManager) DcGetPCIeBusInfo(cardID, deviceID int32) (string, error) {
+	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
+		return "", fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
+	}
+
+	var pcieInfo C.struct_dcmi_pcie_info_all
+
+	if retCode := C.dcmi_get_device_pcie_info_v2(C.int(cardID), C.int(deviceID), &pcieInfo); int32(retCode) != common.Success {
+		return "", fmt.Errorf("get pcie bus info failed, cardID(%d) and deviceID(%d) , error code: %d",
+			cardID, deviceID, int32(retCode))
+	}
+
+	info := fmt.Sprintf("%04X:%02X:%02X.%-4X", int32(pcieInfo.domain), uint32(pcieInfo.bdf_busid),
+		uint32(pcieInfo.bdf_deviceid), uint32(pcieInfo.bdf_funcid))
+	hwlog.RunLog.Debugf("pcie bus info is: '%s'", info)
+
+	return strings.TrimRight(info, " "), nil
 }
 
 // DcGetDeviceBoardInfo return board info of device

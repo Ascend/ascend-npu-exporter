@@ -64,6 +64,7 @@ type DeviceInterface interface {
 	SetFaultEventCallFunc(func(common.DevFaultInfo)) error
 	GetDieID(logicID int32, dcmiDieType dcmi.DcmiDieType) (string, error)
 	GetDevProcessInfo(logicID int32) (*common.DevProcessInfo, error)
+	GetPCIeBusInfo(logicID int32)(string, error)
 	GetBoardInfo(logicID int32) (common.BoardInfo, error)
 }
 
@@ -618,6 +619,17 @@ func (d *DeviceManager) GetDevProcessInfo(logicID int32) (*common.DevProcessInfo
 	}
 
 	return d.DcMgr.DcGetDevProcessInfo(cardID, deviceID)
+}
+
+// GetPCIeBusInfo pcie bus info
+func (d *DeviceManager) GetPCIeBusInfo(logicID int32) (string, error) {
+	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
+	if err != nil {
+		hwlog.RunLog.Error(err)
+		return "", fmt.Errorf("failed to get cardID in get device error code by logicID(%d)", logicID)
+	}
+
+	return d.DcMgr.DcGetPCIeBusInfo(cardID, deviceID)
 }
 
 // GetBoardInfo return board info of device
