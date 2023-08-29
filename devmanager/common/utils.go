@@ -102,9 +102,9 @@ func get910TemplateNameList() map[string]struct{} {
 
 func get910BTemplateNameList() map[string]struct{} {
 	return map[string]struct{}{
-		"vir03_hc_8g": {}, "vir05_1c_8g": {}, "vir05_1c_16g": {},
-		"vir06_1c_16g": {}, "vir10_3c_16g": {}, "vir10_3c_16g_m": {}, "vir10_3c_16g_nm": {}, "vir10_3c_32g": {},
-		"vir10_3c_32g_m": {}, "vir10_3c_32g_nm": {}, "vir12_3c_32g": {}, "vir12_3c_32g_m": {}, "vir12_3c_32g_nm": {}}
+		"vir03_1c_8g": {}, "vir05_1c_8g": {}, "vir05_1c_16g": {},
+		"vir06_1c_16g": {}, "vir10_3c_16g": {}, "vir10_3c_16g_nm": {},
+		"vir10_3c_32g": {}, "vir10_4c_16g_m": {}, "vir12_3c_32g": {}}
 }
 
 func get310PTemplateNameList() map[string]struct{} {
