@@ -88,6 +88,8 @@ type HuaWeiAIChip struct {
 	DevProcessInfo *common.DevProcessInfo
 	// PCIeBusInfo bus info
 	PCIeBusInfo string
+	// BoardInfo board info of device, but not display
+	BoardInfo common.BoardInfo
 }
 
 // HuaWeiNPUCard device
