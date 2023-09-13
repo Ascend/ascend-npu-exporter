@@ -49,7 +49,7 @@ type DeviceInterface interface {
 	GetLogicIDFromPhysicID(physicID int32) (int32, error)
 	GetDeviceLogicID(cardID, deviceID int32) (int32, error)
 	GetCardIDDeviceID(logicID int32) (int32, int32, error)
-	GetDeviceIPAddress(logicID int32) (string, error)
+	GetDeviceIPAddress(logicID, ipType int32) (string, error)
 	CreateVirtualDevice(logicID int32, vDevInfo common.CgoCreateVDevRes) (common.CgoCreateVDevOut, error)
 	GetVirtualDeviceInfo(logicID int32) (common.VirtualDevInfo, error)
 	DestroyVirtualDevice(logicID int32, vDevID uint32) error
@@ -64,7 +64,7 @@ type DeviceInterface interface {
 	SetFaultEventCallFunc(func(common.DevFaultInfo)) error
 	GetDieID(logicID int32, dcmiDieType dcmi.DcmiDieType) (string, error)
 	GetDevProcessInfo(logicID int32) (*common.DevProcessInfo, error)
-	GetPCIeBusInfo(logicID int32)(string, error)
+	GetPCIeBusInfo(logicID int32) (string, error)
 	GetBoardInfo(logicID int32) (common.BoardInfo, error)
 }
 
@@ -424,13 +424,13 @@ func (d *DeviceManager) GetDeviceLogicID(cardID, deviceID int32) (int32, error) 
 }
 
 // GetDeviceIPAddress get device ip address
-func (d *DeviceManager) GetDeviceIPAddress(logicID int32) (string, error) {
+func (d *DeviceManager) GetDeviceIPAddress(logicID, ipType int32) (string, error) {
 	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return "", fmt.Errorf("failed to get ip address by logicID(%d)", logicID)
 	}
-	ipAddr, err := d.DcMgr.DcGetDeviceIPAddress(cardID, deviceID)
+	ipAddr, err := d.DcMgr.DcGetDeviceIPAddress(cardID, deviceID, ipType)
 	if err != nil {
 		hwlog.RunLog.Error(err)
 		return "", fmt.Errorf("failed to get ip address by logicID(%d)", logicID)

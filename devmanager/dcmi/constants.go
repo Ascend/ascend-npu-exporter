@@ -52,4 +52,7 @@ const (
 	VDIE DcmiDieType = 1
 	// DieIDCount die id array max length
 	DieIDCount = 5
+
+	// ipAddrTypeV6 ip address type of IPv6
+	ipAddrTypeV6 = 1
 )

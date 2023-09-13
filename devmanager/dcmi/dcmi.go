@@ -227,7 +227,7 @@ package dcmi
     int dcmi_get_device_resource_info(int card_id, int device_id, struct dcmi_proc_mem_info *proc_info, int *proc_num){
         CALL_FUNC(dcmi_get_device_resource_info,card_id,device_id,proc_info,proc_num)
     }
-    
+
     int (*dcmi_get_device_pcie_info_v2_func)(int card_id, int device_id, struct dcmi_pcie_info_all *pcie_info);
     int dcmi_get_device_pcie_info_v2(int card_id, int device_id, struct dcmi_pcie_info_all *pcie_info){
         CALL_FUNC(dcmi_get_device_pcie_info_v2,card_id,device_id,pcie_info)
@@ -377,7 +377,7 @@ type DcDriverInterface interface {
 	DcGetPhysicIDFromLogicID(int32) (int32, error)
 	DcGetLogicIDFromPhysicID(int32) (int32, error)
 	DcGetDeviceLogicID(int32, int32) (int32, error)
-	DcGetDeviceIPAddress(int32, int32) (string, error)
+	DcGetDeviceIPAddress(int32, int32, int32) (string, error)
 	DcGetMcuPowerInfo(int32) (float32, error)
 	DcGetDieID(int32, int32, DcmiDieType) (string, error)
 	DcGetPCIeBusInfo(int32, int32) (string, error)
@@ -1122,7 +1122,7 @@ func (d *DcManager) DcGetPhysicIDFromLogicID(logicID int32) (int32, error) {
 }
 
 // DcGetDeviceIPAddress get device IP address by cardID and deviceID
-func (d *DcManager) DcGetDeviceIPAddress(cardID, deviceID int32) (string, error) {
+func (d *DcManager) DcGetDeviceIPAddress(cardID, deviceID, ipType int32) (string, error) {
 	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
 		return "", fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
 	}
@@ -1130,22 +1130,46 @@ func (d *DcManager) DcGetDeviceIPAddress(cardID, deviceID int32) (string, error)
 	var portID C.int
 	var ipAddress C.struct_dcmi_ip_addr
 	var maskAddress C.struct_dcmi_ip_addr
+	if ipType == ipAddrTypeV6 {
+		ipAddress.ip_type = ipAddrTypeV6
+	}
 	rCode := C.dcmi_get_device_ip(C.int(cardID), C.int(deviceID), portType, portID, &ipAddress, &maskAddress)
 	if int32(rCode) != common.Success {
 		return "", fmt.Errorf("get device IP address failed, cardID(%d), deviceID(%d), error code: %d",
 			cardID, deviceID, int32(rCode))
 	}
+	if ipType == ipAddrTypeV6 {
+		return d.buildIPv6Addr(ipAddress)
+	}
+	return d.buildIPv4Addr(ipAddress)
+}
 
-	unionPara := ipAddress.u_addr
-	var deviceIP []string
-	for i := 0; i < common.DeviceIPLength; i++ {
-		deviceIP = append(deviceIP, fmt.Sprintf("%d", uint8(unionPara[i])))
+func (d *DcManager) buildIPv4Addr(ipAddress C.struct_dcmi_ip_addr) (string, error) {
+	deviceIP := make([]string, 0, net.IPv4len)
+	for key, val := range ipAddress.u_addr {
+		if key >= net.IPv4len {
+			break
+		}
+		deviceIP = append(deviceIP, fmt.Sprintf("%v", val))
 	}
-	parsedIP := net.ParseIP(strings.Join(deviceIP, "."))
-	if parsedIP == nil {
-		return "", fmt.Errorf("the device IP address %s is invalid", deviceIP)
+	if netIP := net.ParseIP(strings.Join(deviceIP, ".")); netIP != nil {
+		return netIP.String(), nil
 	}
-	return parsedIP.String(), nil
+	return "", fmt.Errorf("the device IPv4 address is invalid, value: %v", deviceIP)
+}
+
+func (d *DcManager) buildIPv6Addr(ipAddress C.struct_dcmi_ip_addr) (string, error) {
+	deviceIP := make([]byte, 0, net.IPv6len)
+	for key, val := range ipAddress.u_addr {
+		if key >= net.IPv6len {
+			break
+		}
+		deviceIP = append(deviceIP, byte(val))
+	}
+	if netIP := net.IP(deviceIP); netIP != nil {
+		return netIP.String(), nil
+	}
+	return "", fmt.Errorf("the device IPv6 address is invalid, value: %v", deviceIP)
 }
 
 // DcGetDeviceNetWorkHealth get device network health by cardID and deviceID
