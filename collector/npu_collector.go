@@ -16,11 +16,9 @@
 package collector
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math"
-	"os/exec"
 	"reflect"
 	"strconv"
 	"strings"
@@ -32,10 +30,10 @@ import (
 	"huawei.com/npu-exporter/v5/collector/container"
 	"huawei.com/npu-exporter/v5/common-utils/cache"
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
-	"huawei.com/npu-exporter/v5/common-utils/utils"
 	"huawei.com/npu-exporter/v5/devmanager"
 	"huawei.com/npu-exporter/v5/devmanager/common"
 	"huawei.com/npu-exporter/v5/devmanager/dcmi"
+	"huawei.com/npu-exporter/v5/devmanager/hccn"
 	"huawei.com/npu-exporter/v5/versions"
 )
 
@@ -508,7 +506,7 @@ func updateNPUNetworkInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip 
 		return
 	}
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescLinkStatus,
-		prometheus.GaugeValue, float64(getLinkStatusCode(chip.LinkStatus)),
+		prometheus.GaugeValue, float64(hccn.GetLinkStatusCode(chip.LinkStatus)),
 		[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescBandwidthTx, prometheus.GaugeValue, chip.TxValue,
@@ -736,14 +734,14 @@ func networkPackInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *Hua
 	if err != nil {
 		return
 	}
-	if tx, rx, err := getNPUInterfaceTraffic(phyID); err == nil {
+	if tx, rx, err := hccn.GetNPUInterfaceTraffic(phyID); err == nil {
 		hwChip.TxValue = tx
 		hwChip.RxValue = rx
 	}
-	hwChip.LinkStatus = getNPULinkStatus(phyID)
+	hwChip.LinkStatus = hccn.GetNPULinkStatus(phyID)
 }
 
-func getHealth(logicID int32, dmgr devmanager.DeviceInterface) HealthEnum {
+func getHealth(logicID int32, dmgr devmanager.DeviceInterface) string {
 	health, err := dmgr.GetDeviceHealth(logicID)
 	if err != nil || health != 0 {
 		return UnHealthy
@@ -751,108 +749,14 @@ func getHealth(logicID int32, dmgr devmanager.DeviceInterface) HealthEnum {
 	return Healthy
 }
 
-func getHealthCode(health HealthEnum) int {
+func getHealthCode(health string) int {
 	if Healthy == health {
 		return 1
 	}
 	return 0
 }
 
-func getNPULinkStatus(phyID int32) LinkEnum {
-	args := []string{"-i", strconv.Itoa(int(phyID)), "-link", "-g"}
-	// command example: hccn_tool -i 0 -link -g
-	// success result example is: link status: DOWN
-	outStr, err := hccnToolGetLink(args...)
-	hwlog.RunLog.Debugf("hccn_tool command exec result: %#v", outStr)
-	if err != nil {
-		hwlog.RunLog.Errorf("get npu link status failed, %s", err)
-		return LinkDown
-	}
-	replacedStr := strings.ReplaceAll(outStr, "\n", "")
-	outArr := strings.Split(replacedStr, space)
-	if len(outArr) != linkStatusPart {
-		return LinkDown
-	}
-	var lastIndex = 2
-	status := outArr[lastIndex]
-	hwlog.RunLog.Debugf("hccn_tool get npu link status: %s", status)
-	return LinkEnum(status)
-}
-
-func getNPUInterfaceTraffic(phyID int32) (float64, float64, error) {
-	args := []string{"-i", strconv.Itoa(int(phyID)), "-bandwidth", "-g"}
-	// command example: hccn_tool -i 0 -bandwidth -g
-	// success result has two lines:
-	// Bandwidth TX: 0.00 MB/sec
-	// Bandwidth RX: 0.00 MB/sec
-	outStr, err := hccnToolGetLink(args...)
-	hwlog.RunLog.Debugf("hccn_tool command exec result: %#v", outStr)
-	if err != nil {
-		hwlog.RunLog.Errorf("get npu interface status failed, %s", err)
-		return noTraffic, noTraffic, err
-	}
-
-	var (
-		speedIndex = 2
-		tx         = 0.00
-		rx         = 0.00
-		txStr      = "TX:"
-		rxStr      = "RX:"
-		base64     = 64
-	)
-	lines := strings.Split(outStr, newLine)
-	for _, line := range lines {
-		if line == "" {
-			continue
-		}
-
-		trafficArr := strings.Split(line, space)
-		hwlog.RunLog.Debugf("npu bandwidth split as: %#v", trafficArr)
-		if len(trafficArr) != trafficPart {
-			continue
-		}
-		if strings.Contains(line, txStr) {
-			if tmpTx, err := strconv.ParseFloat(trafficArr[speedIndex], base64); err == nil {
-				tx = tmpTx
-			}
-			continue
-		}
-		if strings.Contains(line, rxStr) {
-			if tmpRx, err := strconv.ParseFloat(trafficArr[speedIndex], base64); err == nil {
-				rx = tmpRx
-			}
-		}
-	}
-	return tx, rx, nil
-}
-
-func hccnToolGetLink(args ...string) (string, error) {
-	const hccn_tool = "/usr/local/Ascend/driver/tools/hccn_tool"
-	if _, err := utils.CheckPath(hccn_tool); err != nil {
-		return "", err
-	}
-	hwlog.RunLog.Debugf("command is: %s %s", hccn_tool, args)
-	var stdout, stderr bytes.Buffer
-	cmd := exec.Command(hccn_tool, args...)
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	hwlog.RunLog.Debugf("stderr is :%s", string(stderr.Bytes()))
-	if err != nil {
-		return "", err
-	}
-
-	return string(stdout.Bytes()), nil
-}
-
-func getLinkStatusCode(status LinkEnum) int {
-	if LinkUp == status {
-		return 1
-	}
-	return 0
-}
-
-func getNetworkHealthy(netCode uint32) HealthEnum {
+func getNetworkHealthy(netCode uint32) string {
 	if netCode == common.NetworkInit || netCode == common.NetworkSuccess {
 		return Healthy
 	}

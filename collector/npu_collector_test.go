@@ -186,7 +186,7 @@ func TestGetChipInfo(t *testing.T) {
 func TestGetHealthCode(t *testing.T) {
 	tests := []struct {
 		name   string
-		health HealthEnum
+		health string
 		want   int
 	}{
 		{

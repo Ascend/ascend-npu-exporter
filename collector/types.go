@@ -21,22 +21,16 @@ import (
 	"huawei.com/npu-exporter/v5/devmanager/common"
 )
 
-// HealthEnum enum
-type HealthEnum string
-
-// LinkEnum interface status
-type LinkEnum string
-
 const (
 	// Healthy status of  Health
-	Healthy HealthEnum = "Healthy"
+	Healthy string = "Healthy"
 	// UnHealthy status of unhealth
-	UnHealthy HealthEnum = "UnHealthy"
+	UnHealthy string = "UnHealthy"
 
 	// LinkUp npu interface up
-	LinkUp LinkEnum = "UP"
+	LinkUp string = "UP"
 	// LinkDown npu interface down
-	LinkDown LinkEnum = "DOWN"
+	LinkDown string = "DOWN"
 
 	// convert base
 	base             = 10
@@ -59,7 +53,7 @@ type HuaWeiAIChip struct {
 	// the hbm info
 	HbmInfo *common.HbmInfo `json:"hbm_info"`
 	// the healthy status of the  AI chip
-	HealthStatus HealthEnum `json:"health_status"`
+	HealthStatus string `json:"health_status"`
 	// the error code of the chip
 	ErrorCode int64 `json:"error_code"`
 	// the utilization of the chip
@@ -77,13 +71,13 @@ type HuaWeiAIChip struct {
 	// the vdie id
 	VDieID string `json:"vdie_id"`
 	// the interface status
-	LinkStatus LinkEnum `json:"link_status"`
+	LinkStatus string `json:"link_status"`
 	// TxValue transform speed
 	TxValue float64 `json:"tx_value"`
 	// RxValue receive speed
 	RxValue float64 `json:"rx_value"`
 	// NetHealthStatus chip network health status
-	NetHealthStatus HealthEnum `json:"net_health_status"`
+	NetHealthStatus string `json:"net_health_status"`
 	// DevProcessInfo chip process info
 	DevProcessInfo *common.DevProcessInfo
 	// PCIeBusInfo bus info

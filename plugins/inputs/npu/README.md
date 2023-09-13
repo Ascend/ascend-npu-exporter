@@ -1,0 +1,1 @@
+## npu plugin of telegraf
