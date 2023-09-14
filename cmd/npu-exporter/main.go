@@ -23,11 +23,13 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/influxdata/telegraf/plugins/common/shim"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -35,6 +37,7 @@ import (
 	"huawei.com/npu-exporter/v5/collector/container"
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
 	"huawei.com/npu-exporter/v5/common-utils/limiter"
+	_ "huawei.com/npu-exporter/v5/plugins/inputs/npu"
 	"huawei.com/npu-exporter/v5/versions"
 )
 
@@ -48,9 +51,11 @@ var (
 	containerd     string
 	endpoint       string
 	limitIPReq     string
+	platform       string
 	limitIPConn    int
 	limitTotalConn int
 	cacheSize      int
+	pollInterval   time.Duration
 )
 
 const (
@@ -66,6 +71,8 @@ const (
 	containerModeContainerd = "containerd"
 	containerModeIsula      = "isula"
 	unixPre                 = "unix://"
+	prometheusPlatform      = "Prometheus"
+	telegrafPlatform        = "Telegraf"
 	timeout                 = 10
 	maxHeaderBytes          = 1024
 	// tenDays ten days
@@ -84,30 +91,15 @@ func main() {
 		fmt.Printf("NPU-exporter version: %s \n", versions.BuildVersion)
 		return
 	}
-	if err := initHwLogger(); err != nil {
-		return
-	}
-	if err := baseParamValid(); err != nil {
-		hwlog.RunLog.Error(err)
-		return
-	}
-	hwlog.RunLog.Infof("npu exporter starting and the version is %s", versions.BuildVersion)
-	opts := readCntMonitoringFlags()
-	reg, err := regPrometheus(opts)
-	if err != nil {
-		hwlog.RunLog.Errorf("register prometheus failed")
-		return
-	}
-	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
-	http.Handle("/", http.HandlerFunc(indexHandler))
-	conf := initConfig()
-	s, limitLs := newServerAndListener(conf)
-	if s == nil || limitLs == nil {
-		return
-	}
-	hwlog.RunLog.Warn("enable unsafe http server")
-	if err := s.Serve(limitLs); err != nil {
-		hwlog.RunLog.Error("Http server error and stopped")
+
+	switch platform {
+	case prometheusPlatform:
+		prometheusProcess()
+	case telegrafPlatform:
+		telegrafProcess()
+	default:
+		fmt.Fprintf(os.Stderr, "err platform input")
+		os.Exit(1)
 	}
 }
 
@@ -279,6 +271,9 @@ func init() {
 		" request,range  is [1,512]")
 	flag.StringVar(&limitIPReq, "limitIPReq", "20/1",
 		"the http request limit counts for each Ip,20/1 means allow 20 request in 1 seconds")
+	flag.StringVar(&platform, "platform", "Prometheus", "the data reporting platform, "+
+		"just support Prometheus and Telegraf")
+	flag.DurationVar(&pollInterval, "poll_interval", 1*time.Second, "how often to send metrics")
 }
 
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
@@ -303,4 +298,55 @@ func initHwLogger() error {
 		return err
 	}
 	return nil
+}
+
+func prometheusProcess() {
+	if err := initHwLogger(); err != nil {
+		return
+	}
+	if err := baseParamValid(); err != nil {
+		hwlog.RunLog.Error(err)
+		return
+	}
+
+	hwlog.RunLog.Infof("npu exporter starting and the version is %s", versions.BuildVersion)
+	opts := readCntMonitoringFlags()
+	reg, err := regPrometheus(opts)
+	if err != nil {
+		hwlog.RunLog.Errorf("register prometheus failed")
+		return
+	}
+	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
+	http.Handle("/", http.HandlerFunc(indexHandler))
+	conf := initConfig()
+	s, limitLs := newServerAndListener(conf)
+	if s == nil || limitLs == nil {
+		return
+	}
+	hwlog.RunLog.Warn("enable unsafe http server")
+	if err := s.Serve(limitLs); err != nil {
+		hwlog.RunLog.Error("Http server error and stopped")
+	}
+}
+
+func telegrafProcess() {
+	// create the shim. This is what will run your plugins.
+	shim := shim.New()
+
+	// If no config is specified, all imported plugins are loaded.
+	// otherwise follow what the config asks for.
+	// Check for settings from a config toml file,
+	// (or just use whatever plugins were imported above)
+	configFile := ""
+	err := shim.LoadConfig(&configFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Err loading input: %s\n", err)
+		os.Exit(1)
+	}
+
+	// run the input plugin(s) until stdin closes, or we receive a termination signal
+	if err := shim.Run(pollInterval); err != nil {
+		fmt.Fprintf(os.Stderr, "Err: %s\n", err)
+		os.Exit(1)
+	}
 }
