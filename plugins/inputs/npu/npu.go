@@ -140,7 +140,8 @@ func (npu *NpuWatch) packDcmiInfo(devID int32, fields map[string]interface{}, ac
 		acc.AddError(fmt.Errorf("get npu process info failed: %v", err))
 	} else {
 		for procIndex := int32(0); procIndex < info.ProcNum; procIndex++ {
-			fields["npu_chip_info_process_info_"+strconv.Itoa(int(procIndex))] = info.DevProcArray[procIndex].Pid
+			fields["npu_chip_info_process_info_"+strconv.Itoa(int(info.ProcNum))+
+				"_"+strconv.Itoa(int(procIndex))] = info.DevProcArray[procIndex].Pid
 		}
 	}
 
