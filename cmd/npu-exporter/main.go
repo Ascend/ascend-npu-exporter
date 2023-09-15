@@ -273,7 +273,9 @@ func init() {
 		"the http request limit counts for each Ip,20/1 means allow 20 request in 1 seconds")
 	flag.StringVar(&platform, "platform", "Prometheus", "the data reporting platform, "+
 		"just support Prometheus and Telegraf")
-	flag.DurationVar(&pollInterval, "poll_interval", 1*time.Second, "how often to send metrics")
+	flag.DurationVar(&pollInterval, "poll_interval", 1*time.Second,
+		"how often to send metrics when use Telegraf plugin, "+
+			"needs to be used with -platform=Telegraf, otherwise, it does not take effect")
 }
 
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
