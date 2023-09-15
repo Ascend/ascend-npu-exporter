@@ -427,16 +427,9 @@ func (d *DeviceManager) GetDeviceLogicID(cardID, deviceID int32) (int32, error) 
 func (d *DeviceManager) GetDeviceIPAddress(logicID, ipType int32) (string, error) {
 	cardID, deviceID, err := d.DcMgr.DcGetCardIDDeviceID(logicID)
 	if err != nil {
-		hwlog.RunLog.Error(err)
-		return "", fmt.Errorf("failed to get ip address by logicID(%d)", logicID)
+		return "", fmt.Errorf("failed to get cardID and deviceID by logicID(%d), %w", logicID, err)
 	}
-	ipAddr, err := d.DcMgr.DcGetDeviceIPAddress(cardID, deviceID, ipType)
-	if err != nil {
-		hwlog.RunLog.Error(err)
-		return "", fmt.Errorf("failed to get ip address by logicID(%d)", logicID)
-	}
-
-	return ipAddr, nil
+	return d.DcMgr.DcGetDeviceIPAddress(cardID, deviceID, ipType)
 }
 
 // CreateVirtualDevice create virtual device
