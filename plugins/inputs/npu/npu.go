@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-
+	
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 
@@ -139,10 +139,7 @@ func (npu *NpuWatch) packDcmiInfo(devID int32, fields map[string]interface{}, ac
 	if err != nil {
 		acc.AddError(fmt.Errorf("get npu process info failed: %v", err))
 	} else {
-		for procIndex := int32(0); procIndex < info.ProcNum; procIndex++ {
-			fields["npu_chip_info_process_info_"+strconv.Itoa(int(info.ProcNum))+
-				"_"+strconv.Itoa(int(procIndex))] = info.DevProcArray[procIndex].Pid
-		}
+		fields["npu_chip_info_process_info_num"] = info.ProcNum
 	}
 
 	temp, err := npu.devManager.GetDeviceTemperature(devID)
@@ -251,17 +248,23 @@ func (npu *NpuWatch) Gather(acc telegraf.Accumulator) error {
 		return err
 	}
 
-	cardType := npu.devManager.GetDevType()
+	const devName = "ascend"
+	devTag := make(map[string]string)
+	devTagValue := "unsupported"
+	if cardType := npu.devManager.GetDevType(); cardType == common.Ascend910B || cardType == common.Ascend910 {
+		devTagValue = "910"
+	}
+
 	for i := int32(0); i < devNum; i++ {
 		fields := make(map[string]interface{})
-		devName := cardType + "-" + strconv.Itoa(int(devList[i]))
 
 		npu.packDcmiInfo(devList[i], fields, acc)
 		if err := npu.packHccnInfo(devList[i], fields, acc); err != nil {
 			return err
 		}
 
-		acc.AddFields(devName, fields, map[string]string{})
+		devTag["device"] = devTagValue + "-" + strconv.Itoa(int(devList[i]))
+		acc.AddFields(devName, fields, devTag)
 	}
 
 	return nil

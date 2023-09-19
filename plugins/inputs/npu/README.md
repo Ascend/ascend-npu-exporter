@@ -36,6 +36,10 @@ go mod tidy
 ```shell
 make all
 ```
+运行前请先创建日志目录：（该日志是插件调用底层api将记录的日志）
+```shell
+mkdir -m 750 /var/log/mindx-dl/npu-exporter
+```
 #### **使用示例：**
 使用插件中提供的配置文件运行telegraf
 ```shell
@@ -47,12 +51,11 @@ make all
 
 从[MindX DL社区](https://www.hiascend.com/zh/software/mindx-dl/community)获取npu-exporter软件包，并从中解压出npu-exporter二进制文件
 
-然后改写npu_plugin.conf中的二进制路径，然后运行telegraf
-```shell
-./telegraf --config path_to_plugins/npu_plugin.conf
-```
-
 ### 使用
+运行前请先创建日志目录：（该日志是插件调用底层api将记录的日志）
+```shell
+mkdir -m 750 /var/log/mindx-dl/npu-exporter
+```
 先编写配置文件，如test.conf
 ```
 [[inputs.execd]]
