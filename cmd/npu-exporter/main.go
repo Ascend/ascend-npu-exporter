@@ -71,8 +71,6 @@ const (
 	containerModeContainerd = "containerd"
 	containerModeIsula      = "isula"
 	unixPre                 = "unix://"
-	prometheusPlatform      = "Prometheus"
-	telegrafPlatform        = "Telegraf"
 	timeout                 = 10
 	maxHeaderBytes          = 1024
 	// tenDays ten days
@@ -80,6 +78,14 @@ const (
 	maxIPConnLimit    = 128
 	maxConcurrency    = 512
 	defaultConnection = 20
+)
+
+const (
+	prometheusPlatform  = "Prometheus"
+	telegrafPlatform    = "Telegraf"
+	pollIntervalStr     = "poll_interval"
+	maxTelegrafParamLen = 2
+	minTelegrafParamLen = 1
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile, ExpiredTime: hwlog.DefaultExpiredTime,
@@ -186,7 +192,7 @@ func regPrometheus(opts container.CntNpuMonitorOpts) (*prometheus.Registry, erro
 	return reg, nil
 }
 
-func baseParamValid() error {
+func paramValidInPrometheus() error {
 	if port < portLeft || port > portRight {
 		return errors.New("the port is invalid")
 	}
@@ -217,6 +223,10 @@ func baseParamValid() error {
 	}
 	if concurrency < 1 || concurrency > maxConcurrency {
 		return errors.New("concurrency range error")
+	}
+	cmdLine := strings.Join(os.Args[1:], "")
+	if strings.Contains(cmdLine, pollIntervalStr) {
+		return fmt.Errorf("%s is not support this scene", pollIntervalStr)
 	}
 	return nil
 }
@@ -273,7 +283,7 @@ func init() {
 		"the http request limit counts for each Ip,20/1 means allow 20 request in 1 seconds")
 	flag.StringVar(&platform, "platform", "Prometheus", "the data reporting platform, "+
 		"just support Prometheus and Telegraf")
-	flag.DurationVar(&pollInterval, "poll_interval", 1*time.Second,
+	flag.DurationVar(&pollInterval, pollIntervalStr, 1*time.Second,
 		"how often to send metrics when use Telegraf plugin, "+
 			"needs to be used with -platform=Telegraf, otherwise, it does not take effect")
 }
@@ -306,7 +316,7 @@ func prometheusProcess() {
 	if err := initHwLogger(); err != nil {
 		return
 	}
-	if err := baseParamValid(); err != nil {
+	if err := paramValidInPrometheus(); err != nil {
 		hwlog.RunLog.Error(err)
 		return
 	}
@@ -331,7 +341,28 @@ func prometheusProcess() {
 	}
 }
 
+func paramValidInTelegraf() error {
+	// cmdLine here must contain "-platfor=Telegraf", otherwise, it will enter the Prometheus process
+	cmdLine := os.Args[1:]
+	switch len(cmdLine) {
+	case minTelegrafParamLen:
+		return nil
+	case maxTelegrafParamLen:
+		cmdLineStr := strings.Join(cmdLine, "")
+		if strings.Contains(cmdLineStr, pollIntervalStr) {
+			return nil
+		}
+		return fmt.Errorf("only support %s in Telegraf", pollIntervalStr)
+	default:
+		return errors.New("too many parameters")
+	}
+}
+
 func telegrafProcess() {
+	if err := paramValidInTelegraf(); err != nil {
+		fmt.Fprintf(os.Stderr, "Err param: %s\n", err)
+		os.Exit(1)
+	}
 	// create the shim. This is what will run your plugins.
 	shim := shim.New()
 
