@@ -342,6 +342,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 	"unsafe"
 
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
@@ -1332,12 +1333,14 @@ func goEventFaultCallBack(event C.struct_dcmi_dms_fault_event) {
 		hwlog.RunLog.Errorf("no fault event call back func")
 		return
 	}
+	// recovery event recorded fault event occurrence time, the recovery event time cannot be obtained.
+	// Therefore, all event occurrence time is recorded as the current host time when the event is received.
 	devFaultInfo := common.DevFaultInfo{
 		EventID:         int64(event.event_id),
 		LogicID:         int32(event.deviceid),
 		Severity:        int8(event.severity),
 		Assertion:       int8(event.assertion),
-		AlarmRaisedTime: int64(event.alarm_raised_time),
+		AlarmRaisedTime: time.Now().UnixMilli(),
 	}
 	faultEventCallFunc(devFaultInfo)
 }
