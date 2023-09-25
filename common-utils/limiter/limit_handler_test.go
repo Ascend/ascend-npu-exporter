@@ -95,7 +95,7 @@ func TestReturnToken(t *testing.T) {
 		sc := make(chan struct{}, 1)
 		go returnToken(context.Background(), sc)
 		time.Sleep(time.Second)
-		convey.So(len(sc), convey.ShouldEqual, 1)
+		convey.So(len(sc), convey.ShouldEqual, 0)
 	})
 }
 

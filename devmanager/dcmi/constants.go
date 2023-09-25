@@ -45,6 +45,8 @@ const (
 	VmngSubCmdGetTotalResource VDevMngSubCmd = 1
 	// VmngSubCmdGetFreeResource get free resource info
 	VmngSubCmdGetFreeResource VDevMngSubCmd = 2
+	// VmngSubCmdGetVDevActivity get vir device activity info
+	VmngSubCmdGetVDevActivity VDevMngSubCmd = 5
 
 	// NDIE NDie ID, only Ascend910 has
 	NDIE DcmiDieType = 0

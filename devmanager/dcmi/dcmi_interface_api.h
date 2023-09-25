@@ -157,6 +157,7 @@ enum dcmi_die_type {
 };
 
 #define DCMI_VDEV_RES_NAME_LEN 16
+#define DCMI_VDEV_SIZE 20
 #define DCMI_VDEV_FOR_RESERVE 32
 #define DCMI_SOC_SPLIT_MAX 32
 #define DCMI_MAX_EVENT_NAME_LENGTH 256
@@ -205,7 +206,12 @@ struct dcmi_computing_resource {
     unsigned short device_aicpu;
     unsigned short topic_ctrl_cpu_slot;
 
-    unsigned char reserved[DCMI_VDEV_FOR_RESERVE];
+    /* vnpu resource */
+    unsigned int vdev_aicore_utilization;
+    unsigned long long vdev_memory_total;
+    unsigned long long vdev_memory_free;
+
+    unsigned char reserved[DCMI_VDEV_FOR_RESERVE-DCMI_VDEV_SIZE];
 };
 
 struct dcmi_media_resource {

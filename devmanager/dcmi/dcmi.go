@@ -390,6 +390,7 @@ type DcDriverInterface interface {
 	DcGetDeviceVDevResource(int32, int32, uint32) (common.CgoVDevQueryStru, error)
 	DcGetDeviceTotalResource(int32, int32) (common.CgoSocTotalResource, error)
 	DcGetDeviceFreeResource(int32, int32) (common.CgoSocFreeResource, error)
+	DcGetVDevActivityInfo(int32, int32, uint32) (common.VDevActivityInfo, error)
 	DcVGetDeviceInfo(int32, int32) (common.VirtualDevInfo, error)
 	DcGetCardIDDeviceID(int32) (int32, int32, error)
 	DcCreateVDevice(int32, common.CgoCreateVDevRes) (common.CgoCreateVDevOut, error)
@@ -718,6 +719,37 @@ func (d *DcManager) DcGetDeviceFreeResource(cardID, deviceID int32) (common.CgoS
 	return convertSocFreeResource(freeResource), nil
 }
 
+// DcGetVDevActivityInfo get vir device activity info by virtual device id
+func (d *DcManager) DcGetVDevActivityInfo(cardID, deviceID int32, vDevID uint32) (common.VDevActivityInfo, error) {
+	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
+		return common.VDevActivityInfo{}, fmt.Errorf("cardID(%d) or deviceID(%d) is invalid", cardID, deviceID)
+	}
+	if !common.IsValidVDevID(vDevID) {
+		return common.VDevActivityInfo{}, fmt.Errorf("vDevID(%d) invalid", vDevID)
+	}
+	var cMainCmd = C.enum_dcmi_main_cmd(MainCmdVDevMng)
+	subCmd := VmngSubCmdGetVDevActivity
+	var vDevActivityInfo C.struct_dcmi_vdev_query_stru
+	size := C.uint(unsafe.Sizeof(vDevActivityInfo))
+	vDevActivityInfo.vdev_id = C.uint(vDevID)
+	if retCode := C.dcmi_get_device_info(C.int(cardID), C.int(deviceID), cMainCmd, C.uint(subCmd),
+		unsafe.Pointer(&vDevActivityInfo), &size); int32(retCode) != common.Success {
+		return common.VDevActivityInfo{}, fmt.Errorf("retCode: %d", int32(retCode))
+	}
+	totalMemSize := uint64(vDevActivityInfo.query_info.computing.vdev_memory_total)
+	usedMemSize := totalMemSize - uint64(vDevActivityInfo.query_info.computing.vdev_memory_free)
+	if usedMemSize < 0 {
+		return common.VDevActivityInfo{}, errors.New("used memory value abnormal")
+	}
+	return common.VDevActivityInfo{
+		VDevID:         vDevID,
+		VDevAiCoreRate: uint32(vDevActivityInfo.query_info.computing.vdev_aicore_utilization),
+		VDevTotalMem:   totalMemSize,
+		VDevUsedMem:    usedMemSize,
+		IsVirtualDev:   true,
+	}, nil
+}
+
 // DcVGetDeviceInfo get vdevice resource info
 func (d *DcManager) DcVGetDeviceInfo(cardID, deviceID int32) (common.VirtualDevInfo, error) {
 	if !common.IsValidCardIDAndDeviceID(cardID, deviceID) {
@@ -740,7 +772,6 @@ func (d *DcManager) DcVGetDeviceInfo(cardID, deviceID int32) (common.VirtualDevI
 	if err != nil {
 		return common.VirtualDevInfo{}, fmt.Errorf("get device free resource failed, error is: %#v", err)
 	}
-
 	dcmiVDevInfo := common.VirtualDevInfo{
 		TotalResource: cgoDcmiSocTotalResource,
 		FreeResource:  cgoDcmiSocFreeResource,
@@ -751,6 +782,12 @@ func (d *DcManager) DcVGetDeviceInfo(cardID, deviceID int32) (common.VirtualDevI
 			return common.VirtualDevInfo{}, fmt.Errorf("get device virtual resource failed, error is: %#v", err)
 		}
 		dcmiVDevInfo.VDevInfo = append(dcmiVDevInfo.VDevInfo, cgoVDevQueryStru)
+		vDevActivityInfo, err := d.DcGetVDevActivityInfo(cardID, deviceID, vDevID)
+		if err != nil {
+			hwlog.RunLog.Warnf("get cur vDev's activity info failed, err: %s", err)
+		}
+		vDevActivityInfo.VDevAiCore = float64(cgoVDevQueryStru.QueryInfo.Computing.Aic)
+		dcmiVDevInfo.VDevActivityInfo = append(dcmiVDevInfo.VDevActivityInfo, vDevActivityInfo)
 	}
 	return dcmiVDevInfo, nil
 }

@@ -89,6 +89,13 @@ var (
 	npuContainerUtilization = prometheus.NewDesc("container_npu_utilization",
 		"the npu ai core utilization in container, unit is '%'", []string{"id", "namespace", "pod_name",
 			"container_name", "vdie_id", "pcie_bus_info"}, nil)
+	podAiCoreUtilizationRate = prometheus.NewDesc("vnpu_pod_aicore_utilization",
+		"the vnpu aicore utilization rate, unit is '%'",
+		[]string{"id", "v_dev_id", "aicore_count", "namespace", "pod_name", "container_name", "is_virtual"}, nil)
+	podTotalMemory = prometheus.NewDesc("vnpu_pod_total_memory", "the vnpu total memory on pod, unit is 'KB'",
+		[]string{"id", "v_dev_id", "aicore_count", "namespace", "pod_name", "container_name", "is_virtual"}, nil)
+	podUsedMemory = prometheus.NewDesc("vnpu_pod_used_memory", "the vnpu used memory on pod, unit is 'KB'",
+		[]string{"id", "v_dev_id", "aicore_count", "namespace", "pod_name", "container_name", "is_virtual"}, nil)
 	npuContainerInfoInit sync.Once
 	npuChipInfoInit      sync.Once
 )
@@ -104,6 +111,8 @@ const (
 	trafficPart    = 4
 	noTraffic      = 0.00
 	A300IA2BoardId = 0x28
+	decimalPlaces  = 2
+	bitSize        = 64
 )
 
 type npuCollector struct {
@@ -152,9 +161,14 @@ func getNPUInfo(dmgr devmanager.DeviceInterface, infoType string) []HuaWeiNPUCar
 				continue
 			}
 			chipInfo = assembleNPUInfo(cardID, logID, dmgr, infoType)
-			if chipInfo != nil {
-				deviceList = append(deviceList, chipInfo)
+			if chipInfo == nil {
+				continue
 			}
+			if !strings.Contains(chipInfo.ChipIfo.Name, "310P") || chipInfo.VDevInfos.TotalResource.VDevNum == 0 {
+				deviceList = append(deviceList, chipInfo)
+				continue
+			}
+			deviceList = append(deviceList, getVNPUInfo(*chipInfo)...)
 		}
 		npuCard := HuaWeiNPUCard{
 			CardID:     int(cardID),
@@ -186,8 +200,23 @@ func assembleNPUInfo(cardID int32, logicID int32, dmgr devmanager.DeviceInterfac
 		}
 		// Ascend310P use cardPower to replace chipPower
 		chipInfo.Power = cardPower
+		vDevInfos, err := dmgr.GetVirtualDeviceInfo(logicID)
+		if err != nil || vDevInfos.TotalResource.VDevNum == 0 {
+			return chipInfo
+		}
+		chipInfo.VDevInfos = vDevInfos
 	}
 	return chipInfo
+}
+
+func getVNPUInfo(chipInfo HuaWeiAIChip) []*HuaWeiAIChip {
+	var aiChips []*HuaWeiAIChip
+	for _, activityVDev := range chipInfo.VDevInfos.VDevActivityInfo {
+		vDevInfo := chipInfo
+		vDevInfo.VDevActivityInfo = activityVDev
+		aiChips = append(aiChips, &vDevInfo)
+	}
+	return aiChips
 }
 
 func start(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
@@ -317,6 +346,9 @@ func (n *npuCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- npuChipInfoDescLinkStatus
 	ch <- npuChipInfoDescDevProcessInfo
 	ch <- npuChipInfoDescAICoreFreqInfo
+	ch <- podAiCoreUtilizationRate
+	ch <- podTotalMemory
+	ch <- podUsedMemory
 }
 
 // Collect implements prometheus.Collector
@@ -326,7 +358,6 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 	npuList := getNPUInfoInCache(ch, n)
-	networkInfoMap := getNetworkInfoInCache(ch, n)
 	containerMap := getContainerNPUInfo(ch, n)
 	ch <- prometheus.MustNewConstMetric(versionInfoDesc, prometheus.GaugeValue, 1, []string{versions.BuildVersion}...)
 	var totalCount = 0
@@ -336,23 +367,33 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 			continue
 		}
 		totalCount += deviceCount
-		for _, chip := range card.DeviceList {
-			devInfo, ok := containerMap[chip.DeviceID]
-			if !ok {
-				devInfo = container.DevicesInfo{}
-			}
-			if networkInfo, ok := networkInfoMap[chip.DeviceID]; ok {
-				updateNetworkInfo(chip, networkInfo)
-			}
-			updateNPUCommonInfo(ch, &card, chip)
-			updateNPUMemoryInfo(ch, &card, chip)
-			updateNPUNetworkInfo(ch, &card, chip)
-			updateProcessInfo(ch, &card, chip, devInfo)
-			updateContainerInfo(ch, &card, chip, devInfo)
-		}
+		n.updateCustomMetrics(ch, card, containerMap)
 	}
 
 	ch <- prometheus.MustNewConstMetric(machineInfoNPUDesc, prometheus.GaugeValue, float64(totalCount))
+}
+
+func (n *npuCollector) updateCustomMetrics(ch chan<- prometheus.Metric, card HuaWeiNPUCard,
+	containerMap map[int]container.DevicesInfo) {
+	for _, chip := range card.DeviceList {
+		deviceID := chip.DeviceID
+		if networkInfo, ok := getNetworkInfoInCache(ch, n)[deviceID]; ok {
+			updateNetworkInfo(chip, networkInfo)
+		}
+		if chip.VDevActivityInfo.IsVirtualDev {
+			deviceID = int(chip.VDevActivityInfo.VDevID)
+		}
+		devInfo, ok := containerMap[deviceID]
+		if !ok {
+			devInfo = container.DevicesInfo{}
+		}
+		updateNPUCommonInfo(ch, &card, chip)
+		updateNPUMemoryInfo(ch, &card, chip)
+		updateNPUNetworkInfo(ch, &card, chip)
+		updateProcessInfo(ch, &card, chip, devInfo)
+		updateContainerInfo(ch, &card, chip, devInfo)
+		updatePodVNPUInfo(ch, &card, chip, devInfo)
+	}
 }
 
 func getNPUInfoInCache(ch chan<- prometheus.Metric, n *npuCollector) []HuaWeiNPUCard {
@@ -526,14 +567,38 @@ func updateContainerInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 	if len(containerName) != containerNameLen {
 		return
 	}
+	ch <- prometheus.MustNewConstMetric(npuContainerInfo, prometheus.GaugeValue, 1,
+		[]string{devInfo.ID, strings.Join(containerName, "_"), strconv.Itoa(chip.DeviceID), chip.VDieID,
+			chip.PCIeBusInfo}...)
+	if common.IsValidVDevID(chip.VDevActivityInfo.VDevID) {
+		return
+	}
 	updateContainerNPUMemoryInfo(ch, npu, chip, containerName)
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuContainerUtilization,
 		prometheus.GaugeValue, float64(chip.Utilization), []string{strconv.FormatInt(int64(chip.DeviceID), base),
 			containerName[nameSpaceIdx], containerName[podNameIdx], containerName[conNameIdx], chip.VDieID,
 			chip.PCIeBusInfo}...))
-	ch <- prometheus.MustNewConstMetric(npuContainerInfo, prometheus.GaugeValue, 1,
-		[]string{devInfo.ID, strings.Join(containerName, "_"), strconv.Itoa(chip.DeviceID), chip.VDieID,
-			chip.PCIeBusInfo}...)
+
+}
+
+func updatePodVNPUInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
+	devInfo container.DevicesInfo) {
+	if !strings.Contains(chip.ChipIfo.Name, "310P") || !common.IsValidVDevID(chip.VDevActivityInfo.VDevID) {
+		return
+	}
+	containerName := getContainerNameArray(devInfo)
+	if len(containerName) != containerNameLen {
+		return
+	}
+	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
+		prometheus.MustNewConstMetric(podAiCoreUtilizationRate, prometheus.GaugeValue,
+			float64(chip.VDevActivityInfo.VDevAiCoreRate), getPodDisplayInfo(chip, containerName)...))
+	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
+		prometheus.MustNewConstMetric(podTotalMemory, prometheus.GaugeValue,
+			float64(chip.VDevActivityInfo.VDevTotalMem), getPodDisplayInfo(chip, containerName)...))
+	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
+		prometheus.MustNewConstMetric(podUsedMemory, prometheus.GaugeValue,
+			float64(chip.VDevActivityInfo.VDevUsedMem), getPodDisplayInfo(chip, containerName)...))
 }
 
 func updateContainerNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
@@ -763,3 +828,16 @@ func getNetworkHealthy(netCode uint32) string {
 
 	return UnHealthy
 }
+
+func getPodDisplayInfo(chip *HuaWeiAIChip, containerName []string) []string {
+	return []string{
+		strconv.Itoa(chip.DeviceID),
+		strconv.Itoa(int(chip.VDevActivityInfo.VDevID)),
+		strconv.FormatFloat(chip.VDevActivityInfo.VDevAiCore, 'f', decimalPlaces, bitSize),
+		containerName[nameSpaceIdx],
+		containerName[podNameIdx],
+		containerName[conNameIdx],
+		strconv.FormatBool(chip.VDevActivityInfo.IsVirtualDev),
+	}
+}
+

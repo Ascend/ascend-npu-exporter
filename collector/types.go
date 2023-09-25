@@ -52,6 +52,10 @@ type HuaWeiAIChip struct {
 	ChipIfo *common.ChipInfo `json:"chip_info"`
 	// the hbm info
 	HbmInfo *common.HbmInfo `json:"hbm_info"`
+	// the activity virtual device info
+	VDevActivityInfo common.VDevActivityInfo `json:"v_dev_activity_info"`
+	// VDevInfos the virtual device info
+	VDevInfos common.VirtualDevInfo `json:"v_dev_infos"`
 	// the healthy status of the  AI chip
 	HealthStatus string `json:"health_status"`
 	// the error code of the chip

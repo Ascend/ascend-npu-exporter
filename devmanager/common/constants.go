@@ -92,6 +92,10 @@ const (
 
 	// SubscribeAllDevice subscribe all device ID
 	SubscribeAllDevice = -1
+	// MinVDevID min value of virtual device id
+	MinVDevID = 100
+	// MaxVDevID max value of virtual device id
+	MaxVDevID = 1124
 )
 
 const (
