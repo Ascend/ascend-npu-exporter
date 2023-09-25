@@ -152,9 +152,10 @@ type CgoSocTotalResource struct {
 
 // VirtualDevInfo virtual device infos
 type VirtualDevInfo struct {
-	TotalResource CgoSocTotalResource
-	FreeResource  CgoSocFreeResource
-	VDevInfo      []CgoVDevQueryStru
+	TotalResource    CgoSocTotalResource
+	FreeResource     CgoSocFreeResource
+	VDevInfo         []CgoVDevQueryStru
+	VDevActivityInfo []VDevActivityInfo
 }
 
 // DevFaultInfo device's fault info
@@ -185,4 +186,14 @@ type BoardInfo struct {
 	PcbId   uint32
 	BomId   uint32
 	SlotId  uint32
+}
+
+// VDevActivityInfo vNPU activity info for 310P
+type VDevActivityInfo struct {
+	VDevID         uint32
+	VDevAiCoreRate uint32
+	VDevTotalMem   uint64
+	VDevUsedMem    uint64
+	VDevAiCore     float64
+	IsVirtualDev   bool
 }
