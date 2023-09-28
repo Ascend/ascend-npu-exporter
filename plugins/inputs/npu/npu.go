@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 
@@ -22,8 +22,10 @@ const (
 	aiCore = common.DeviceType(2)
 	hbm    = common.DeviceType(6)
 
-	mega          = 1024 * 1024
-	maxLogBackups = 10
+	mega                = 1024 * 1024
+	maxLogBackups       = 2
+	defaultLogCacheSize = 2 * 1024
+	defaultLogFileSize  = 2
 )
 
 const (
@@ -63,7 +65,8 @@ func (npu *NpuWatch) Init() error {
 	var hwLogConfig = &hwlog.LogConfig{
 		LogFileName: npu.NpuLogPath,
 		ExpiredTime: hwlog.DefaultExpiredTime,
-		CacheSize:   hwlog.DefaultCacheSize,
+		CacheSize:   defaultLogCacheSize,
+		FileMaxSize: defaultLogFileSize,
 		LogLevel:    npu.NpuLogLevel,
 		MaxAge:      hwlog.DefaultMinSaveAge,
 		MaxBackups:  maxLogBackups}

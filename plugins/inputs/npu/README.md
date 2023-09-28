@@ -40,6 +40,33 @@ make all
 ```shell
 mkdir -m 750 /var/log/mindx-dl/npu-exporter
 ```
+源码集成时，该日志可通过hwlog.LogConfig{}结构体来配置，该结构体的详细信息如下
+```go
+type LogConfig struct {
+	// log file path, default "/var/log/mindx-dl/npu-exporter/npu-plugin.log" in npu plugin
+	LogFileName string
+	// only write to std out, default value: false
+	OnlyToStdout bool
+	// only write to file, default value: false
+	OnlyToFile bool
+	// log level, -1-debug, 0-info, 1-warning, 2-error 3-critical default value: 0
+	LogLevel int
+	// size of a single log file (MB), default value: 2MB in npu plugin
+	FileMaxSize int
+	// MaxLineLength Max length of each log line, default value: 256
+	MaxLineLength int
+	// maximum number of backup log files, set as 2 in npu plugin
+	MaxBackups int
+	// maximum number of days for backup log files, default value: 2
+	MaxAge int
+	// whether backup files need to be compressed, default value: false
+	IsCompress bool
+	// expiration time for log cache, default value: 1s
+	ExpiredTime int
+	// Size of log cache space, default: 2048
+	CacheSize int
+}
+```
 #### **使用示例：**
 使用插件中提供的配置文件运行telegraf
 ```shell
