@@ -86,6 +86,8 @@ const (
 	Ascend910 = "Ascend910"
 	// Ascend910B ascend 1980B(910B) chip
 	Ascend910B = "Ascend910B"
+	// Atlas200ISoc 200 soc env
+	Atlas200ISoc = "Atlas 200I SoC A1"
 
 	// NeverStopTimeout never stop interface timeout
 	NeverStopTimeout = -1

@@ -358,6 +358,7 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 	npuList := getNPUInfoInCache(ch, n)
+	networkInfoMap := getNetworkInfoInCache(ch, n)
 	containerMap := getContainerNPUInfo(ch, n)
 	ch <- prometheus.MustNewConstMetric(versionInfoDesc, prometheus.GaugeValue, 1, []string{versions.BuildVersion}...)
 	var totalCount = 0
@@ -367,33 +368,28 @@ func (n *npuCollector) Collect(ch chan<- prometheus.Metric) {
 			continue
 		}
 		totalCount += deviceCount
-		n.updateCustomMetrics(ch, card, containerMap)
+		for _, chip := range card.DeviceList {
+			deviceID := chip.DeviceID
+			if networkInfo, ok := networkInfoMap[deviceID]; ok {
+				updateNetworkInfo(chip, networkInfo)
+			}
+			if chip.VDevActivityInfo.IsVirtualDev {
+				deviceID = int(chip.VDevActivityInfo.VDevID)
+			}
+			devInfo, ok := containerMap[deviceID]
+			if !ok {
+				devInfo = container.DevicesInfo{}
+			}
+			updateNPUCommonInfo(ch, &card, chip)
+			updateNPUMemoryInfo(ch, &card, chip)
+			updateNPUNetworkInfo(ch, &card, chip)
+			updateProcessInfo(ch, &card, chip, devInfo)
+			updateContainerInfo(ch, &card, chip, devInfo)
+			updatePodVNPUInfo(ch, &card, chip, devInfo)
+		}
 	}
 
 	ch <- prometheus.MustNewConstMetric(machineInfoNPUDesc, prometheus.GaugeValue, float64(totalCount))
-}
-
-func (n *npuCollector) updateCustomMetrics(ch chan<- prometheus.Metric, card HuaWeiNPUCard,
-	containerMap map[int]container.DevicesInfo) {
-	for _, chip := range card.DeviceList {
-		deviceID := chip.DeviceID
-		if networkInfo, ok := getNetworkInfoInCache(ch, n)[deviceID]; ok {
-			updateNetworkInfo(chip, networkInfo)
-		}
-		if chip.VDevActivityInfo.IsVirtualDev {
-			deviceID = int(chip.VDevActivityInfo.VDevID)
-		}
-		devInfo, ok := containerMap[deviceID]
-		if !ok {
-			devInfo = container.DevicesInfo{}
-		}
-		updateNPUCommonInfo(ch, &card, chip)
-		updateNPUMemoryInfo(ch, &card, chip)
-		updateNPUNetworkInfo(ch, &card, chip)
-		updateProcessInfo(ch, &card, chip, devInfo)
-		updateContainerInfo(ch, &card, chip, devInfo)
-		updatePodVNPUInfo(ch, &card, chip, devInfo)
-	}
 }
 
 func getNPUInfoInCache(ch chan<- prometheus.Metric, n *npuCollector) []HuaWeiNPUCard {
@@ -734,11 +730,6 @@ func packChipInfoPart1(logicID int32, dmgr devmanager.DeviceInterface, hwChip *H
 	if err != nil {
 		hbmInfo = &common.HbmInfo{}
 	}
-	busInfo, err := dmgr.GetPCIeBusInfo(logicID)
-	if err != nil {
-		busInfo = ""
-		hwlog.RunLog.Error(err)
-	}
 
 	hwChip.AICoreCurrentFreq = freq
 	hwChip.Power = power
@@ -747,7 +738,6 @@ func packChipInfoPart1(logicID int32, dmgr devmanager.DeviceInterface, hwChip *H
 	hwChip.Voltage = vol
 	hwChip.Meminf = mem
 	hwChip.HbmInfo = hbmInfo
-	hwChip.PCIeBusInfo = busInfo
 }
 
 func packChipInfoPart2(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
@@ -763,11 +753,6 @@ func packChipInfoPart2(logicID int32, dmgr devmanager.DeviceInterface, hwChip *H
 	if err != nil {
 		hwlog.RunLog.Debug(err)
 	}
-	info, err := dmgr.GetDevProcessInfo(logicID)
-	if err != nil {
-		hwlog.RunLog.Error(err)
-		info = new(common.DevProcessInfo)
-	}
 	hwChip.NetHealthStatus = UnHealthy
 	if strings.Contains(hwChip.ChipIfo.Name, "910") && hwChip.BoardInfo.BoardId != A300IA2BoardId {
 		netCode, err := dmgr.GetDeviceNetWorkHealth(logicID)
@@ -777,15 +762,40 @@ func packChipInfoPart2(logicID int32, dmgr devmanager.DeviceInterface, hwChip *H
 		}
 		hwChip.NetHealthStatus = getNetworkHealthy(netCode)
 	}
-	pcieInfo, err := dmgr.GetPCIeBusInfo(logicID)
-	if err != nil {
-		hwlog.RunLog.Error(err)
-		pcieInfo = ""
-	}
+	setProcessInfo(logicID, dmgr, hwChip)
+	setPCIeBusInfo(logicID, dmgr, hwChip)
 	hwChip.ErrorCode = errCode
 	hwChip.Utilization = int(util)
 	hwChip.VDieID = vdieID
+}
+
+func setProcessInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
+	productTypes := dmgr.GetProductTypeArray()
+	info, err := dmgr.GetDevProcessInfo(logicID)
+	if err != nil {
+		if len(productTypes) == 1 && productTypes[0] == common.Atlas200ISoc {
+			hwlog.RunLog.Debugf("process info is not supported on %s", common.Atlas200ISoc)
+			hwChip.DevProcessInfo = new(common.DevProcessInfo)
+			return
+		}
+		hwlog.RunLog.Error(err)
+		info = new(common.DevProcessInfo)
+	}
 	hwChip.DevProcessInfo = info
+}
+
+func setPCIeBusInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
+	productTypes := dmgr.GetProductTypeArray()
+	pcieInfo, err := dmgr.GetPCIeBusInfo(logicID)
+	if err != nil {
+		if len(productTypes) == 1 && productTypes[0] == common.Atlas200ISoc {
+			hwlog.RunLog.Debugf("pcie bus info is not supported on %s", common.Atlas200ISoc)
+			hwChip.PCIeBusInfo = ""
+			return
+		}
+		hwlog.RunLog.Error(err)
+		pcieInfo = ""
+	}
 	hwChip.PCIeBusInfo = pcieInfo
 }
 

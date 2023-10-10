@@ -765,12 +765,12 @@ func (d *DcManager) DcVGetDeviceInfo(cardID, deviceID int32) (common.VirtualDevI
 
 	cgoDcmiSocTotalResource, err := d.DcGetDeviceTotalResource(cardID, deviceID)
 	if err != nil {
-		return common.VirtualDevInfo{}, fmt.Errorf("get device total resource failed, error is: %#v", err)
+		return common.VirtualDevInfo{}, fmt.Errorf("get device total resource failed, error is: %v", err)
 	}
 
 	cgoDcmiSocFreeResource, err := d.DcGetDeviceFreeResource(cardID, deviceID)
 	if err != nil {
-		return common.VirtualDevInfo{}, fmt.Errorf("get device free resource failed, error is: %#v", err)
+		return common.VirtualDevInfo{}, fmt.Errorf("get device free resource failed, error is: %v", err)
 	}
 	dcmiVDevInfo := common.VirtualDevInfo{
 		TotalResource: cgoDcmiSocTotalResource,
@@ -779,7 +779,7 @@ func (d *DcManager) DcVGetDeviceInfo(cardID, deviceID int32) (common.VirtualDevI
 	for _, vDevID := range cgoDcmiSocTotalResource.VDevID {
 		cgoVDevQueryStru, err := d.DcGetDeviceVDevResource(cardID, deviceID, vDevID)
 		if err != nil {
-			return common.VirtualDevInfo{}, fmt.Errorf("get device virtual resource failed, error is: %#v", err)
+			return common.VirtualDevInfo{}, fmt.Errorf("get device virtual resource failed, error is: %v", err)
 		}
 		dcmiVDevInfo.VDevInfo = append(dcmiVDevInfo.VDevInfo, cgoVDevQueryStru)
 		vDevActivityInfo, err := d.DcGetVDevActivityInfo(cardID, deviceID, vDevID)
@@ -837,12 +837,12 @@ func (d *DcManager) DcGetVDeviceInfo(logicID int32) (common.VirtualDevInfo, erro
 	}
 	cardID, deviceID, err := d.DcGetCardIDDeviceID(logicID)
 	if err != nil {
-		return common.VirtualDevInfo{}, fmt.Errorf("get card id and device id failed, error is: %#v", err)
+		return common.VirtualDevInfo{}, fmt.Errorf("get card id and device id failed, error is: %v", err)
 	}
 
 	dcmiVDevInfo, err := d.DcVGetDeviceInfo(cardID, deviceID)
 	if err != nil {
-		return common.VirtualDevInfo{}, fmt.Errorf("get virtual device info failed, error is: %#v", err)
+		return common.VirtualDevInfo{}, fmt.Errorf("get virtual device info failed, error is: %v", err)
 	}
 	return dcmiVDevInfo, nil
 }
