@@ -54,6 +54,7 @@ type DeviceInterface interface {
 	GetVirtualDeviceInfo(logicID int32) (common.VirtualDevInfo, error)
 	DestroyVirtualDevice(logicID int32, vDevID uint32) error
 	GetDevType() string
+	GetProductTypeArray() []string
 	GetProductType(cardID, deviceID int32) (string, error)
 	GetAllProductType() ([]string, error)
 	GetNpuWorkMode() string
@@ -100,6 +101,13 @@ type DeviceManager struct {
 	// DevType the value is the same as the device type corresponding to the DcMgr variable.
 	// Options: common.Ascend310,common.Ascend310P,common.Ascend910
 	DevType string
+	// ProductTypes product type in server, multi type will be in 310P mix scene
+	ProductTypes []string
+}
+
+// GetProductTypeArray return product types
+func (d *DeviceManager) GetProductTypeArray() []string{
+	return d.ProductTypes
 }
 
 // GetDevType return dev type
@@ -133,6 +141,11 @@ func AutoInit(dType string) (*DeviceManager, error) {
 			dType, devType)
 	}
 	devMgr.DevType = devType
+	pTypes, err := devMgr.GetAllProductType()
+	if err != nil {
+		hwlog.RunLog.Debugf("auto init product types failed, err: %s", err)
+	}
+	devMgr.ProductTypes = pTypes
 	return devMgr, nil
 }
 
@@ -445,8 +458,8 @@ func (d *DeviceManager) CreateVirtualDevice(logicID int32, vDevInfo common.CgoCr
 func (d *DeviceManager) GetVirtualDeviceInfo(logicID int32) (common.VirtualDevInfo, error) {
 	cgoVDevInfo, err := d.DcMgr.DcGetVDeviceInfo(logicID)
 	if err != nil {
-		hwlog.RunLog.Error(err)
-		return common.VirtualDevInfo{}, fmt.Errorf("get virtual device info failed, error is: %#v "+
+		hwlog.RunLog.Debug(err)
+		return common.VirtualDevInfo{}, fmt.Errorf("get virtual device info failed, error is: %v "+
 			"and vdev num is: %d", err, int32(cgoVDevInfo.TotalResource.VDevNum))
 	}
 	for _, vDevInfo := range cgoVDevInfo.VDevInfo {
@@ -506,7 +519,9 @@ func (d *DeviceManager) GetAllProductType() ([]string, error) {
 			break
 		}
 	}
-	productTypes = common.RemoveDuplicate(&productTypes)
+	if productTypes != nil {
+		productTypes = common.RemoveDuplicate(&productTypes)
+	}
 	return productTypes, nil
 }
 
