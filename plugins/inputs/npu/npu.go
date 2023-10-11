@@ -175,6 +175,16 @@ func (npu *NpuWatch) packDcmiInfo(devID int32, fields map[string]interface{}, ac
 		acc.AddError(fmt.Errorf("get hbm rate of npu failed: %v", err))
 	}
 	fields["npu_chip_info_power"] = power
+
+	codeNum, errCodes, err := npu.devManager.GetDeviceAllErrorCode(devID)
+	if err != nil {
+		acc.AddError(fmt.Errorf("get err code failed: %v", err))
+	}
+	// conversion of "codeNum" here is safe because codeNum <= 128
+	for i := 0; i < int(codeNum); i++ {
+		errCodeKey := "npu_chip_info_error_code_" + strconv.Itoa(i)
+		fields[errCodeKey] = errCodes[i]
+	}
 }
 
 func (npu *NpuWatch) packHccnInfo(devID int32, fields map[string]interface{}, acc telegraf.Accumulator) error {
