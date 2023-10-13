@@ -237,3 +237,8 @@ func (d *DeviceManagerMockErr) GetPCIeBusInfo(logicID int32) (string, error) {
 func (d *DeviceManagerMockErr) GetBoardInfo(logicID int32) (common.BoardInfo, error) {
 	return common.BoardInfo{}, errors.New(errorMsg)
 }
+
+// GetProductTypeArray test for get empty product type array
+func (d *DeviceManagerMockErr) GetProductTypeArray() []string {
+	return nil
+}
