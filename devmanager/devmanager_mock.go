@@ -236,3 +236,8 @@ func (d *DeviceManagerMock) GetPCIeBusInfo(logicID int32) (string, error) {
 func (d *DeviceManagerMock) GetBoardInfo(logicID int32) (common.BoardInfo, error) {
 	return common.BoardInfo{}, nil
 }
+
+// GetProductTypeArray test for get product type array
+func (d *DeviceManagerMock) GetProductTypeArray() []string {
+	return []string{common.Atlas200ISoc}
+}
