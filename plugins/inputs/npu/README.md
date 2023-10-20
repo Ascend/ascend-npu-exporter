@@ -5,9 +5,9 @@
 ### 1、源码集成使用（适合未安装Telegraf的情况）
 对应官方文档：https://docs.influxdata.com/telegraf/v1.26/configure_plugins/external_plugins/write_external_plugin/
 #### **编译步骤：**
-拉取telegraf v1.26.0分支源码
+拉取telegraf v1.26.3分支源码
 ```shell
-git clone -b v1.26.0 https://github.com/influxdata/telegraf.git
+git clone -b v1.26.3 https://github.com/influxdata/telegraf.git
 ```
 拉取插件源码
 ```shell
