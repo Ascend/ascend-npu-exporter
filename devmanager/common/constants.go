@@ -136,4 +136,7 @@ const (
 	MaxProcNum = 32
 	// UnitMB MB
 	UnitMB float64 = 1024 * 1024
+
+	// Chip910 chip name 910
+	Chip910 = "910"
 )

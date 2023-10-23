@@ -265,7 +265,7 @@ func (npu *NpuWatch) Gather(acc telegraf.Accumulator) error {
 	devTag := make(map[string]string)
 	devTagValue := "unsupported"
 	if cardType := npu.devManager.GetDevType(); cardType == common.Ascend910B || cardType == common.Ascend910 {
-		devTagValue = "910"
+		devTagValue = common.Chip910
 	}
 
 	for i := int32(0); i < devNum; i++ {

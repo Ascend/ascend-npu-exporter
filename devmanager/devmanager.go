@@ -106,7 +106,7 @@ type DeviceManager struct {
 }
 
 // GetProductTypeArray return product types
-func (d *DeviceManager) GetProductTypeArray() []string{
+func (d *DeviceManager) GetProductTypeArray() []string {
 	return d.ProductTypes
 }
 
