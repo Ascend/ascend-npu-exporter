@@ -1428,7 +1428,7 @@ func (d *DcManager) DcGetDevProcessInfo(cardID, deviceID int32) (*common.DevProc
 			cardID, deviceID, int32(retCode))
 	}
 
-	if int32(procNum) < 0 || int32(procNum) >= common.MaxProcNum {
+	if int32(procNum) < 0 || int32(procNum) > common.MaxProcNum {
 		return nil, fmt.Errorf("get invalid proccess num (%d), cardID(%d) and deviceID(%d)", int32(procNum), cardID,
 			deviceID)
 	}
