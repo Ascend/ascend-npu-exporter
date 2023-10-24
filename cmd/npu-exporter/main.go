@@ -86,10 +86,11 @@ const (
 	pollIntervalStr     = "poll_interval"
 	maxTelegrafParamLen = 2
 	minTelegrafParamLen = 1
+	maxLogLineLength    = 1024
 )
 
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile, ExpiredTime: hwlog.DefaultExpiredTime,
-	CacheSize: hwlog.DefaultCacheSize}
+	CacheSize: hwlog.DefaultCacheSize, MaxLineLength: maxLogLineLength}
 
 func main() {
 	flag.Parse()
