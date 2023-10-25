@@ -106,7 +106,7 @@ type DeviceManager struct {
 }
 
 // GetProductTypeArray return product types
-func (d *DeviceManager) GetProductTypeArray() []string{
+func (d *DeviceManager) GetProductTypeArray() []string {
 	return d.ProductTypes
 }
 
@@ -519,7 +519,7 @@ func (d *DeviceManager) GetAllProductType() ([]string, error) {
 			break
 		}
 	}
-	if productTypes != nil {
+	if len(productTypes) != 0 {
 		productTypes = common.RemoveDuplicate(&productTypes)
 	}
 	return productTypes, nil

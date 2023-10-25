@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
 	"huawei.com/npu-exporter/v5/common-utils/utils"
 )

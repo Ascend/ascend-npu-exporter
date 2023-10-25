@@ -76,7 +76,7 @@ func IsValidDevNumInCard(num int32) bool {
 
 // IsValidVDevID valid vir device id
 func IsValidVDevID(vDevID uint32) bool {
-	return vDevID >= MinVDevID &&  vDevID < MaxVDevID
+	return vDevID >= MinVDevID && vDevID < MaxVDevID
 }
 
 // GetDeviceTypeByChipName get device type by chipName

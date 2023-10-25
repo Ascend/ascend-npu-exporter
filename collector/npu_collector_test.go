@@ -26,6 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
+
 	"huawei.com/npu-exporter/v5/collector/container"
 	"huawei.com/npu-exporter/v5/collector/container/isula"
 	"huawei.com/npu-exporter/v5/collector/container/v1"

@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"huawei.com/npu-exporter/v5/collector/container/isula"
 	"math"
 	"os"
 	"regexp"
@@ -30,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"huawei.com/npu-exporter/v5/collector/container/isula"
 	"huawei.com/npu-exporter/v5/collector/container/v1"
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
 	"huawei.com/npu-exporter/v5/common-utils/utils"

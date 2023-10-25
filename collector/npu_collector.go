@@ -850,4 +850,3 @@ func getPodDisplayInfo(chip *HuaWeiAIChip, containerName []string) []string {
 		strconv.FormatBool(chip.VDevActivityInfo.IsVirtualDev),
 	}
 }
-
