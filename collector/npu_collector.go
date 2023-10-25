@@ -595,7 +595,7 @@ func updatePodVNPUInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *Hu
 
 func updateContainerNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
 	containerName []string) {
-	if strings.Contains(chip.ChipIfo.Name, "910") {
+	if strings.Contains(chip.ChipIfo.Name, common.Chip910) {
 		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 			prometheus.MustNewConstMetric(npuContainerTotalMemory, prometheus.GaugeValue,
 				float64(chip.HbmInfo.MemorySize), []string{strconv.FormatInt(int64(chip.DeviceID), base),
@@ -752,21 +752,32 @@ func packChipInfoPart2(logicID int32, dmgr devmanager.DeviceInterface, hwChip *H
 	if err != nil {
 		hwlog.RunLog.Debug(err)
 	}
-	hwChip.NetHealthStatus = UnHealthy
-	if strings.Contains(hwChip.ChipIfo.Name, "910") && hwChip.BoardInfo.BoardId != A300IA2BoardId {
-		netCode, err := dmgr.GetDeviceNetWorkHealth(logicID)
-		hwlog.RunLog.Debugf("chip %d network healthy code is %d", logicID, netCode)
-		if err != nil {
-			netCode = math.MaxUint32
-		}
-		hwChip.NetHealthStatus = getNetworkHealthy(netCode)
-	}
+
+	setNetHealthStatus(logicID, dmgr, hwChip)
 	setProcessInfo(logicID, dmgr, hwChip)
 	setPCIeBusInfo(logicID, dmgr, hwChip)
 	setLinkStatus(logicID, dmgr, hwChip)
 	hwChip.ErrorCode = errCode
 	hwChip.Utilization = int(util)
 	hwChip.VDieID = vdieID
+}
+
+func setNetHealthStatus(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
+	hwChip.NetHealthStatus = UnHealthy
+	if !strings.Contains(hwChip.ChipIfo.Name, common.Chip910) {
+		return
+	}
+	// infer card
+	if dmgr.GetDevType() == common.Ascend910B && hwChip.BoardInfo.BoardId == A300IA2BoardId {
+		return
+	}
+
+	netCode, err := dmgr.GetDeviceNetWorkHealth(logicID)
+	hwlog.RunLog.Debugf("chip %d network healthy code is %d", logicID, netCode)
+	if err != nil {
+		netCode = math.MaxUint32
+	}
+	hwChip.NetHealthStatus = getNetworkHealthy(netCode)
 }
 
 func setProcessInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
@@ -805,7 +816,11 @@ func setLinkStatus(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWe
 	if err != nil {
 		return
 	}
-	if !strings.Contains(hwChip.ChipIfo.Name, "910") || hwChip.BoardInfo.BoardId == A300IA2BoardId {
+	if !strings.Contains(hwChip.ChipIfo.Name, common.Chip910) {
+		return
+	}
+	// infer card
+	if dmgr.GetDevType() == common.Ascend910B && hwChip.BoardInfo.BoardId == A300IA2BoardId {
 		return
 	}
 	hwChip.LinkStatus = hccn.GetNPULinkStatus(phyID)
@@ -856,4 +871,3 @@ func getPodDisplayInfo(chip *HuaWeiAIChip, containerName []string) []string {
 		strconv.FormatBool(chip.VDevActivityInfo.IsVirtualDev),
 	}
 }
-
