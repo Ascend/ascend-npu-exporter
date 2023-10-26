@@ -124,7 +124,7 @@ func (d *DeviceManagerMock) GetDeviceErrorCode(logicID int32) (int32, int64, err
 func (d *DeviceManagerMock) GetChipInfo(logicID int32) (*common.ChipInfo, error) {
 	chip := &common.ChipInfo{
 		Type:    "ascend",
-		Name:    "910",
+		Name:    common.Chip910,
 		Version: "v1",
 	}
 	return chip, nil

@@ -487,7 +487,6 @@ func getContainerNPUInfo(ch chan<- prometheus.Metric, n *npuCollector) map[int]c
 }
 
 func updateNetworkInfo(origin *HuaWeiAIChip, networkInfo HuaWeiAIChip) {
-	origin.LinkStatus = networkInfo.LinkStatus
 	origin.TxValue = networkInfo.TxValue
 	origin.RxValue = networkInfo.RxValue
 }
@@ -542,9 +541,6 @@ func updateNPUNetworkInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip 
 		hwlog.RunLog.Error("Invalid param in function updateNPUNetworkInfo")
 		return
 	}
-	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescLinkStatus,
-		prometheus.GaugeValue, float64(hccn.GetLinkStatusCode(chip.LinkStatus)),
-		[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescBandwidthTx, prometheus.GaugeValue, chip.TxValue,
 			[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, chip.PCIeBusInfo}...))
@@ -599,7 +595,7 @@ func updatePodVNPUInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *Hu
 
 func updateContainerNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
 	containerName []string) {
-	if strings.Contains(chip.ChipIfo.Name, "910") {
+	if strings.Contains(chip.ChipIfo.Name, common.Chip910) {
 		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 			prometheus.MustNewConstMetric(npuContainerTotalMemory, prometheus.GaugeValue,
 				float64(chip.HbmInfo.MemorySize), []string{strconv.FormatInt(int64(chip.DeviceID), base),
@@ -627,6 +623,9 @@ func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 		hwlog.RunLog.Error("Invalid param in function updateNpuCommonInfo")
 		return
 	}
+	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescLinkStatus,
+		prometheus.GaugeValue, float64(hccn.GetLinkStatusCode(chip.LinkStatus)),
+		[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescUtil,
 		prometheus.GaugeValue, float64(chip.Utilization), []string{strconv.FormatInt(int64(chip.DeviceID), base),
 			chip.VDieID, chip.PCIeBusInfo}...))
@@ -753,20 +752,32 @@ func packChipInfoPart2(logicID int32, dmgr devmanager.DeviceInterface, hwChip *H
 	if err != nil {
 		hwlog.RunLog.Debug(err)
 	}
-	hwChip.NetHealthStatus = UnHealthy
-	if strings.Contains(hwChip.ChipIfo.Name, "910") && hwChip.BoardInfo.BoardId != A300IA2BoardId {
-		netCode, err := dmgr.GetDeviceNetWorkHealth(logicID)
-		hwlog.RunLog.Debugf("chip %d network healthy code is %d", logicID, netCode)
-		if err != nil {
-			netCode = math.MaxUint32
-		}
-		hwChip.NetHealthStatus = getNetworkHealthy(netCode)
-	}
+
+	setNetHealthStatus(logicID, dmgr, hwChip)
 	setProcessInfo(logicID, dmgr, hwChip)
 	setPCIeBusInfo(logicID, dmgr, hwChip)
+	setLinkStatus(logicID, dmgr, hwChip)
 	hwChip.ErrorCode = errCode
 	hwChip.Utilization = int(util)
 	hwChip.VDieID = vdieID
+}
+
+func setNetHealthStatus(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
+	hwChip.NetHealthStatus = UnHealthy
+	if !strings.Contains(hwChip.ChipIfo.Name, common.Chip910) {
+		return
+	}
+	// infer card
+	if dmgr.GetDevType() == common.Ascend910B && hwChip.BoardInfo.BoardId == A300IA2BoardId {
+		return
+	}
+
+	netCode, err := dmgr.GetDeviceNetWorkHealth(logicID)
+	hwlog.RunLog.Debugf("chip %d network healthy code is %d", logicID, netCode)
+	if err != nil {
+		netCode = math.MaxUint32
+	}
+	hwChip.NetHealthStatus = getNetworkHealthy(netCode)
 }
 
 func setProcessInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
@@ -799,12 +810,24 @@ func setPCIeBusInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaW
 	hwChip.PCIeBusInfo = pcieInfo
 }
 
-func networkPackInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
+func setLinkStatus(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
 	hwChip.LinkStatus = LinkDown
-	if !strings.Contains(hwChip.ChipIfo.Name, "910") || hwChip.BoardInfo.BoardId == A300IA2BoardId {
+	phyID, err := dmgr.GetPhysicIDFromLogicID(logicID)
+	if err != nil {
+		hwlog.RunLog.Error("set link status failed")
 		return
 	}
+	if !strings.Contains(hwChip.ChipIfo.Name, common.Chip910) {
+		return
+	}
+	// infer card
+	if dmgr.GetDevType() == common.Ascend910B && hwChip.BoardInfo.BoardId == A300IA2BoardId {
+		return
+	}
+	hwChip.LinkStatus = hccn.GetNPULinkStatus(phyID)
+}
 
+func networkPackInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
 	phyID, err := dmgr.GetPhysicIDFromLogicID(logicID)
 	if err != nil {
 		return
@@ -813,7 +836,6 @@ func networkPackInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *Hua
 		hwChip.TxValue = tx
 		hwChip.RxValue = rx
 	}
-	hwChip.LinkStatus = hccn.GetNPULinkStatus(phyID)
 }
 
 func getHealth(logicID int32, dmgr devmanager.DeviceInterface) string {
