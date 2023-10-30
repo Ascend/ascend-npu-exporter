@@ -218,7 +218,7 @@ func GetNPUInterfaceTraffic(phyID int32) (float64, float64, error) {
 	outStr, err := hccnToolGetInfo(args...)
 	hwlog.RunLog.Debugf("hccn_tool command exec result: %#v", outStr)
 	if err != nil {
-		hwlog.RunLog.Errorf("get npu interface status failed, %s", err)
+		hwlog.RunLog.Errorf("get npu interface traffic failed, %s", err)
 		return noTraffic, noTraffic, err
 	}
 
