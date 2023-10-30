@@ -764,11 +764,7 @@ func packChipInfoPart2(logicID int32, dmgr devmanager.DeviceInterface, hwChip *H
 
 func setNetHealthStatus(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
 	hwChip.NetHealthStatus = UnHealthy
-	if !strings.Contains(hwChip.ChipIfo.Name, common.Chip910) {
-		return
-	}
-	// infer card
-	if dmgr.GetDevType() == common.Ascend910B && hwChip.BoardInfo.BoardId == A300IA2BoardId {
+	if !is910TrainingCard(hwChip, dmgr.GetDevType()) {
 		return
 	}
 
@@ -812,24 +808,24 @@ func setPCIeBusInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaW
 
 func setLinkStatus(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
 	hwChip.LinkStatus = LinkDown
+	if !is910TrainingCard(hwChip, dmgr.GetDevType()) {
+		return
+	}
 	phyID, err := dmgr.GetPhysicIDFromLogicID(logicID)
 	if err != nil {
 		hwlog.RunLog.Error("set link status failed")
-		return
-	}
-	if !strings.Contains(hwChip.ChipIfo.Name, common.Chip910) {
-		return
-	}
-	// infer card
-	if dmgr.GetDevType() == common.Ascend910B && hwChip.BoardInfo.BoardId == A300IA2BoardId {
 		return
 	}
 	hwChip.LinkStatus = hccn.GetNPULinkStatus(phyID)
 }
 
 func networkPackInfo(logicID int32, dmgr devmanager.DeviceInterface, hwChip *HuaWeiAIChip) {
+	if !is910TrainingCard(hwChip, dmgr.GetDevType()) {
+		return
+	}
 	phyID, err := dmgr.GetPhysicIDFromLogicID(logicID)
 	if err != nil {
+		hwlog.RunLog.Error("set interface traffic status failed")
 		return
 	}
 	if tx, rx, err := hccn.GetNPUInterfaceTraffic(phyID); err == nil {
@@ -871,4 +867,17 @@ func getPodDisplayInfo(chip *HuaWeiAIChip, containerName []string) []string {
 		containerName[conNameIdx],
 		strconv.FormatBool(chip.VDevActivityInfo.IsVirtualDev),
 	}
+}
+
+// common 910 training card
+func is910TrainingCard(hwChip *HuaWeiAIChip, devType string) bool {
+	if !strings.Contains(hwChip.ChipIfo.Name, common.Chip910) {
+		return false
+	}
+	// infer card
+	if devType == common.Ascend910B && hwChip.BoardInfo.BoardId == A300IA2BoardId {
+		return false
+	}
+
+	return true
 }
