@@ -16,6 +16,7 @@
 package common
 
 import (
+	"fmt"
 	"math"
 	"regexp"
 	"strings"
@@ -143,4 +144,9 @@ func RemoveDuplicate(list *[]string) []string {
 		rmDupValueList = append(rmDupValueList, value)
 	}
 	return rmDupValueList
+}
+
+// GetNpuName get npu name eg: name-type-version
+func GetNpuName(chipInfo ChipInfo) string {
+	return fmt.Sprintf("%s-%s-%s", chipInfo.Name, chipInfo.Type, chipInfo.Version)
 }

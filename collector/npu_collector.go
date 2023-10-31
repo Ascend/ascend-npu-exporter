@@ -17,7 +17,6 @@ package collector
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"reflect"
 	"strconv"
@@ -45,57 +44,57 @@ var (
 	npuChipInfoDescNpuName = prometheus.NewDesc("npu_chip_info_name",
 		"the Ascend npu name with value '1'", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescUtil = prometheus.NewDesc("npu_chip_info_utilization",
-		"the ai core utilization", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the ai core utilization", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescTemp = prometheus.NewDesc("npu_chip_info_temperature",
-		"the npu temperature", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu temperature", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescPower = prometheus.NewDesc("npu_chip_info_power",
-		"the npu power", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu power", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescVoltage = prometheus.NewDesc("npu_chip_info_voltage",
-		"the npu voltage", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu voltage", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescUsedMemory = prometheus.NewDesc("npu_chip_info_used_memory",
-		"the npu used memory", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu used memory", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescTotalMemory = prometheus.NewDesc("npu_chip_info_total_memory",
-		"the npu total memory", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu total memory", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescHealthStatus = prometheus.NewDesc("npu_chip_info_health_status",
-		"the npu health status", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu health status", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescHbmUsedMemory = prometheus.NewDesc("npu_chip_info_hbm_used_memory",
-		"the npu hbm used memory", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu hbm used memory", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescHbmTotalMemory = prometheus.NewDesc("npu_chip_info_hbm_total_memory",
-		"the npu hbm total memory", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu hbm total memory", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescErrorCode = prometheus.NewDesc("npu_chip_info_error_code",
-		"the npu error code", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu error code", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescLinkStatus = prometheus.NewDesc("npu_chip_info_link_status",
-		"the npu link status", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu link status", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescNetworkStatus = prometheus.NewDesc("npu_chip_info_network_status",
-		"the npu network health status", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu network health status", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescBandwidthTx = prometheus.NewDesc("npu_chip_info_bandwidth_tx",
-		"the npu interface transport speed, unit is 'MB/s'", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu interface transport speed, unit is 'MB/s'", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescBandwidthRx = prometheus.NewDesc("npu_chip_info_bandwidth_rx",
-		"the npu interface receive speed, unit is 'MB/s'", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu interface receive speed, unit is 'MB/s'", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuChipInfoDescDevProcessInfo = prometheus.NewDesc("npu_chip_info_process_info",
 		"the npu process info, unit is 'MB'. if process run on host, container_id and container_name will be empty",
-		[]string{"id", "vdie_id", "process_id", "container_id", "container_name", "pcie_bus_info"}, nil)
+		[]string{"id", "name", "vdie_id", "process_id", "container_id", "container_name", "pcie_bus_info"}, nil)
 	npuChipInfoDescAICoreFreqInfo = prometheus.NewDesc("npu_chip_info_aicore_current_freq",
-		"the npu ai core current frequency, unit is 'MHz'", []string{"id", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu ai core current frequency, unit is 'MHz'", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
 	npuContainerInfo = prometheus.NewDesc("npu_container_info",
-		"the container name and deviceID relationship", []string{"containerID", "containerName", "npuID", "vdie_id",
+		"the container name and deviceID relationship", []string{"containerID", "containerName", "npuID", "name", "vdie_id",
 			"pcie_bus_info"}, nil)
 	npuContainerTotalMemory = prometheus.NewDesc("container_npu_total_memory",
 		"the npu total memory in container, unit is 'MB'", []string{"id", "namespace", "pod_name", "container_name",
-			"vdie_id", "pcie_bus_info"}, nil)
+			"name", "vdie_id", "pcie_bus_info"}, nil)
 	npuContainerUsedMemory = prometheus.NewDesc("container_npu_used_memory",
 		"the npu used memory in container, unit is 'MB'", []string{"id", "namespace", "pod_name", "container_name",
-			"vdie_id", "pcie_bus_info"}, nil)
+			"name", "vdie_id", "pcie_bus_info"}, nil)
 	npuContainerUtilization = prometheus.NewDesc("container_npu_utilization",
 		"the npu ai core utilization in container, unit is '%'", []string{"id", "namespace", "pod_name",
-			"container_name", "vdie_id", "pcie_bus_info"}, nil)
+			"container_name", "name", "vdie_id", "pcie_bus_info"}, nil)
 	podAiCoreUtilizationRate = prometheus.NewDesc("vnpu_pod_aicore_utilization",
 		"the vnpu aicore utilization rate, unit is '%'",
-		[]string{"id", "v_dev_id", "aicore_count", "namespace", "pod_name", "container_name", "is_virtual"}, nil)
+		[]string{"id", "name", "v_dev_id", "aicore_count", "namespace", "pod_name", "container_name", "is_virtual"}, nil)
 	podTotalMemory = prometheus.NewDesc("vnpu_pod_total_memory", "the vnpu total memory on pod, unit is 'KB'",
-		[]string{"id", "v_dev_id", "aicore_count", "namespace", "pod_name", "container_name", "is_virtual"}, nil)
+		[]string{"id", "name", "v_dev_id", "aicore_count", "namespace", "pod_name", "container_name", "is_virtual"}, nil)
 	podUsedMemory = prometheus.NewDesc("vnpu_pod_used_memory", "the vnpu used memory on pod, unit is 'KB'",
-		[]string{"id", "v_dev_id", "aicore_count", "namespace", "pod_name", "container_name", "is_virtual"}, nil)
+		[]string{"id", "name", "v_dev_id", "aicore_count", "namespace", "pod_name", "container_name", "is_virtual"}, nil)
 	npuContainerInfoInit sync.Once
 	npuChipInfoInit      sync.Once
 )
@@ -522,17 +521,17 @@ func updateNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 	}
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescHbmUsedMemory, prometheus.GaugeValue, float64(chip.HbmInfo.Usage),
-			[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, chip.PCIeBusInfo}...))
+			[]string{strconv.FormatInt(int64(chip.DeviceID), base), common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescHbmTotalMemory, prometheus.GaugeValue,
-			float64(chip.HbmInfo.MemorySize), []string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID,
+			float64(chip.HbmInfo.MemorySize), []string{strconv.FormatInt(int64(chip.DeviceID), base), common.GetNpuName(*chip.ChipIfo), chip.VDieID,
 				chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescUsedMemory,
 		prometheus.GaugeValue, float64(chip.Meminf.MemorySize-chip.Meminf.MemoryAvailable),
-		[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, chip.PCIeBusInfo}...))
+		[]string{strconv.FormatInt(int64(chip.DeviceID), base), common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescTotalMemory, prometheus.GaugeValue,
-			float64(chip.Meminf.MemorySize), []string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID,
+			float64(chip.Meminf.MemorySize), []string{strconv.FormatInt(int64(chip.DeviceID), base), common.GetNpuName(*chip.ChipIfo), chip.VDieID,
 				chip.PCIeBusInfo}...))
 }
 
@@ -543,14 +542,14 @@ func updateNPUNetworkInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip 
 	}
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescBandwidthTx, prometheus.GaugeValue, chip.TxValue,
-			[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, chip.PCIeBusInfo}...))
+			[]string{strconv.FormatInt(int64(chip.DeviceID), base), common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescBandwidthRx, prometheus.GaugeValue, chip.RxValue,
-			[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, chip.PCIeBusInfo}...))
+			[]string{strconv.FormatInt(int64(chip.DeviceID), base), common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescNetworkStatus, prometheus.GaugeValue,
 			float64(getHealthCode(chip.NetHealthStatus)), []string{strconv.FormatInt(int64(chip.DeviceID), base),
-				chip.VDieID, chip.PCIeBusInfo}...))
+				common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 }
 
 func updateContainerInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
@@ -560,7 +559,7 @@ func updateContainerInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 		return
 	}
 	ch <- prometheus.MustNewConstMetric(npuContainerInfo, prometheus.GaugeValue, 1,
-		[]string{devInfo.ID, strings.Join(containerName, "_"), strconv.Itoa(chip.DeviceID), chip.VDieID,
+		[]string{devInfo.ID, strings.Join(containerName, "_"), strconv.Itoa(chip.DeviceID), common.GetNpuName(*chip.ChipIfo), chip.VDieID,
 			chip.PCIeBusInfo}...)
 	if common.IsValidVDevID(chip.VDevActivityInfo.VDevID) {
 		return
@@ -568,7 +567,7 @@ func updateContainerInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 	updateContainerNPUMemoryInfo(ch, npu, chip, containerName)
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuContainerUtilization,
 		prometheus.GaugeValue, float64(chip.Utilization), []string{strconv.FormatInt(int64(chip.DeviceID), base),
-			containerName[nameSpaceIdx], containerName[podNameIdx], containerName[conNameIdx], chip.VDieID,
+			containerName[nameSpaceIdx], containerName[podNameIdx], containerName[conNameIdx], common.GetNpuName(*chip.ChipIfo), chip.VDieID,
 			chip.PCIeBusInfo}...))
 
 }
@@ -600,22 +599,22 @@ func updateContainerNPUMemoryInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCar
 			prometheus.MustNewConstMetric(npuContainerTotalMemory, prometheus.GaugeValue,
 				float64(chip.HbmInfo.MemorySize), []string{strconv.FormatInt(int64(chip.DeviceID), base),
 					containerName[nameSpaceIdx], containerName[podNameIdx], containerName[conNameIdx],
-					chip.VDieID, chip.PCIeBusInfo}...))
+					common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 			prometheus.MustNewConstMetric(npuContainerUsedMemory, prometheus.GaugeValue, float64(chip.HbmInfo.Usage),
 				[]string{strconv.FormatInt(int64(chip.DeviceID), base), containerName[nameSpaceIdx],
 					containerName[podNameIdx], containerName[conNameIdx],
-					chip.VDieID, chip.PCIeBusInfo}...))
+					common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 		return
 	}
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuContainerTotalMemory,
 		prometheus.GaugeValue, float64(chip.Meminf.MemorySize), []string{strconv.FormatInt(int64(chip.DeviceID), base),
-			containerName[nameSpaceIdx], containerName[podNameIdx], containerName[conNameIdx], chip.VDieID,
+			containerName[nameSpaceIdx], containerName[podNameIdx], containerName[conNameIdx], common.GetNpuName(*chip.ChipIfo), chip.VDieID,
 			chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuContainerUsedMemory,
 		prometheus.GaugeValue, float64(chip.Meminf.MemorySize-chip.Meminf.MemoryAvailable),
 		[]string{strconv.FormatInt(int64(chip.DeviceID), base), containerName[nameSpaceIdx],
-			containerName[podNameIdx], containerName[conNameIdx], chip.VDieID, chip.PCIeBusInfo}...))
+			containerName[podNameIdx], containerName[conNameIdx], common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 }
 
 func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip) {
@@ -625,32 +624,32 @@ func updateNPUCommonInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *
 	}
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescLinkStatus,
 		prometheus.GaugeValue, float64(hccn.GetLinkStatusCode(chip.LinkStatus)),
-		[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, chip.PCIeBusInfo}...))
+		[]string{strconv.FormatInt(int64(chip.DeviceID), base), common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescUtil,
 		prometheus.GaugeValue, float64(chip.Utilization), []string{strconv.FormatInt(int64(chip.DeviceID), base),
-			chip.VDieID, chip.PCIeBusInfo}...))
+			common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescTemp,
 		prometheus.GaugeValue, float64(chip.Temperature), []string{strconv.FormatInt(int64(chip.DeviceID), base),
-			chip.VDieID, chip.PCIeBusInfo}...))
+			common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescPower,
 		prometheus.GaugeValue, float64(chip.Power), []string{strconv.FormatInt(int64(chip.DeviceID), base),
-			chip.VDieID, chip.PCIeBusInfo}...))
+			common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescVoltage,
 		prometheus.GaugeValue, float64(chip.Voltage), []string{strconv.FormatInt(int64(chip.DeviceID), base),
-			chip.VDieID, chip.PCIeBusInfo}...))
+			common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 		prometheus.MustNewConstMetric(npuChipInfoDescHealthStatus, prometheus.GaugeValue,
 			float64(getHealthCode(chip.HealthStatus)), []string{strconv.FormatInt(int64(chip.DeviceID), base),
-				chip.VDieID, chip.PCIeBusInfo}...))
+				common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescErrorCode,
 		prometheus.GaugeValue, float64(chip.ErrorCode), []string{strconv.FormatInt(int64(chip.DeviceID), base),
-			chip.VDieID, chip.PCIeBusInfo}...))
+			common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescNpuName,
-		prometheus.GaugeValue, 1, []string{strconv.FormatInt(int64(chip.DeviceID), base), fmt.Sprintf("%s-%s-%s",
-			chip.ChipIfo.Name, chip.ChipIfo.Type, chip.ChipIfo.Version), chip.VDieID, chip.PCIeBusInfo}...))
+		prometheus.GaugeValue, 1, []string{strconv.FormatInt(int64(chip.DeviceID), base), common.GetNpuName(*chip.ChipIfo), chip.VDieID,
+			chip.PCIeBusInfo}...))
 	ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp, prometheus.MustNewConstMetric(npuChipInfoDescAICoreFreqInfo,
 		prometheus.GaugeValue, float64(chip.AICoreCurrentFreq), []string{strconv.FormatInt(int64(chip.DeviceID), base),
-			chip.VDieID, chip.PCIeBusInfo}...))
+			common.GetNpuName(*chip.ChipIfo), chip.VDieID, chip.PCIeBusInfo}...))
 }
 
 func updateProcessInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *HuaWeiAIChip,
@@ -662,19 +661,18 @@ func updateProcessInfo(ch chan<- prometheus.Metric, npu *HuaWeiNPUCard, chip *Hu
 		containerName = strings.Join(cNameArray, "_")
 		containerID = devInfo.ID
 	}
-
 	if chip.DevProcessInfo.ProcNum == 0 {
 		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 			prometheus.MustNewConstMetric(npuChipInfoDescDevProcessInfo, prometheus.GaugeValue, 0,
-				[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID, "", containerID,
-					containerName, chip.PCIeBusInfo}...))
+				[]string{strconv.FormatInt(int64(chip.DeviceID), base), common.GetNpuName(*chip.ChipIfo),
+					chip.VDieID, "", containerID, containerName, chip.PCIeBusInfo}...))
 		return
 	}
 	for i := int32(0); i < chip.DevProcessInfo.ProcNum; i++ {
 		procInfo := chip.DevProcessInfo.DevProcArray[i]
 		ch <- prometheus.NewMetricWithTimestamp(npu.Timestamp,
 			prometheus.MustNewConstMetric(npuChipInfoDescDevProcessInfo, prometheus.GaugeValue, procInfo.MemUsage,
-				[]string{strconv.FormatInt(int64(chip.DeviceID), base), chip.VDieID,
+				[]string{strconv.FormatInt(int64(chip.DeviceID), base), common.GetNpuName(*chip.ChipIfo), chip.VDieID,
 					strconv.FormatInt(int64(procInfo.Pid), base), containerID, containerName, chip.PCIeBusInfo}...))
 	}
 }
@@ -860,6 +858,7 @@ func getNetworkHealthy(netCode uint32) string {
 func getPodDisplayInfo(chip *HuaWeiAIChip, containerName []string) []string {
 	return []string{
 		strconv.Itoa(chip.DeviceID),
+		common.GetNpuName(*chip.ChipIfo),
 		strconv.Itoa(int(chip.VDevActivityInfo.VDevID)),
 		strconv.FormatFloat(chip.VDevActivityInfo.VDevAiCore, 'f', decimalPlaces, bitSize),
 		containerName[nameSpaceIdx],
