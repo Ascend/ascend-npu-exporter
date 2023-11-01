@@ -17,7 +17,6 @@ package collector
 
 import (
 	"context"
-
 	"os"
 	"testing"
 	"time"
