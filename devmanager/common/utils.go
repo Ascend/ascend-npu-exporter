@@ -148,5 +148,8 @@ func RemoveDuplicate(list *[]string) []string {
 
 // GetNpuName get npu name eg: name-type-version
 func GetNpuName(chipInfo ChipInfo) string {
+	if len(chipInfo.Name) == 0 && len(chipInfo.Type) == 0 && len(chipInfo.Version) == 0 {
+		return ""
+	}
 	return fmt.Sprintf("%s-%s-%s", chipInfo.Name, chipInfo.Type, chipInfo.Version)
 }
