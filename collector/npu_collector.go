@@ -36,65 +36,77 @@ import (
 	"huawei.com/npu-exporter/v5/versions"
 )
 
+// metric label name
+const (
+	npuID       = "id"
+	modelName   = "model_name"
+	npuUUID     = "vdie_id"
+	vNpuUUID    = "v_dev_id"
+	npuPCIEInfo = "pcie_bus_info"
+	namespace   = "namespace"
+	podName     = "pod_name"
+	isVirtual   = "is_virtual"
+)
+
 var (
 	versionInfoDesc = prometheus.NewDesc("npu_exporter_version_info",
 		"exporter version with value '1'", []string{"exporterVersion"}, nil)
 	machineInfoNPUDesc = prometheus.NewDesc("machine_npu_nums",
 		"Amount of npu installed on the machine.", nil, nil)
 	npuChipInfoDescNpuName = prometheus.NewDesc("npu_chip_info_name",
-		"the Ascend npu name with value '1'", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the Ascend npu name with value '1'", []string{npuID, "name", npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescUtil = prometheus.NewDesc("npu_chip_info_utilization",
-		"the ai core utilization", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the ai core utilization", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescTemp = prometheus.NewDesc("npu_chip_info_temperature",
-		"the npu temperature", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu temperature", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescPower = prometheus.NewDesc("npu_chip_info_power",
-		"the npu power", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu power", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescVoltage = prometheus.NewDesc("npu_chip_info_voltage",
-		"the npu voltage", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu voltage", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescUsedMemory = prometheus.NewDesc("npu_chip_info_used_memory",
-		"the npu used memory", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu used memory", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescTotalMemory = prometheus.NewDesc("npu_chip_info_total_memory",
-		"the npu total memory", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu total memory", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescHealthStatus = prometheus.NewDesc("npu_chip_info_health_status",
-		"the npu health status", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu health status", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescHbmUsedMemory = prometheus.NewDesc("npu_chip_info_hbm_used_memory",
-		"the npu hbm used memory", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu hbm used memory", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescHbmTotalMemory = prometheus.NewDesc("npu_chip_info_hbm_total_memory",
-		"the npu hbm total memory", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu hbm total memory", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescErrorCode = prometheus.NewDesc("npu_chip_info_error_code",
-		"the npu error code", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu error code", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescLinkStatus = prometheus.NewDesc("npu_chip_info_link_status",
-		"the npu link status", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu link status", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescNetworkStatus = prometheus.NewDesc("npu_chip_info_network_status",
-		"the npu network health status", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu network health status", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescBandwidthTx = prometheus.NewDesc("npu_chip_info_bandwidth_tx",
-		"the npu interface transport speed, unit is 'MB/s'", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu interface transport speed, unit is 'MB/s'", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescBandwidthRx = prometheus.NewDesc("npu_chip_info_bandwidth_rx",
-		"the npu interface receive speed, unit is 'MB/s'", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu interface receive speed, unit is 'MB/s'", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuChipInfoDescDevProcessInfo = prometheus.NewDesc("npu_chip_info_process_info",
 		"the npu process info, unit is 'MB'. if process run on host, container_id and container_name will be empty",
-		[]string{"id", "name", "vdie_id", "process_id", "container_id", "container_name", "pcie_bus_info"}, nil)
+		[]string{npuID, modelName, npuUUID, "process_id", "container_id", "container_name", npuPCIEInfo}, nil)
 	npuChipInfoDescAICoreFreqInfo = prometheus.NewDesc("npu_chip_info_aicore_current_freq",
-		"the npu ai core current frequency, unit is 'MHz'", []string{"id", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu ai core current frequency, unit is 'MHz'", []string{npuID, modelName, npuUUID, npuPCIEInfo}, nil)
 	npuContainerInfo = prometheus.NewDesc("npu_container_info",
-		"the container name and deviceID relationship", []string{"containerID", "containerName", "npuID", "name", "vdie_id",
-			"pcie_bus_info"}, nil)
+		"the container name and deviceID relationship", []string{"containerID", "containerName", "npuID", modelName, npuUUID,
+			npuPCIEInfo}, nil)
 	npuContainerTotalMemory = prometheus.NewDesc("container_npu_total_memory",
-		"the npu total memory in container, unit is 'MB'", []string{"id", "namespace", "pod_name", "container_name",
-			"name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu total memory in container, unit is 'MB'", []string{npuID, namespace, podName, "container_name",
+			modelName, npuUUID, npuPCIEInfo}, nil)
 	npuContainerUsedMemory = prometheus.NewDesc("container_npu_used_memory",
-		"the npu used memory in container, unit is 'MB'", []string{"id", "namespace", "pod_name", "container_name",
-			"name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu used memory in container, unit is 'MB'", []string{npuID, namespace, podName, "container_name",
+			modelName, npuUUID, npuPCIEInfo}, nil)
 	npuContainerUtilization = prometheus.NewDesc("container_npu_utilization",
-		"the npu ai core utilization in container, unit is '%'", []string{"id", "namespace", "pod_name",
-			"container_name", "name", "vdie_id", "pcie_bus_info"}, nil)
+		"the npu ai core utilization in container, unit is '%'", []string{npuID, namespace, podName,
+			"container_name", modelName, npuUUID, npuPCIEInfo}, nil)
 	podAiCoreUtilizationRate = prometheus.NewDesc("vnpu_pod_aicore_utilization",
 		"the vnpu aicore utilization rate, unit is '%'",
-		[]string{"id", "name", "v_dev_id", "aicore_count", "namespace", "pod_name", "container_name", "is_virtual"}, nil)
+		[]string{npuID, modelName, vNpuUUID, "aicore_count", namespace, podName, "container_name", isVirtual}, nil)
 	podTotalMemory = prometheus.NewDesc("vnpu_pod_total_memory", "the vnpu total memory on pod, unit is 'KB'",
-		[]string{"id", "name", "v_dev_id", "aicore_count", "namespace", "pod_name", "container_name", "is_virtual"}, nil)
+		[]string{npuID, modelName, vNpuUUID, "aicore_count", namespace, podName, "container_name", isVirtual}, nil)
 	podUsedMemory = prometheus.NewDesc("vnpu_pod_used_memory", "the vnpu used memory on pod, unit is 'KB'",
-		[]string{"id", "name", "v_dev_id", "aicore_count", "namespace", "pod_name", "container_name", "is_virtual"}, nil)
+		[]string{npuID, modelName, vNpuUUID, "aicore_count", namespace, podName, "container_name", isVirtual}, nil)
 	npuContainerInfoInit sync.Once
 	npuChipInfoInit      sync.Once
 )
