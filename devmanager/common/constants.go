@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -21,33 +21,28 @@ import "math"
 type DeviceType int32
 
 const (
-	// Memory  Ascend310 & Ascend910
-	Memory DeviceType = iota + 1
+	// utilization
 	// AICore Ascend310 & Ascend910
-	AICore
-	// AICPU  Ascend310 & Ascend910
-	AICPU
-	// CTRLCPU  Ascend310 & Ascend910
-	CTRLCPU
-	// MEMBandWidth memory bandwidth Ascend310 & Ascend910
-	MEMBandWidth
-	// HBM Ascend910 only
-	HBM
-	// AICoreCurrentFreq AI core current frequency Ascend910 only
-	AICoreCurrentFreq
-	// DDR now is not supported
-	DDR
-	// AICoreNormalFreq AI core normal frequency Ascend910 only
-	AICoreNormalFreq
-	// HBMBandWidth Ascend910 only
-	HBMBandWidth
-	// VectorCore now is not supported
+	AICore DeviceType = 2
+
+	// frequency
+	// MemoryFreq Ascend310 & Ascend310P
+	MemoryFreq DeviceType = 1
+	// CtrlCpuFreq Ascend310 & Ascend910 & Ascend910B & Ascend310P
+	CtrlCpuFreq DeviceType = 2
+	// HBMFreq Ascend310 & Ascend910 & Ascend910B
+	HBMFreq DeviceType = 6
+	// AICoreCurrentFreq Ascend310 & Ascend910 & Ascend910B & Ascend310P
+	AICoreCurrentFreq DeviceType = 7
+	// AICoreRatedFreq Ascend310 & Ascend910 & Ascend910B & Ascend310P
+	AICoreRatedFreq = 9
+	// VectorCore Ascend310P
 	VectorCore DeviceType = 12
 )
 
 const (
-	// InvaidVal InvalidVal for NPU Invalid vaule
-	InvaidVal = 0
+	// InvalidVal InvalidVal for NPU Invalid value
+	InvalidVal = 0
 	// Success for interface return code
 	Success = 0
 	// RetError return error when the function failed
@@ -91,6 +86,18 @@ const (
 	Ascend910 = "Ascend910"
 	// Ascend910B ascend 1980B(910B) chip
 	Ascend910B = "Ascend910B"
+	// Atlas200ISoc 200 soc env
+	Atlas200ISoc = "Atlas 200I SoC A1"
+
+	// NeverStopTimeout never stop interface timeout
+	NeverStopTimeout = -1
+
+	// SubscribeAllDevice subscribe all device ID
+	SubscribeAllDevice = -1
+	// MinVDevID min value of virtual device id
+	MinVDevID = 100
+	// MaxVDevID max value of virtual device id
+	MaxVDevID = 1124
 )
 
 const (
@@ -103,4 +110,33 @@ const (
 	Pattern1980B = `^910B\d{1}`
 	// Pattern1980 regular expression for 1980
 	Pattern1980 = `^910B?`
+)
+
+const (
+	// FaultRecover device fault recover
+	FaultRecover = int8(0)
+	// FaultOccur device fault occur
+	FaultOccur = int8(1)
+	// FaultOnce once device fault
+	FaultOnce = int8(2)
+)
+
+const (
+	// AMPMode for AMP chip work mode
+	AMPMode = "AMP"
+	// SMPMode for SMP chip work mode
+	SMPMode = "SMP"
+
+	// NetworkInit init status
+	NetworkInit = 6
+	// NetworkSuccess chip network is healthy
+	NetworkSuccess = 0
+
+	// MaxProcNum process number in device side
+	MaxProcNum = 32
+	// UnitMB MB
+	UnitMB float64 = 1024 * 1024
+
+	// Chip910 chip name 910
+	Chip910 = "910"
 )

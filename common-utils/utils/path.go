@@ -198,7 +198,7 @@ func CheckOwnerAndPermission(verifyPath string, mode os.FileMode, uid uint32) (s
 func checkAbsPath(libPath string) (string, error) {
 	absLibPath, err := CheckOwnerAndPermission(libPath, DefaultWriteFileMode, rootUID)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%s: %v", libPath, err)
 	}
 	count := 0
 	fPath := absLibPath
@@ -212,23 +212,22 @@ func checkAbsPath(libPath string) (string, error) {
 		}
 		fPath = filepath.Dir(fPath)
 		if _, err := CheckOwnerAndPermission(fPath, DefaultWriteFileMode, rootUID); err != nil {
-			return "", err
+			return "", fmt.Errorf("%s: %v", fPath, err)
 		}
 	}
 	return "", errors.New("absolute path check failed")
 }
 
-func checkLibsPath(libraryPaths []string, libraryName string) (string, error) {
-	for _, libraryPath := range libraryPaths {
-		libraryAbsName := path.Join(libraryPath, libraryName)
-		if len(libraryAbsName) > maxPathLength {
-			continue
-		}
-		if absLibPath, err := checkAbsPath(libraryAbsName); err == nil {
+func checkLibsPath(libraryPaths []string) (string, error) {
+	errs := make([]string, 0, len(libraryPaths))
+	for _, libraryAbsName := range libraryPaths {
+		absLibPath, err := checkAbsPath(libraryAbsName)
+		if err == nil {
 			return absLibPath, nil
 		}
+		errs = append(errs, fmt.Sprintf("%s;", err.Error()))
 	}
-	return "", fmt.Errorf("driver lib is not exist or it's permission is invalid")
+	return "", fmt.Errorf("lib path is invalid, %v", errs)
 }
 
 func getLibFromEnv(libraryName string) (string, error) {
@@ -237,7 +236,18 @@ func getLibFromEnv(libraryName string) (string, error) {
 		return "", fmt.Errorf("invalid library path env")
 	}
 	libraryPaths := strings.Split(ldLibraryPath, ":")
-	return checkLibsPath(libraryPaths, libraryName)
+	targetLibs := make([]string, 0, len(ldLibraryPath))
+	for _, libraryPath := range libraryPaths {
+		libraryAbsName := path.Join(libraryPath, libraryName)
+		if len(libraryAbsName) > maxPathLength || !IsLexist(libraryAbsName) {
+			continue
+		}
+		targetLibs = append(targetLibs, libraryAbsName)
+	}
+	if len(libraryPaths) == 0 {
+		return "", errors.New("file path no exist or too long")
+	}
+	return checkLibsPath(targetLibs)
 }
 
 func trimSpaceTable(data string) string {
@@ -317,18 +327,18 @@ func getLibFromLdCmd(libraryName string) (string, error) {
 	if absLibPath, err := checkAbsPath(libraryAbsName); err == nil {
 		return absLibPath, nil
 	}
-	return "", fmt.Errorf("driver lib is not exist or it's permission is invalid")
+	return "", fmt.Errorf("driver lib is not exist or it's permission is invalid, %v", err)
 }
 
 // GetDriverLibPath get driver lib path from ld config
 func GetDriverLibPath(libraryName string) (string, error) {
 	var libPath string
-	var err error
-	if libPath, err = getLibFromEnv(libraryName); err == nil {
+	var envErr, cmdErr error
+	if libPath, envErr = getLibFromEnv(libraryName); envErr == nil {
 		return libPath, nil
 	}
-	if libPath, err = getLibFromLdCmd(libraryName); err == nil {
+	if libPath, cmdErr = getLibFromLdCmd(libraryName); cmdErr == nil {
 		return libPath, nil
 	}
-	return "", fmt.Errorf("cannot found valid driver lib, %#v", err)
+	return "", fmt.Errorf("cannot found valid driver lib, fromEnv: %v, fromLdCmd: %v", envErr, cmdErr)
 }

@@ -1,4 +1,6 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+//go:build !custom || inputs || inputs.npu
+
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -12,14 +14,7 @@
    limitations under the License.
 */
 
-// Package devmanager this Ascend310 device manager
-package devmanager
+// Package all this for register
+package all
 
-import (
-	"huawei.com/npu-exporter/v5/devmanager/dcmi"
-)
-
-// A310Manager Ascend310 device manager
-type A310Manager struct {
-	dcmi.DcManager
-}
+import _ "github.com/influxdata/telegraf/plugins/inputs/npu" // register plugin

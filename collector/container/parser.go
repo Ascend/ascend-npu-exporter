@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -30,75 +29,37 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opencontainers/runc/libcontainer/cgroups"
-	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
-
+	"huawei.com/npu-exporter/v5/collector/container/isula"
 	"huawei.com/npu-exporter/v5/collector/container/v1"
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
 	"huawei.com/npu-exporter/v5/common-utils/utils"
 )
 
 const (
-	procMountInfoColSep         = " "
-	cgroupControllerDevices     = "devices"
-	expectSystemdCgroupPathCols = 3
-	expectProcMountInfoColNum   = 10
-	systemdSliceHierarchySep    = "-"
-	suffixSlice                 = ".slice"
-	suffixScope                 = ".scope"
-	defaultSlice                = "system.slice"
-	devicesList                 = "devices.list"
-	expectDevicesListColNum     = 3
-	expectDeviceIDNum           = 2
-	maxNpuCardsNum              = 512
-	namespaceMoby               = "moby"   // Docker
-	namespaceK8s                = "k8s.io" // CRI + Containerd
-	sliceLen8                   = 8
-	cgroupIndex                 = 4
-	mountPointIdx               = 3
-	cgroupPrePath               = 1
-	cgroupSuffixPath            = 2
-
-	ascendDeviceInfo = "ASCEND_VISIBLE_DEVICES"
-	ascendEnvPart    = 2
-
-	charDevice = "c"
+	namespaceMoby     = "moby"   // Docker
+	namespaceK8s      = "k8s.io" // CRI + Containerd
+	sliceLen8         = 8
+	ascendDeviceInfo  = "ASCEND_VISIBLE_DEVICES"
+	ascendEnvPart     = 2
+	charDevice        = "c"
+	devicePathPattern = `^/dev/davinci\d+$`
 )
-
-// don't change the order
-// all capabilities presents privileged
-var privilegeCaps = []string{"CAP_AUDIT_CONTROL", "CAP_AUDIT_READ", "CAP_AUDIT_WRITE", "CAP_BLOCK_SUSPEND",
-	"CAP_BPF", "CAP_CHECKPOINT_RESTORE", "CAP_CHOWN", "CAP_DAC_OVERRIDE", "CAP_DAC_READ_SEARCH", "CAP_FOWNER",
-	"CAP_FSETID", "CAP_IPC_LOCK", "CAP_IPC_OWNER", "CAP_KILL", "CAP_LEASE", "CAP_LINUX_IMMUTABLE", "CAP_MAC_ADMIN",
-	"CAP_MAC_OVERRIDE", "CAP_MKNOD", "CAP_NET_ADMIN", "CAP_NET_BIND_SERVICE", "CAP_NET_BROADCAST", "CAP_NET_RAW",
-	"CAP_PERFMON", "CAP_SETFCAP", "CAP_SETGID", "CAP_SETPCAP", "CAP_SETUID", "CAP_SYSLOG", "CAP_SYS_ADMIN",
-	"CAP_SYS_BOOT", "CAP_SYS_CHROOT", "CAP_SYS_MODULE", "CAP_SYS_NICE", "CAP_SYS_PACCT", "CAP_SYS_PTRACE",
-	"CAP_SYS_RAWIO", "CAP_SYS_RESOURCE", "CAP_SYS_TIME", "CAP_SYS_TTY_CONFIG", "CAP_WAKE_ALARM"}
 
 const (
 	// EndpointTypeContainerd K8S + Containerd
 	EndpointTypeContainerd = iota
 	// EndpointTypeDockerd Docker with or without K8S
 	EndpointTypeDockerd
+	EndpointTypeIsula = 2
 )
 
 var (
-	// ErrUnknownCgroupsPathType cgroups path format not recognized
-	ErrUnknownCgroupsPathType = errors.New("unknown cgroupsPath type")
-	// ErrParseFail parsing devices.list fail
-	ErrParseFail = errors.New("parsing fail")
-	// ErrNoCgroupController no such cgroup controller
-	ErrNoCgroupController = errors.New("no cgroup controller")
-	// ErrNoCgroupHierarchy cgroup path not found
-	ErrNoCgroupHierarchy = errors.New("no cgroup hierarchy")
 	// ErrFromContext error is from the context
 	ErrFromContext = errors.New("error from context")
 
 	npuMajorID               []string
 	npuMajorFetchCtrl        sync.Once
 	parsingNpuDefaultTimeout = 3 * time.Second
-	procMountInfoGet         sync.Once
-	procMountInfo            string
 )
 
 // CntNpuMonitorOpts contains setting options for monitoring containers
@@ -125,7 +86,11 @@ func MakeDevicesParser(opts CntNpuMonitorOpts) *DevicesParser {
 		parser.RuntimeOperator = runtimeOperator
 		runtimeOperator.CriEndpoint = opts.CriEndpoint
 		runtimeOperator.OciEndpoint = opts.OciEndpoint
-
+	case EndpointTypeIsula:
+		runtimeOperator.Namespace = namespaceK8s
+		parser.RuntimeOperator = runtimeOperator
+		runtimeOperator.CriEndpoint = opts.CriEndpoint
+		runtimeOperator.OciEndpoint = opts.OciEndpoint
 	default:
 		hwlog.RunLog.Errorf("Invalid type value %d", opts.EndpointType)
 	}
@@ -135,7 +100,9 @@ func MakeDevicesParser(opts CntNpuMonitorOpts) *DevicesParser {
 
 // DevicesInfo the container device information struct
 type DevicesInfo struct {
-	ID      string
+	// container id
+	ID string
+	// container name, the format is: PodNameSpace_PodName_ContainerName
 	Name    string
 	Devices []int
 }
@@ -178,17 +145,15 @@ func (dp *DevicesParser) Close() {
 	_ = dp.RuntimeOperator.Close()
 }
 
-func (dp *DevicesParser) parseDevices(ctx context.Context, c *v1alpha2.Container, rs chan<- DevicesInfo) error {
-	if cgroups.IsCgroup2UnifiedMode() {
-		hwlog.RunLog.Debugf("now use cgroup v2 to get container (%s) npu devices", c.Id)
-		return dp.parseDevicesV2(ctx, c, rs)
+func (dp *DevicesParser) parseDevices(ctx context.Context, c *CommonContainer, rs chan<- DevicesInfo) error {
+	if dp.RuntimeOperator.GetContainerType() == IsulaContainer {
+		return dp.parseDeviceInIsula(ctx, c, rs)
 	}
 
-	hwlog.RunLog.Debugf("now use cgroup v1 or hybrid cgroup to get npu devices")
-	return dp.parseDevicesV1(ctx, c, rs)
+	return dp.parseDevicesInContainerd(ctx, c, rs)
 }
 
-func (dp *DevicesParser) parseDevicesV2(ctx context.Context, c *v1alpha2.Container, rs chan<- DevicesInfo) error {
+func (dp *DevicesParser) parseDevicesInContainerd(ctx context.Context, c *CommonContainer, rs chan<- DevicesInfo) error {
 	if rs == nil {
 		return errors.New("empty result channel")
 	}
@@ -201,9 +166,9 @@ func (dp *DevicesParser) parseDevicesV2(ctx context.Context, c *v1alpha2.Contain
 	if err != nil {
 		return contactError(err, fmt.Sprintf("cannot get container devices by container id (%#v)", c.Id))
 	}
-	if spec.Linux == nil || len(spec.Linux.Devices) > maxDevicesNum {
-		return contactError(errors.New("device error"), fmt.Sprintf("devices in container is too much (%v) or empty",
-			maxDevicesNum))
+	if spec.Linux == nil || spec.Linux.Resources == nil || len(spec.Linux.Resources.Devices) > maxDevicesNum {
+		return contactError(errors.New("device error"),
+			fmt.Sprintf("devices in container is too much (%v) or empty", maxDevicesNum))
 	}
 	if spec.Process == nil || len(spec.Process.Env) > maxEnvNum {
 		return contactError(errors.New("env error"), fmt.Sprintf("env in container is too much (%v) or empty",
@@ -223,7 +188,7 @@ func (dp *DevicesParser) parseDevicesV2(ctx context.Context, c *v1alpha2.Contain
 	return err
 }
 
-func (dp *DevicesParser) getDevicesWithoutAscendRuntime(spec v1.Spec, c *v1alpha2.Container) (DevicesInfo, error) {
+func (dp *DevicesParser) getDevicesWithoutAscendRuntime(spec v1.Spec, c *CommonContainer) (DevicesInfo, error) {
 	deviceInfo := DevicesInfo{}
 	devicesIDs, err := filterNPUDevices(spec)
 	if err != nil {
@@ -244,15 +209,15 @@ func (dp *DevicesParser) getDevicesWithoutAscendRuntime(spec v1.Spec, c *v1alpha
 	return DevicesInfo{}, nil
 }
 
-func (dp *DevicesParser) getDevicesWithAscendRuntime(ascendDevEnv string, c *v1alpha2.Container) (DevicesInfo, error) {
-	hwlog.RunLog.Debugf("get device info by env (%#v) in %s, error is %s", ascendDevEnv, c.Id)
+func (dp *DevicesParser) getDevicesWithAscendRuntime(ascendDevEnv string, c *CommonContainer) (DevicesInfo, error) {
+	hwlog.RunLog.Debugf("get device info by env (%#v) in %s", ascendDevEnv, c.Id)
 	devInfo := strings.Split(ascendDevEnv, "=")
 	if len(devInfo) != ascendEnvPart {
 		return DevicesInfo{}, fmt.Errorf("an invalid %s env(%#v)", ascendDeviceInfo, ascendDevEnv)
 	}
 	devList := strings.Split(devInfo[1], ",")
 
-	devicesIDs := make([]int, len(devList))
+	devicesIDs := make([]int, 0, len(devList))
 	for _, devID := range devList {
 		id, err := strconv.Atoi(devID)
 		if err != nil {
@@ -276,7 +241,29 @@ func (dp *DevicesParser) getDevicesWithAscendRuntime(ascendDevEnv string, c *v1a
 	return DevicesInfo{}, nil
 }
 
-func (dp *DevicesParser) parseDevicesV1(ctx context.Context, c *v1alpha2.Container, rs chan<- DevicesInfo) error {
+func (dp *DevicesParser) getDevWithoutAscendRuntimeInIsula(containerInfo isula.ContainerJson,
+	c *CommonContainer) (DevicesInfo, error) {
+	deviceInfo := DevicesInfo{}
+	devicesIDs, err := filterNPUDevicesInIsula(containerInfo)
+	if err != nil {
+		hwlog.RunLog.Debugf("filter npu devices failed by container id (%#v), err is %v", c.Id, err)
+		return DevicesInfo{}, nil
+	}
+	hwlog.RunLog.Debugf("filter npu devices %#v in container (%s)", devicesIDs, c.Id)
+
+	if len(devicesIDs) != 0 {
+		if deviceInfo, err = makeUpDeviceInfo(c); err == nil {
+			deviceInfo.Devices = devicesIDs
+			return deviceInfo, nil
+		}
+		hwlog.RunLog.Error(err)
+		return DevicesInfo{}, err
+	}
+
+	return DevicesInfo{}, nil
+}
+
+func (dp *DevicesParser) parseDeviceInIsula(ctx context.Context, c *CommonContainer, rs chan<- DevicesInfo) error {
 	if rs == nil {
 		return errors.New("empty result channel")
 	}
@@ -285,38 +272,28 @@ func (dp *DevicesParser) parseDevicesV1(ctx context.Context, c *v1alpha2.Contain
 	defer func(di *DevicesInfo) {
 		rs <- *di
 	}(&deviceInfo)
+
 	if len(c.Id) > maxCgroupPath {
 		return fmt.Errorf("the containerId (%s) is too long", c.Id)
 	}
-	spec, err := dp.RuntimeOperator.GetContainerInfoByID(ctx, c.Id)
+	containerInfo, err := dp.RuntimeOperator.GetIsulaContainerInfoByID(ctx, c.Id)
 	if err != nil {
-		return contactError(err, fmt.Sprintf("getting cgroup path of container(%#v) fail", c.Id))
+		return contactError(err, fmt.Sprintf("getting config of container(%#v) fail", c.Id))
 	}
-	if spec.Linux == nil || len(spec.Linux.CgroupsPath) > maxCgroupPath {
-		return contactError(err, "cgroupPath too long or empty")
+	if containerInfo.HostConfig == nil || containerInfo.Config == nil {
+		return errors.New("empty container info")
 	}
 
-	p, err := GetCgroupPath(cgroupControllerDevices, spec.Linux.CgroupsPath)
-	if err != nil {
-		return contactError(err, "parsing cgroup path from spec fail")
-	}
-	devicesIDs, hasAscend, err := ScanForAscendDevices(filepath.Join(p, devicesList))
-	hwlog.RunLog.Debugf("filter npu devices %#v in container (%s)", devicesIDs, c.Id)
-	if err == ErrNoCgroupHierarchy {
-		return nil
-	} else if err != nil {
-		return contactError(err, fmt.Sprintf("parsing Ascend devices of container %s fail", c.Id))
-	}
-
-	if hasAscend {
-		if deviceInfo, err = makeUpDeviceInfo(c); err == nil {
-			deviceInfo.Devices = devicesIDs
-			return nil
+	envs := containerInfo.Config.Env
+	for _, env := range envs {
+		if strings.Contains(env, ascendDeviceInfo) {
+			deviceInfo, err = dp.getDevicesWithAscendRuntime(env, c)
+			return err
 		}
-		hwlog.RunLog.Error(err)
-		return err
 	}
-	return nil
+
+	deviceInfo, err = dp.getDevWithoutAscendRuntimeInIsula(containerInfo, c)
+	return err
 }
 
 func (dp *DevicesParser) collect(ctx context.Context, r <-chan DevicesInfo, ct int32) (DevicesInfos, error) {
@@ -368,6 +345,8 @@ func (dp *DevicesParser) doParse(resultOut chan<- DevicesInfos) {
 
 	l := len(containers)
 	if l == 0 || l > maxContainers {
+		hwlog.RunLog.Debugf("get %d containers from cri interface, return empty data", l)
+		dp.result <- make(DevicesInfos)
 		return
 	}
 
@@ -377,12 +356,12 @@ func (dp *DevicesParser) doParse(resultOut chan<- DevicesInfos) {
 	wg.Add(l)
 
 	for _, container := range containers {
-		go func(container *v1alpha2.Container) {
-			if err := dp.parseDevices(ctx, container, r); err != nil {
+		go func(container *CommonContainer, c context.Context) {
+			if err := dp.parseDevices(c, container, r); err != nil {
 				dp.err <- err
 			}
 			wg.Done()
-		}(container)
+		}(container, ctx)
 	}
 	ctx, cancelFn := context.WithTimeout(ctx, withDefault(dp.Timeout, parsingNpuDefaultTimeout))
 	defer cancelFn()
@@ -408,205 +387,6 @@ func withDefault(v time.Duration, d time.Duration) time.Duration {
 	}
 
 	return v
-}
-
-// GetCgroupPath the method of caculate cgroup path of device.list
-func GetCgroupPath(controller, specCgroupsPath string) (string, error) {
-	devicesController, err := getCgroupControllerPath(controller)
-	if err != nil {
-		return "", contactError(err, "getting mount point of cgroup devices subsystem fail")
-	}
-
-	hierarchy, err := toCgroupHierarchy(specCgroupsPath)
-	if err != nil {
-		return "", contactError(err, "parsing cgroups path of spec to cgroup hierarchy fail")
-	}
-
-	return filepath.Join(devicesController, hierarchy), nil
-}
-
-func getCgroupControllerPath(controller string) (string, error) {
-	procMountInfoGet.Do(func() {
-		pid := os.Getpid()
-		procMountInfo = "/proc/" + strconv.Itoa(pid) + "/mountinfo"
-	})
-	path, err := utils.CheckPath(procMountInfo)
-	if err != nil {
-		return "", err
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		err = f.Close()
-		if err != nil {
-			hwlog.RunLog.Error(err)
-		}
-	}()
-
-	// parsing the /proc/self/mountinfo file content to find the mount point of specified
-	// cgroup subsystem.
-	// the format of the file is described in proc man page.
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		split := strings.Split(scanner.Text(), procMountInfoColSep)
-		l := len(split)
-		if l < expectProcMountInfoColNum {
-			return "", contactError(ErrParseFail,
-				fmt.Sprintf("mount info record has less than %d columns", expectProcMountInfoColNum))
-		}
-
-		// finding cgroup mount point, ignore others
-		if split[l-mountPointIdx] != "cgroup" {
-			continue
-		}
-
-		// finding the specified cgroup controller
-		for _, opt := range strings.Split(split[l-1], ",") {
-			if opt == controller {
-				// returns the path of specified cgroup controller in fs
-				return split[cgroupIndex], nil
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return "", err
-	}
-
-	return "", ErrNoCgroupController
-}
-
-func toCgroupHierarchy(cgroupsPath string) (string, error) {
-	var hierarchy string
-	if strings.HasPrefix(cgroupsPath, "/") {
-		// as cgroupfs
-		hierarchy = cgroupsPath
-	} else if strings.ContainsRune(cgroupsPath, ':') {
-		// as systemd cgroup
-		hierarchy = parseSystemdCgroup(cgroupsPath)
-	} else {
-		return "", ErrUnknownCgroupsPathType
-	}
-	if hierarchy == "" {
-		return "", contactError(ErrParseFail, fmt.Sprintf("failed to parse cgroupsPath value %s", cgroupsPath))
-	}
-	return hierarchy, nil
-}
-
-func parseSystemdCgroup(cgroup string) string {
-	pathsArr := strings.Split(cgroup, ":")
-	if len(pathsArr) != expectSystemdCgroupPathCols {
-		hwlog.RunLog.Error("systemd cgroup path must have three parts separated by colon")
-		return ""
-	}
-
-	slicePath := parseSlice(pathsArr[0])
-	if slicePath == "" {
-		hwlog.RunLog.Error("failed to parse the slice part of the cgroupsPath")
-		return ""
-	}
-	return filepath.Join(slicePath, getUnit(pathsArr[cgroupPrePath], pathsArr[cgroupSuffixPath]))
-}
-
-func parseSlice(slice string) string {
-	if slice == "" {
-		return defaultSlice
-	}
-
-	if len(slice) < len(suffixSlice) ||
-		!strings.HasSuffix(slice, suffixSlice) ||
-		strings.ContainsRune(slice, '/') {
-		hwlog.RunLog.Errorf("invalid slice %s when parsing slice part of systemd cgroup path", slice)
-		return ""
-	}
-
-	sliceMain := strings.TrimSuffix(slice, suffixSlice)
-	if sliceMain == systemdSliceHierarchySep {
-		return "/"
-	}
-
-	b := new(strings.Builder)
-	prefix := ""
-	for _, part := range strings.Split(sliceMain, systemdSliceHierarchySep) {
-		if part == "" {
-			hwlog.RunLog.Errorf("slice %s contains invalid content of continuous double dashes", slice)
-			return ""
-		}
-		_, err := b.WriteRune('/')
-		_, err = b.WriteString(prefix)
-		_, err = b.WriteString(part)
-		_, err = b.WriteString(suffixSlice)
-		if err != nil {
-			return "" // err is always nil
-		}
-		prefix += part + "-"
-	}
-
-	return b.String()
-}
-
-func getUnit(prefix, name string) string {
-	if strings.HasSuffix(name, suffixSlice) {
-		return name
-	}
-	return prefix + "-" + name + suffixScope
-}
-
-// ScanForAscendDevices scan ascend devices from device.list file
-func ScanForAscendDevices(devicesListFile string) ([]int, bool, error) {
-	minorNumbers := make([]int, 0, sliceLen8)
-	majorID := npuMajor()
-	if len(majorID) == 0 {
-		return nil, false, fmt.Errorf("majorID is null")
-	}
-
-	f, err := os.Open(devicesListFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, false, ErrNoCgroupHierarchy
-		}
-		return nil, false, contactError(err, fmt.Sprintf("error while opening devices cgroup file %q",
-			utils.MaskPrefix(strings.TrimPrefix(devicesListFile, unixPrefix+"://"))))
-	}
-	defer func() {
-		err = f.Close()
-		if err != nil {
-			hwlog.RunLog.Error(err)
-		}
-	}()
-
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		text := s.Text()
-		fields := strings.Fields(text)
-		if len(fields) != expectDevicesListColNum {
-			return nil, false, fmt.Errorf("cgroup entry %q must have three whitespace-separated fields", text)
-		}
-
-		majorMinor := strings.Split(fields[1], ":")
-		if len(majorMinor) != expectDeviceIDNum {
-			return nil, false, fmt.Errorf("second field of cgroup entry %q should have one colon", text)
-		}
-
-		if fields[0] == charDevice && contains(majorID, majorMinor[0]) {
-			if majorMinor[1] == "*" {
-				return nil, false, nil
-			}
-			minorNumber, err := strconv.Atoi(majorMinor[1])
-			if err != nil {
-				return nil, false, fmt.Errorf("cgroup entry %q: minor number is not integer", text)
-			}
-
-			// the max NPU cards supported number is 64
-			if minorNumber < maxNpuCardsNum {
-				minorNumbers = append(minorNumbers, minorNumber)
-			}
-		}
-	}
-
-	return minorNumbers, len(minorNumbers) > 0, nil
 }
 
 // query the MajorID of NPU devices
@@ -678,28 +458,63 @@ func contactError(err error, msg string) error {
 }
 
 func filterNPUDevices(spec v1.Spec) ([]int, error) {
-	var caps []string
-	if spec.Process != nil && spec.Process.Capabilities != nil {
-		caps = spec.Process.Capabilities.Permitted
-	}
-	sort.Strings(caps)
-	same := isSameStringSlice(caps, privilegeCaps)
-	if same {
-		return nil, errors.New("it's a privileged container and skip it")
+	if spec.Linux == nil || spec.Linux.Resources == nil {
+		return nil, errors.New("empty spec info")
 	}
 
 	const base = 10
 	devIDs := make([]int, 0, sliceLen8)
 	majorIDs := npuMajor()
-	for _, dev := range spec.Linux.Devices {
-		if dev.Minor > math.MaxInt32 {
+	for _, dev := range spec.Linux.Resources.Devices {
+		if dev.Minor == nil || dev.Major == nil {
+			// do not monitor privileged container
+			continue
+		}
+		if *dev.Minor > math.MaxInt32 {
 			return nil, fmt.Errorf("get wrong device ID (%v)", dev.Minor)
 		}
-		major := strconv.FormatInt(dev.Major, base)
+		major := strconv.FormatInt(*dev.Major, base)
 		if dev.Type == charDevice && contains(majorIDs, major) {
-			devIDs = append(devIDs, int(dev.Minor))
+			devIDs = append(devIDs, int(*dev.Minor))
 		}
 	}
 
 	return devIDs, nil
+}
+
+// filterNPUDevicesInIsula get id of device from containerJson(containerInfo)
+func filterNPUDevicesInIsula(containerInfo isula.ContainerJson) ([]int, error) {
+	privileged := containerInfo.HostConfig.Privileged
+	if privileged {
+		return nil, errors.New("it's a privileged container and skip it")
+	}
+
+	devIDs := make([]int, 0, sliceLen8)
+	devices := containerInfo.HostConfig.Devices
+	for _, dev := range devices {
+		Id, err := getDevIdFromPath(devicePathPattern, dev.PathInContainer)
+		if err != nil {
+			hwlog.RunLog.Warn(err)
+			continue
+		}
+		devIDs = append(devIDs, Id)
+	}
+
+	return devIDs, nil
+}
+
+func getDevIdFromPath(pattern, path string) (int, error) {
+	if match, err := regexp.MatchString(pattern, path); !match || err != nil {
+		return -1, fmt.Errorf("unexpected path of device: %#v", path)
+	}
+	number := regexp.MustCompile(`\d+`)
+	IdStr := number.FindString(path)
+	Id, err := strconv.Atoi(IdStr)
+	if err != nil {
+		return -1, fmt.Errorf("unexpected device ID (%v)", IdStr)
+	}
+	if Id > math.MaxInt32 {
+		return -1, fmt.Errorf("get wrong device ID (%v)", Id)
+	}
+	return Id, nil
 }

@@ -89,6 +89,9 @@ spec:
           - name: docker  # delete when only use containerd
             mountPath: /run/docker/containerd/containerd.sock
             readOnly: true
+          - name: cri-dockerd  # reserve when k8s version is 1.24+ and the container runtime is docker
+            mountPath: /var/run/cri-dockerd.sock
+            readOnly: true
           - name: containerd
             mountPath: /run/containerd
             readOnly: true
@@ -104,7 +107,7 @@ spec:
             mountPath: /etc/hdcBasic.cfg
             readOnly: true
           - name: slogconf
-            mountPath: /var/log/npu/conf/slog/slog.conf
+            mountPath: /etc/slog.conf
             readOnly: true
       volumes:
         - name: log-npu-exporter
@@ -129,6 +132,9 @@ spec:
         - name: docker  # delete when only use containerd
           hostPath:
             path: /run/docker/containerd/containerd.sock
+        - name: cri-dockerd # reserve when k8s version is 1.24+ and the container runtime is docker
+          hostPath:
+            path: /var/run/cri-dockerd.sock
         - name: containerd
           hostPath:
             path: /run/containerd
@@ -149,5 +155,5 @@ spec:
             type: File
         - name: slogconf
           hostPath:
-            path: /var/log/npu/conf/slog/slog.conf
+            path: /etc/slog.conf
             type: File

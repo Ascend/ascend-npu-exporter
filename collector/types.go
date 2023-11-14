@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -21,22 +21,27 @@ import (
 	"huawei.com/npu-exporter/v5/devmanager/common"
 )
 
-// HealthEnum enum
-type HealthEnum string
-
 const (
 	// Healthy status of  Health
-	Healthy HealthEnum = "Healthy"
+	Healthy string = "Healthy"
 	// UnHealthy status of unhealth
-	UnHealthy HealthEnum = "UnHealthy"
+	UnHealthy string = "UnHealthy"
+
+	// LinkUp npu interface up
+	LinkUp string = "UP"
+	// LinkDown npu interface down
+	LinkDown string = "DOWN"
+
 	// convert base
 	base             = 10
 	containerNameLen = 3
 	// cache key
-	key = "npu-exporter-npu-list"
+	npuListCacheKey = "npu-exporter-npu-list"
 	// cache key for parsing-device result
-	containersDevicesInfoKey = "npu-exporter-containers-devices"
-	initSize                 = 8
+	containersDevicesCacheKey = "npu-exporter-containers-devices"
+	npuNetworkCacheKey        = "npu-exporter-network-info"
+	initSize                  = 8
+	networkInfo               = "networkInfo"
 )
 
 // HuaWeiAIChip chip info
@@ -47,11 +52,15 @@ type HuaWeiAIChip struct {
 	ChipIfo *common.ChipInfo `json:"chip_info"`
 	// the hbm info
 	HbmInfo *common.HbmInfo `json:"hbm_info"`
+	// the activity virtual device info
+	VDevActivityInfo common.VDevActivityInfo `json:"v_dev_activity_info"`
+	// VDevInfos the virtual device info
+	VDevInfos common.VirtualDevInfo `json:"v_dev_infos"`
 	// the healthy status of the  AI chip
-	HealthStatus HealthEnum `json:"health_status"`
+	HealthStatus string `json:"health_status"`
 	// the error code of the chip
 	ErrorCode int64 `json:"error_code"`
-	// the utiliaiton of the chip
+	// the utilization of the chip
 	Utilization int `json:"utilization"`
 	// the temperature of the chip
 	Temperature int `json:"temperature"`
@@ -59,10 +68,26 @@ type HuaWeiAIChip struct {
 	Power float32 `json:"power"`
 	// the work voltage of the chip
 	Voltage float32 `json:"voltage"`
-	// the AI core frequency of the chip
-	Frequency int `json:"frequency"`
+	// the AI core current frequency of the chip
+	AICoreCurrentFreq uint32 `json:"aicore_current_freq"`
 	// the chip physic ID
 	DeviceID int `json:"device_id"`
+	// the vdie id
+	VDieID string `json:"vdie_id"`
+	// the interface status
+	LinkStatus string `json:"link_status"`
+	// TxValue transform speed
+	TxValue float64 `json:"tx_value"`
+	// RxValue receive speed
+	RxValue float64 `json:"rx_value"`
+	// NetHealthStatus chip network health status
+	NetHealthStatus string `json:"net_health_status"`
+	// DevProcessInfo chip process info
+	DevProcessInfo *common.DevProcessInfo
+	// PCIeBusInfo bus info
+	PCIeBusInfo string
+	// BoardInfo board info of device, but not display
+	BoardInfo common.BoardInfo
 }
 
 // HuaWeiNPUCard device

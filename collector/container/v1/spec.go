@@ -15,54 +15,45 @@
 // Package v1 implement the containerd client
 package v1
 
-import "os"
-
 // Spec is the base configuration for the container.
 type Spec struct {
 	// Linux is platform-specific configuration for Linux based containers.
 	Linux *Linux `json:"linux,omitempty" platform:"linux"`
-	// Version of the Open Container Initiative Runtime Specification with which the bundle complies.
-	Version string `json:"ociVersion"`
 	// Process for get capabilities
 	Process *Process `json:"process,omitempty" platform:"linux"`
 }
 
 // Process is the base configuration for the container.
 type Process struct {
-	// Capabilities for container capabilities
-	Capabilities *Capabilities `json:"capabilities,omitempty" platform:"linux"`
 	// Env for container env
 	Env []string `json:"env,omitempty" platform:"linux"`
 }
 
-// Capabilities is the base configuration for the container.
-type Capabilities struct {
-	// Permitted capabilities that can be used by container
-	Permitted []string `json:"permitted,omitempty" platform:"linux"`
-}
-
 // Linux contains platform-specific configuration for Linux based containers.
 type Linux struct {
-	// CgroupsPath specifies the path to cgroups that are created and/or joined by the container.
-	CgroupsPath string `json:"cgroupsPath,omitempty"`
+	// Resources contain cgroup information for handling resource constraints
+	// for the container
+	Resources *LinuxResources `json:"resources,omitempty"`
 	// Devices are a list of device nodes that are created for the container
-	Devices []Device `json:"devices,omitempty"`
 }
 
-// Device linux device info
-type Device struct {
-	// UID of the device.
-	UID *uint32 `json:"uid,omitempty"`
-	// GID of the device.
-	GID *uint32 `json:"gid,omitempty"`
-	// FileMode permission bits for the device.
-	FileMode *os.FileMode `json:"fileMode,omitempty"`
-	// Path to the device.
-	Path string `json:"mount_path"`
-	// Type device type, block, char, etc.
-	Type string `json:"type"`
-	// Major is the device's major id.
-	Major int64 `json:"major"`
-	// Minor is the device's minor id
-	Minor int64 `json:"minor"`
+// LinuxResources has container runtime resource constraints
+type LinuxResources struct {
+	// Devices configures the device allowlist.
+	Devices []LinuxDeviceCgroup `json:"devices,omitempty"`
+}
+
+// LinuxDeviceCgroup represents a device rule for the devices specified to
+// the device controller
+type LinuxDeviceCgroup struct {
+	// Allow or deny
+	Allow bool `json:"allow"`
+	// Device type, block, char, etc.
+	Type string `json:"type,omitempty"`
+	// Major is the device's major number.
+	Major *int64 `json:"major,omitempty"`
+	// Minor is the device's minor number.
+	Minor *int64 `json:"minor,omitempty"`
+	// Cgroup access permissions format, rwm.
+	Access string `json:"access,omitempty"`
 }

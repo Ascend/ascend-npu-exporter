@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -152,7 +152,48 @@ type CgoSocTotalResource struct {
 
 // VirtualDevInfo virtual device infos
 type VirtualDevInfo struct {
-	TotalResource CgoSocTotalResource
-	FreeResource  CgoSocFreeResource
-	VDevInfo      []CgoVDevQueryStru
+	TotalResource    CgoSocTotalResource
+	FreeResource     CgoSocFreeResource
+	VDevInfo         []CgoVDevQueryStru
+	VDevActivityInfo []VDevActivityInfo
+}
+
+// DevFaultInfo device's fault info
+type DevFaultInfo struct {
+	EventID         int64
+	LogicID         int32
+	Severity        int8
+	Assertion       int8
+	AlarmRaisedTime int64
+}
+
+// DevProcessInfo device process info
+type DevProcessInfo struct {
+	DevProcArray []DevProcInfo
+	ProcNum      int32
+}
+
+// DevProcInfo process info in device side
+type DevProcInfo struct {
+	Pid int32
+	// the total amount of memory occupied by the device side OS and allocated by the business, unit is MB
+	MemUsage float64
+}
+
+// BoardInfo board info of device
+type BoardInfo struct {
+	BoardId uint32
+	PcbId   uint32
+	BomId   uint32
+	SlotId  uint32
+}
+
+// VDevActivityInfo vNPU activity info for 310P
+type VDevActivityInfo struct {
+	VDevID         uint32
+	VDevAiCoreRate uint32
+	VDevTotalMem   uint64
+	VDevUsedMem    uint64
+	VDevAiCore     float64
+	IsVirtualDev   bool
 }

@@ -1,4 +1,4 @@
-﻿/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+﻿/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -21,10 +21,11 @@ extern "C" {
 #endif
 #endif /* __cplusplus */
 
-#define DCMIDLLEXPORT
+#define DCMIDLLEXPORT static
 
 #define MAX_CHIP_NAME_LEN 32  // Maximum length of chip name
 #define TEMPLATE_NAME_LEN 32
+#define DIE_ID_COUNT 5  // Number of die ID characters
 
 /*----------------------------------------------*
  * Structure description                        *
@@ -36,6 +37,21 @@ struct dcmi_chip_info {
     unsigned int aicore_cnt;
 };
 
+struct dcmi_pcie_info_all {
+    unsigned int venderid;           /* 厂商id */
+    unsigned int subvenderid;        /* 厂商子id */
+    unsigned int deviceid;           /* 设备id */
+    unsigned int subdeviceid;        /* 设备子id */
+    int domain;
+    unsigned int bdf_busid;
+    unsigned int bdf_deviceid;
+    unsigned int bdf_funcid;
+    unsigned char reserve[32];       /* the size of dcmi_pcie_info_all is 64 */
+};
+
+struct dcmi_die_id {
+    unsigned int soc_die[DIE_ID_COUNT];
+};
 
 struct dcmi_hbm_info {
     unsigned long long memory_size;
@@ -131,9 +147,26 @@ enum dcmi_boot_status {
     DCMI_BOOT_STATUS_FINISH // started
 };
 
+enum dcmi_event_type {
+    DCMI_DMS_FAULT_EVENT = 0,
+};
+
+enum dcmi_die_type {
+    NDIE,
+    VDIE
+};
+
 #define DCMI_VDEV_RES_NAME_LEN 16
+#define DCMI_VDEV_SIZE 20
 #define DCMI_VDEV_FOR_RESERVE 32
 #define DCMI_SOC_SPLIT_MAX 32
+#define DCMI_MAX_EVENT_NAME_LENGTH 256
+#define DCMI_MAX_EVENT_DATA_LENGTH 32
+#define DCMI_EVENT_FILTER_FLAG_EVENT_ID (1UL << 0)
+#define DCMI_EVENT_FILTER_FLAG_SERVERITY (1UL << 1)
+#define DCMI_EVENT_FILTER_FLAG_NODE_TYPE (1UL << 2)
+#define DCMI_MAX_EVENT_RESV_LENGTH 32
+
 struct dcmi_base_resource {
     unsigned long long token;
     unsigned long long token_max;
@@ -173,7 +206,12 @@ struct dcmi_computing_resource {
     unsigned short device_aicpu;
     unsigned short topic_ctrl_cpu_slot;
 
-    unsigned char reserved[DCMI_VDEV_FOR_RESERVE];
+    /* vnpu resource */
+    unsigned int vdev_aicore_utilization;
+    unsigned long long vdev_memory_total;
+    unsigned long long vdev_memory_free;
+
+    unsigned char reserved[DCMI_VDEV_FOR_RESERVE-DCMI_VDEV_SIZE];
 };
 
 struct dcmi_media_resource {
@@ -239,6 +277,61 @@ struct dcmi_soc_total_resource {
     struct dcmi_media_resource media;
 };
 
+struct dcmi_dms_fault_event {
+    unsigned int event_id; /* Event ID */
+    unsigned short deviceid; /* Device ID */
+    unsigned char node_type; /* Node type */
+    unsigned char node_id; /* Node ID */
+    unsigned char sub_node_type; /* Subnode type */
+    unsigned char sub_node_id; /* Subnode ID */
+    unsigned char severity; /* Event severity. 0: warning; 1: minor; 2: major; 3: critical */
+    unsigned char assertion; /* Event type. 0: fault recovery; 1: fault generation; 2: one-off event */
+    int event_serial_num; /* Alarm serial number */
+    int notify_serial_num; /* Notification serial number*/
+    /* Time when the event occurs, presenting as the number of seconds that have elapsed since the Unix epoch. */
+    unsigned long long alarm_raised_time;
+    char event_name[DCMI_MAX_EVENT_NAME_LENGTH]; /* Event description */
+    char additional_info[DCMI_MAX_EVENT_DATA_LENGTH]; /* Additional event information */
+    unsigned char resv[DCMI_MAX_EVENT_RESV_LENGTH]; /**< Reserves 32 bytes */
+};
+
+struct dcmi_event {
+    enum dcmi_event_type type; /* Event type */
+    union {
+        struct dcmi_dms_fault_event dms_event; /* Event content */
+    } event_t;
+};
+
+struct dcmi_event_filter {
+    /* It can be used to enable one or all filter criteria. The filter criteria are as follows:
+    0: disables the filter criteria.
+    DCMI_EVENT_FILTER_FLAG_EVENT_ID: receives only specified events.
+    DCMI_EVENT_FILTER_FLAG_SERVERITY: receives only the events of a specified level and higher levels.
+    DCMI_EVENT_FILTER_FLAG_NODE_TYPE: receives only events of a specified node type. */
+    unsigned long long filter_flag;
+    /* Receives a specified event. For details, see the Health Management Error Definition. */
+    unsigned int event_id;
+    /* Receives events of a specified level and higher levels. For details,
+    see the severity definition in the struct dcmi_dms_fault_event structure. */
+    unsigned char severity;
+    /* Receives only events of a specified node type. For details, see the Health Management Error Definition. */
+    unsigned char node_type;
+    unsigned char resv[DCMI_MAX_EVENT_RESV_LENGTH]; /* < Reserves 32 bytes. */
+};
+
+struct dcmi_proc_mem_info {
+    int proc_id;
+    // unit is byte
+    unsigned long proc_mem_usage;
+};
+
+struct dcmi_board_info {
+    unsigned int board_id;
+    unsigned int pcb_id;
+    unsigned int bom_id;
+    unsigned int slot_id; // slot_id indicates pcie slot ID of the chip
+};
+
 #define DCMI_VERSION_1
 #define DCMI_VERSION_2
 
@@ -253,6 +346,8 @@ DCMIDLLEXPORT int dcmi_get_device_num_in_card(int card_id, int *device_num);
 DCMIDLLEXPORT int dcmi_get_device_id_in_card(int card_id, int *device_id_max, int *mcu_id, int *cpu_id);
 
 DCMIDLLEXPORT int dcmi_get_device_type(int card_id, int device_id, enum dcmi_unit_type *device_type);
+
+DCMIDLLEXPORT int dcmi_get_device_pcie_info_v2(int card_id, int device_id, struct dcmi_pcie_info_all *pcie_info);
 
 DCMIDLLEXPORT int dcmi_get_device_chip_info(int card_id, int device_id, struct dcmi_chip_info *chip_info);
 
@@ -306,6 +401,19 @@ DCMIDLLEXPORT int dcmi_get_product_type(int card_id, int device_id, char *produc
 DCMIDLLEXPORT int dcmi_set_device_reset(int card_id, int device_id, enum dcmi_reset_channel channel_type);
 
 DCMIDLLEXPORT int dcmi_get_device_boot_status(int card_id, int device_id, enum dcmi_boot_status *boot_status);
+
+DCMIDLLEXPORT int dcmi_subscribe_fault_event(int card_id, int device_id, struct dcmi_event_filter filter);
+
+DCMIDLLEXPORT int dcmi_get_npu_work_mode(int card_id, unsigned char *work_mode);
+
+DCMIDLLEXPORT int dcmi_get_device_die_v2(
+    int card_id, int device_id, enum dcmi_die_type input_type, struct dcmi_die_id *die_id);
+
+DCMIDLLEXPORT int dcmi_get_device_resource_info (int card_id, int device_id, struct dcmi_proc_mem_info *proc_info,
+    int *proc_num);
+
+DCMIDLLEXPORT int dcmi_get_device_board_info (int card_id, int device_id, struct dcmi_board_info *board_info);
+
 
 #endif
 

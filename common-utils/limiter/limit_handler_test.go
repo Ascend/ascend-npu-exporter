@@ -92,8 +92,10 @@ func TestReturnToken(t *testing.T) {
 			return tc
 		})
 		defer mock.Reset()
+		cancelCtx, cancelFunc := context.WithCancel(context.Background())
+		defer cancelFunc()
 		sc := make(chan struct{}, 1)
-		go returnToken(context.Background(), sc)
+		go returnToken(cancelCtx, sc)
 		time.Sleep(time.Second)
 		convey.So(len(sc), convey.ShouldEqual, 1)
 	})

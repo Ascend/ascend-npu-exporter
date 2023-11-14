@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -25,9 +25,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	"huawei.com/npu-exporter/v5/collector/container"
+	"huawei.com/npu-exporter/v5/collector/container/isula"
 	"huawei.com/npu-exporter/v5/collector/container/v1"
 	"huawei.com/npu-exporter/v5/common-utils/cache"
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
@@ -55,13 +55,24 @@ func (operator *mockContainerRuntimeOperator) Close() error {
 }
 
 // ContainerIDs implements ContainerRuntimeOperator
-func (operator *mockContainerRuntimeOperator) GetContainers(ctx context.Context) ([]*v1alpha2.Container, error) {
-	return []*v1alpha2.Container{}, nil
+func (operator *mockContainerRuntimeOperator) GetContainers(ctx context.Context) ([]*container.CommonContainer, error) {
+	return []*container.CommonContainer{}, nil
 }
 
 // GetContainerInfoByID implements ContainerRuntimeOperator
 func (operator *mockContainerRuntimeOperator) GetContainerInfoByID(ctx context.Context, id string) (v1.Spec, error) {
 	return v1.Spec{}, nil
+}
+
+// GetIsulaContainerInfoByID implements ContainerRuntimeOperator
+func (operator *mockContainerRuntimeOperator) GetIsulaContainerInfoByID(ctx context.Context,
+	id string) (isula.ContainerJson, error) {
+	return isula.ContainerJson{}, nil
+}
+
+// GetContainerType implements ContainerRuntimeOperator
+func (operator *mockContainerRuntimeOperator) GetContainerType() string {
+	return container.DefaultContainer
 }
 
 func mockScan4AscendDevices(_ string) ([]int, bool, error) {
@@ -90,8 +101,8 @@ func TestNewNpuCollector(t *testing.T) {
 			path: "testdata/prometheus_metrics",
 			mockFunc: func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
 				_ = n.devicesParser.Init()
-				npuInfo := mockGetNPUInfo(nil)
-				if err := n.cache.Set(key, npuInfo, n.cacheTime); err != nil {
+				npuInfo := mockGetNPUInfo(nil, "")
+				if err := n.cache.Set(npuListCacheKey, npuInfo, n.cacheTime); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -102,7 +113,7 @@ func TestNewNpuCollector(t *testing.T) {
 			mockFunc: func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
 				_ = n.devicesParser.Init()
 				var npuInfo []HuaWeiNPUCard
-				if err := n.cache.Set(key, npuInfo, n.cacheTime); err != nil {
+				if err := n.cache.Set(npuListCacheKey, npuInfo, n.cacheTime); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -120,6 +131,12 @@ func excuteTestCollector(t *testing.T, tt struct {
 	name     string
 	path     string
 }) {
+	metricsName := []string{"machine_npu_nums", "npu_chip_info_aicore_current_freq", "npu_chip_info_bandwidth_rx",
+		"npu_chip_info_bandwidth_tx", "npu_chip_info_error_code", "npu_chip_info_hbm_total_memory",
+		"npu_chip_info_hbm_used_memory", "npu_chip_info_health_status", "npu_chip_info_link_status",
+		"npu_chip_info_name", "npu_chip_info_network_status", "npu_chip_info_power", "npu_chip_info_temperature",
+		"npu_chip_info_total_memory", "npu_chip_info_used_memory", "npu_chip_info_utilization",
+		"npu_chip_info_voltage", "npu_exporter_version_info"}
 	startStub := gomonkey.ApplyFunc(start, tt.mockFunc)
 	defer startStub.Reset()
 	patch := gomonkey.ApplyFunc(devmanager.AutoInit, func(s string) (*devmanager.DeviceManager, error) {
@@ -139,7 +156,7 @@ func excuteTestCollector(t *testing.T, tt struct {
 	if err != nil {
 		t.Fatalf("test failes")
 	}
-	if err := testutil.CollectAndCompare(c, exp); err != nil {
+	if err := testutil.CollectAndCompare(c, exp, metricsName...); err != nil {
 		t.Fatal("Unexpected metrics returned:", err)
 	}
 }
@@ -153,7 +170,7 @@ func TestGetChipInfo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			chipInfo := packChipInfo(0, tt.mockPart.(devmanager.DeviceInterface))
+			chipInfo := packChipInfo(0, tt.mockPart.(devmanager.DeviceInterface), "")
 			t.Logf("%#v", chipInfo)
 			assert.NotNil(t, chipInfo)
 			if tt.wantErr {
@@ -169,7 +186,7 @@ func TestGetChipInfo(t *testing.T) {
 func TestGetHealthCode(t *testing.T) {
 	tests := []struct {
 		name   string
-		health HealthEnum
+		health string
 		want   int
 	}{
 		{
@@ -216,7 +233,7 @@ func TestGetNPUInfo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getNPUInfo(tt.args); len(got) != len(tt.want) {
+			if got := getNPUInfo(tt.args, ""); len(got) != len(tt.want) {
 				t.Errorf("getNPUInfo() = %#v,want %#v", got, tt.want)
 			}
 		})
@@ -239,17 +256,17 @@ func newTestCase(name string, wantErr bool, mockPart interface{}) testCase {
 	}
 }
 
-func mockGetNPUInfo(dmgr devmanager.DeviceInterface) []HuaWeiNPUCard {
+func mockGetNPUInfo(dmgr devmanager.DeviceInterface, infoType string) []HuaWeiNPUCard {
 	var npuList []HuaWeiNPUCard
 	for devicePhysicID := int32(0); devicePhysicID < npuCount; devicePhysicID++ {
 		chipInfo := &HuaWeiAIChip{
-			HealthStatus: Healthy,
-			ErrorCode:    0,
-			Utilization:  0,
-			Temperature:  0,
-			Power:        0,
-			Voltage:      0,
-			Frequency:    0,
+			HealthStatus:      Healthy,
+			ErrorCode:         0,
+			Utilization:       0,
+			Temperature:       0,
+			Power:             0,
+			Voltage:           0,
+			AICoreCurrentFreq: 0,
 			Meminf: &common.MemoryInfo{
 				MemorySize:  0,
 				Frequency:   0,
@@ -267,6 +284,9 @@ func mockGetNPUInfo(dmgr devmanager.DeviceInterface) []HuaWeiNPUCard {
 				Temp:              0,
 				BandWidthUtilRate: 0,
 			},
+			DevProcessInfo:  &common.DevProcessInfo{},
+			LinkStatus:      LinkDown,
+			NetHealthStatus: UnHealthy,
 		}
 		chipInfo.DeviceID = int(devicePhysicID)
 		npuCard := HuaWeiNPUCard{
@@ -302,7 +322,7 @@ func TestStart(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			go start(context.Background(), tt.collector, &devmanager.DeviceManagerMock{})
 			time.Sleep(waitTime)
-			objm, err := tt.collector.cache.Get(key)
+			objm, err := tt.collector.cache.Get(npuListCacheKey)
 			assert.NotNil(t, objm)
 			assert.Nil(t, err)
 			go func() {
@@ -318,6 +338,4 @@ func init() {
 		OnlyToStdout: true,
 	}
 	hwlog.InitRunLogger(&config, nil)
-	gomonkey.ApplyFunc(container.ScanForAscendDevices, mockScan4AscendDevices)
-	gomonkey.ApplyFunc(container.GetCgroupPath, mockGetCgroupPath)
 }

@@ -1,4 +1,4 @@
-/* Copyright(C) 2021. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright(C) 2021-2023. Huawei Technologies Co.,Ltd. All rights reserved.
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -17,6 +17,7 @@ package devmanager
 
 import (
 	"huawei.com/npu-exporter/v5/devmanager/common"
+	"huawei.com/npu-exporter/v5/devmanager/dcmi"
 )
 
 // DeviceManagerMock common device manager mock for Ascend910/310P/310
@@ -89,7 +90,7 @@ func (d *DeviceManagerMock) GetDevicePowerInfo(logicID int32) (float32, error) {
 }
 
 // GetDeviceFrequency get npu device work frequency
-func (d *DeviceManagerMock) GetDeviceFrequency(logicID int32, deviceType common.DeviceType) (int32, error) {
+func (d *DeviceManagerMock) GetDeviceFrequency(logicID int32, deviceType common.DeviceType) (uint32, error) {
 	return 1, nil
 }
 
@@ -123,7 +124,7 @@ func (d *DeviceManagerMock) GetDeviceErrorCode(logicID int32) (int32, int64, err
 func (d *DeviceManagerMock) GetChipInfo(logicID int32) (*common.ChipInfo, error) {
 	chip := &common.ChipInfo{
 		Type:    "ascend",
-		Name:    "910",
+		Name:    common.Chip910,
 		Version: "v1",
 	}
 	return chip, nil
@@ -145,8 +146,11 @@ func (d *DeviceManagerMock) GetDeviceLogicID(cardID, deviceID int32) (int32, err
 }
 
 // GetDeviceIPAddress get device ip address
-func (d *DeviceManagerMock) GetDeviceIPAddress(logicID int32) (string, error) {
-	return "127.0.0.1", nil
+func (d *DeviceManagerMock) GetDeviceIPAddress(logicID, ipType int32) (string, error) {
+	if ipType == 0 {
+		return "127.0.0.1", nil
+	}
+	return "::1", nil
 }
 
 // CreateVirtualDevice create virtual device
@@ -185,6 +189,11 @@ func (d *DeviceManagerMock) GetAllProductType() ([]string, error) {
 	return []string{}, nil
 }
 
+// GetNpuWorkMode get npu chip work mode SMP success
+func (d *DeviceManagerMock) GetNpuWorkMode() string {
+	return common.SMPMode
+}
+
 // SetDeviceReset set device reset success
 func (d *DeviceManagerMock) SetDeviceReset(cardID, deviceID int32) error {
 	return nil
@@ -193,4 +202,42 @@ func (d *DeviceManagerMock) SetDeviceReset(cardID, deviceID int32) error {
 // GetDeviceBootStatus get device boot status success
 func (d *DeviceManagerMock) GetDeviceBootStatus(logicID int32) (int, error) {
 	return common.BootStartFinish, nil
+}
+
+// GetDeviceAllErrorCode get device all error code success
+func (d *DeviceManagerMock) GetDeviceAllErrorCode(logicID int32) (int32, []int64, error) {
+	return 0, []int64{}, nil
+}
+
+// SubscribeDeviceFaultEvent subscribe device fault event success
+func (d *DeviceManagerMock) SubscribeDeviceFaultEvent(logicID int32) error {
+	return nil
+}
+
+// SetFaultEventCallFunc set fault event call func success
+func (d *DeviceManagerMock) SetFaultEventCallFunc(businessFunc func(common.DevFaultInfo)) error {
+	return nil
+}
+
+// GetDieID get die id success
+func (d *DeviceManagerMock) GetDieID(logicID int32, dcmiDieType dcmi.DcmiDieType) (string, error) {
+	return "ABCDEFGHIGKLMNOPQRSTUVWXYZ01234567890123", nil
+}
+
+// GetDevProcessInfo get process info
+func (d *DeviceManagerMock) GetDevProcessInfo(logicID int32) (*common.DevProcessInfo, error) {
+	return &common.DevProcessInfo{}, nil
+}
+
+func (d *DeviceManagerMock) GetPCIeBusInfo(logicID int32) (string, error) {
+	return "0000:61:00.0", nil
+}
+
+func (d *DeviceManagerMock) GetBoardInfo(logicID int32) (common.BoardInfo, error) {
+	return common.BoardInfo{}, nil
+}
+
+// GetProductTypeArray test for get product type array
+func (d *DeviceManagerMock) GetProductTypeArray() []string {
+	return []string{common.Atlas200ISoc}
 }

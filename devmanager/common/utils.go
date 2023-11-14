@@ -16,6 +16,7 @@
 package common
 
 import (
+	"fmt"
 	"math"
 	"regexp"
 	"strings"
@@ -74,6 +75,11 @@ func IsValidDevNumInCard(num int32) bool {
 	return num > 0 && num <= HiAIMaxDeviceNum
 }
 
+// IsValidVDevID valid vir device id
+func IsValidVDevID(vDevID uint32) bool {
+	return vDevID >= MinVDevID && vDevID < MaxVDevID
+}
+
 // GetDeviceTypeByChipName get device type by chipName
 func GetDeviceTypeByChipName(chipName string) string {
 	if strings.Contains(chipName, "310P") {
@@ -100,6 +106,13 @@ func get910TemplateNameList() map[string]struct{} {
 	return map[string]struct{}{"vir16": {}, "vir08": {}, "vir04": {}, "vir02": {}, "vir01": {}}
 }
 
+func get910BTemplateNameList() map[string]struct{} {
+	return map[string]struct{}{
+		"vir03_1c_8g": {}, "vir05_1c_8g": {}, "vir05_1c_16g": {},
+		"vir06_1c_16g": {}, "vir10_3c_16g": {}, "vir10_3c_16g_nm": {},
+		"vir10_3c_32g": {}, "vir10_4c_16g_m": {}, "vir12_3c_32g": {}}
+}
+
 func get310PTemplateNameList() map[string]struct{} {
 	return map[string]struct{}{"vir04": {}, "vir02": {}, "vir01": {}, "vir04_3c": {}, "vir02_1c": {},
 		"vir04_4c_dvpp": {}, "vir04_3c_ndvpp": {}}
@@ -113,6 +126,8 @@ func IsValidTemplateName(devType, templateName string) bool {
 		_, isTemplateNameValid = get310PTemplateNameList()[templateName]
 	case Ascend910:
 		_, isTemplateNameValid = get910TemplateNameList()[templateName]
+	case Ascend910B:
+		_, isTemplateNameValid = get910BTemplateNameList()[templateName]
 	default:
 	}
 	return isTemplateNameValid
@@ -129,4 +144,12 @@ func RemoveDuplicate(list *[]string) []string {
 		rmDupValueList = append(rmDupValueList, value)
 	}
 	return rmDupValueList
+}
+
+// GetNpuName get npu name eg: name-type-version
+func GetNpuName(chipInfo ChipInfo) string {
+	if len(chipInfo.Name) == 0 && len(chipInfo.Type) == 0 && len(chipInfo.Version) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%s-%s-%s", chipInfo.Name, chipInfo.Type, chipInfo.Version)
 }

@@ -85,14 +85,20 @@ spec:
           - name: sys
             mountPath: /sys
             readOnly: true
-          - name: docker-shim  # delete when only use containerd
+          - name: docker-shim  # delete when only use containerd or isula
             mountPath: /var/run/dockershim.sock
             readOnly: true
-          - name: docker  # delete when only use containerd
+          - name: docker  # delete when only use containerd or isula
             mountPath: /var/run/docker
             readOnly: true
-          - name: containerd
+          - name: cri-dockerd  # reserve when k8s version is 1.24+ and the container runtime is docker
+            mountPath: /var/run/cri-dockerd.sock
+            readOnly: true
+          - name: containerd  # delete when only use isula
             mountPath: /run/containerd
+            readOnly: true
+          - name: isulad  # delete when use containerd or docker
+            mountPath: /run/isulad.sock
             readOnly: true
           - name: tmp
             mountPath: /tmp
@@ -113,15 +119,21 @@ spec:
         - name: sys
           hostPath:
             path: /sys
-        - name: docker-shim # delete when only use containerd
+        - name: docker-shim # delete when only use containerd or isula
           hostPath:
             path: /var/run/dockershim.sock
-        - name: docker  # delete when only use containerd
+        - name: docker  # delete when only use containerd or isula
           hostPath:
             path: /var/run/docker
-        - name: containerd
+        - name: cri-dockerd # reserve when k8s version is 1.24+ and the container runtime is docker
+          hostPath:
+            path: /var/run/cri-dockerd.sock
+        - name: containerd  # delete when only use isula
           hostPath:
             path: /run/containerd
+        - name: isulad  # delete when use containerd or docker
+          hostPath:
+            path: /run/isulad.sock
         - name: tmp
           hostPath:
             path: /tmp

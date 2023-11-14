@@ -23,11 +23,13 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/influxdata/telegraf/plugins/common/shim"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -35,6 +37,7 @@ import (
 	"huawei.com/npu-exporter/v5/collector/container"
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
 	"huawei.com/npu-exporter/v5/common-utils/limiter"
+	_ "huawei.com/npu-exporter/v5/plugins/inputs/npu"
 	"huawei.com/npu-exporter/v5/versions"
 )
 
@@ -48,9 +51,11 @@ var (
 	containerd     string
 	endpoint       string
 	limitIPReq     string
+	platform       string
 	limitIPConn    int
 	limitTotalConn int
 	cacheSize      int
+	pollInterval   time.Duration
 )
 
 const (
@@ -64,6 +69,7 @@ const (
 	defaultLogFile          = "/var/log/mindx-dl/npu-exporter/npu-exporter.log"
 	containerModeDocker     = "docker"
 	containerModeContainerd = "containerd"
+	containerModeIsula      = "isula"
 	unixPre                 = "unix://"
 	timeout                 = 10
 	maxHeaderBytes          = 1024
@@ -74,8 +80,17 @@ const (
 	defaultConnection = 20
 )
 
+const (
+	prometheusPlatform  = "Prometheus"
+	telegrafPlatform    = "Telegraf"
+	pollIntervalStr     = "poll_interval"
+	maxTelegrafParamLen = 2
+	minTelegrafParamLen = 1
+	maxLogLineLength    = 1024
+)
+
 var hwLogConfig = &hwlog.LogConfig{LogFileName: defaultLogFile, ExpiredTime: hwlog.DefaultExpiredTime,
-	CacheSize: hwlog.DefaultCacheSize}
+	CacheSize: hwlog.DefaultCacheSize, MaxLineLength: maxLogLineLength}
 
 func main() {
 	flag.Parse()
@@ -83,30 +98,15 @@ func main() {
 		fmt.Printf("NPU-exporter version: %s \n", versions.BuildVersion)
 		return
 	}
-	if err := initHwLogger(); err != nil {
-		return
-	}
-	if err := baseParamValid(); err != nil {
-		hwlog.RunLog.Error(err)
-		return
-	}
-	hwlog.RunLog.Infof("npu exporter starting and the version is %s", versions.BuildVersion)
-	opts := readCntMonitoringFlags()
-	reg, err := regPrometheus(opts)
-	if err != nil {
-		hwlog.RunLog.Errorf("register prometheus failed")
-		return
-	}
-	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
-	http.Handle("/", http.HandlerFunc(indexHandler))
-	conf := initConfig()
-	s, limitLs := newServerAndListener(conf)
-	if s == nil || limitLs == nil {
-		return
-	}
-	hwlog.RunLog.Warn("enable unsafe http server")
-	if err := s.Serve(limitLs); err != nil {
-		hwlog.RunLog.Error("Http server error and stopped")
+
+	switch platform {
+	case prometheusPlatform:
+		prometheusProcess()
+	case telegrafPlatform:
+		telegrafProcess()
+	default:
+		fmt.Fprintf(os.Stderr, "err platform input")
+		os.Exit(1)
 	}
 }
 
@@ -160,6 +160,10 @@ func readCntMonitoringFlags() container.CntNpuMonitorOpts {
 		opts.EndpointType = container.EndpointTypeContainerd
 		opts.OciEndpoint = container.DefaultContainerdAddr
 		opts.CriEndpoint = container.DefaultContainerdAddr
+	case containerModeIsula:
+		opts.EndpointType = container.EndpointTypeIsula
+		opts.OciEndpoint = container.DefaultIsuladAddr
+		opts.CriEndpoint = container.DefaultIsuladAddr
 	default:
 		hwlog.RunLog.Error("invalid container mode setting,reset to docker")
 		opts.EndpointType = container.EndpointTypeDockerd
@@ -172,6 +176,7 @@ func readCntMonitoringFlags() container.CntNpuMonitorOpts {
 	}
 	if endpoint != "" {
 		opts.CriEndpoint = endpoint
+		opts.UserBackUp = false
 	}
 	return opts
 }
@@ -188,7 +193,7 @@ func regPrometheus(opts container.CntNpuMonitorOpts) (*prometheus.Registry, erro
 	return reg, nil
 }
 
-func baseParamValid() error {
+func paramValidInPrometheus() error {
 	if port < portLeft || port > portRight {
 		return errors.New("the port is invalid")
 	}
@@ -219,6 +224,10 @@ func baseParamValid() error {
 	}
 	if concurrency < 1 || concurrency > maxConcurrency {
 		return errors.New("concurrency range error")
+	}
+	cmdLine := strings.Join(os.Args[1:], "")
+	if strings.Contains(cmdLine, pollIntervalStr) {
+		return fmt.Errorf("%s is not support this scene", pollIntervalStr)
 	}
 	return nil
 }
@@ -273,6 +282,11 @@ func init() {
 		" request,range  is [1,512]")
 	flag.StringVar(&limitIPReq, "limitIPReq", "20/1",
 		"the http request limit counts for each Ip,20/1 means allow 20 request in 1 seconds")
+	flag.StringVar(&platform, "platform", "Prometheus", "the data reporting platform, "+
+		"just support Prometheus and Telegraf")
+	flag.DurationVar(&pollInterval, pollIntervalStr, 1*time.Second,
+		"how often to send metrics when use Telegraf plugin, "+
+			"needs to be used with -platform=Telegraf, otherwise, it does not take effect")
 }
 
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
@@ -293,8 +307,80 @@ func indexHandler(w http.ResponseWriter, _ *http.Request) {
 
 func initHwLogger() error {
 	if err := hwlog.InitRunLogger(hwLogConfig, context.Background()); err != nil {
-		fmt.Printf("hwlog init failed, error is %#v", err)
+		fmt.Printf("hwlog init failed, error is %#v\n", err)
 		return err
 	}
 	return nil
+}
+
+func prometheusProcess() {
+	if err := initHwLogger(); err != nil {
+		return
+	}
+	if err := paramValidInPrometheus(); err != nil {
+		hwlog.RunLog.Error(err)
+		return
+	}
+
+	hwlog.RunLog.Infof("npu exporter starting and the version is %s", versions.BuildVersion)
+	opts := readCntMonitoringFlags()
+	reg, err := regPrometheus(opts)
+	if err != nil {
+		hwlog.RunLog.Errorf("register prometheus failed")
+		return
+	}
+	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
+	http.Handle("/", http.HandlerFunc(indexHandler))
+	conf := initConfig()
+	s, limitLs := newServerAndListener(conf)
+	if s == nil || limitLs == nil {
+		return
+	}
+	hwlog.RunLog.Warn("enable unsafe http server")
+	if err := s.Serve(limitLs); err != nil {
+		hwlog.RunLog.Error("Http server error and stopped")
+	}
+}
+
+func paramValidInTelegraf() error {
+	// cmdLine here must contain "-platfor=Telegraf", otherwise, it will enter the Prometheus process
+	cmdLine := os.Args[1:]
+	switch len(cmdLine) {
+	case minTelegrafParamLen:
+		return nil
+	case maxTelegrafParamLen:
+		cmdLineStr := strings.Join(cmdLine, "")
+		if strings.Contains(cmdLineStr, pollIntervalStr) {
+			return nil
+		}
+		return fmt.Errorf("only support %s in Telegraf", pollIntervalStr)
+	default:
+		return errors.New("too many parameters")
+	}
+}
+
+func telegrafProcess() {
+	if err := paramValidInTelegraf(); err != nil {
+		fmt.Fprintf(os.Stderr, "Err param: %s\n", err)
+		os.Exit(1)
+	}
+	// create the shim. This is what will run your plugins.
+	shim := shim.New()
+
+	// If no config is specified, all imported plugins are loaded.
+	// otherwise follow what the config asks for.
+	// Check for settings from a config toml file,
+	// (or just use whatever plugins were imported above)
+	configFile := ""
+	err := shim.LoadConfig(&configFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Err loading input: %s\n", err)
+		os.Exit(1)
+	}
+
+	// run the input plugin(s) until stdin closes, or we receive a termination signal
+	if err := shim.Run(pollInterval); err != nil {
+		fmt.Fprintf(os.Stderr, "Err: %s\n", err)
+		os.Exit(1)
+	}
 }

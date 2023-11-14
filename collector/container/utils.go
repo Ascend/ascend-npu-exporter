@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
 	"huawei.com/npu-exporter/v5/common-utils/utils"
@@ -42,7 +41,7 @@ const (
 	// DNSReWithDot DNS regex string
 	DNSReWithDot  = `^[a-z0-9]+[a-z0-9-.]*[a-z0-9]+$`
 	maxContainers = 1024
-	maxCgroupPath = 2028
+	maxCgroupPath = 2048
 
 	maxDevicesNum = 100000
 	maxEnvNum     = 10000
@@ -119,7 +118,7 @@ func validDNSRe(dnsContent string) error {
 	return nil
 }
 
-func makeUpDeviceInfo(c *v1alpha2.Container) (DevicesInfo, error) {
+func makeUpDeviceInfo(c *CommonContainer) (DevicesInfo, error) {
 	deviceInfo := DevicesInfo{}
 	var names []string
 
@@ -138,18 +137,4 @@ func makeUpDeviceInfo(c *v1alpha2.Container) (DevicesInfo, error) {
 	deviceInfo.ID = c.Id
 	deviceInfo.Name = ns + "_" + podName + "_" + containerName
 	return deviceInfo, nil
-}
-
-func isSameStringSlice(src, target []string) bool {
-	if len(src) != len(target) {
-		return false
-	}
-
-	for i, val := range src {
-		if val != target[i] {
-			return false
-		}
-	}
-
-	return true
 }
