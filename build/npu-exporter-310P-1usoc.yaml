@@ -80,6 +80,9 @@ spec:
           - name: ascend-dcmi
             mountPath: /usr/local/dcmi
             readOnly: true
+          - name: libyaml
+            mountPath: /usr/lib64/libyaml-0.so.2
+            readOnly: true
           - name: sys
             mountPath: /sys
             readOnly: true
@@ -117,6 +120,10 @@ spec:
         - name: localtime
           hostPath:
             path: /etc/localtime
+        - name: libyaml
+          hostPath:
+            path: /usr/lib64/libyaml-0.so.2
+            type: File
         - name: ascend-driver
           hostPath:
             path: /usr/local/Ascend/driver
