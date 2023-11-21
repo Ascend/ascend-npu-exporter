@@ -170,7 +170,7 @@ func GetNPUStatInfo(phyID int32) (map[string]int, error) {
 			hwlog.RunLog.Errorf("covert stat num of [%s] from string failed: %s", statParts[1], err)
 			continue
 		}
-		statInfoMap[statParts[1]] = statNum
+		statInfoMap[statParts[0]] = statNum
 	}
 
 	return statInfoMap, nil
