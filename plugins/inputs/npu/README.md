@@ -90,7 +90,7 @@ mkdir -m 750 /var/log/mindx-dl/npu-exporter
   signal = "none"
 
 [[outputs.file]]
-  file=["stdout"]
+  files=["stdout"]
 ```
 然后运行telegraf
 ```shell

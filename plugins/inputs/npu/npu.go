@@ -230,8 +230,8 @@ func (npu *NpuWatch) packHccnInfo(devID int32, fields map[string]interface{}, ac
 	if err != nil {
 		acc.AddError(fmt.Errorf("get stat info of npu failed: %v", err))
 	} else {
-		fields["npu_chip_mac_rx_pause_num"] = statInfo["mac_rx_pause_num"]
-		fields["npu_chip_mac_tx_pause_num"] = statInfo["mac_tx_pause_num"]
+		fields["npu_chip_mac_rx_pause_num"] = statInfo["mac_rx_mac_pause_num"]
+		fields["npu_chip_mac_tx_pause_num"] = statInfo["mac_tx_mac_pause_num"]
 		fields["npu_chip_mac_rx_pfc_pkt_num"] = statInfo["mac_rx_pfc_pkt_num"]
 		fields["npu_chip_mac_tx_pfc_pkt_num"] = statInfo["mac_tx_pfc_pkt_num"]
 		fields["npu_chip_mac_rx_bad_pkt_num"] = statInfo["mac_rx_bad_pkt_num"]
