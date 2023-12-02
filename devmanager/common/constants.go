@@ -21,11 +21,9 @@ import "math"
 type DeviceType int32
 
 const (
-	// utilization
 	// AICore Ascend310 & Ascend910
 	AICore DeviceType = 2
 
-	// frequency
 	// MemoryFreq Ascend310 & Ascend310P
 	MemoryFreq DeviceType = 1
 	// CtrlCpuFreq Ascend310 & Ascend910 & Ascend910B & Ascend310P
@@ -139,4 +137,7 @@ const (
 
 	// Chip910 chip name 910
 	Chip910 = "910"
+
+	// A300IA2BoardId board id of A300I A2 and 910proB
+	A300IA2BoardId = 0x28
 )

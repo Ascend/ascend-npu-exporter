@@ -155,8 +155,8 @@ func (d *DeviceManagerMockErr) GetDeviceIPAddress(logicID, ipType int32) (string
 }
 
 // CreateVirtualDevice create virtual device
-func (d *DeviceManagerMockErr) CreateVirtualDevice(logicID int32, vDevInfo common.CgoCreateVDevRes) (common.
-	CgoCreateVDevOut, error) {
+func (d *DeviceManagerMockErr) CreateVirtualDevice(logicID int32,
+	vDevInfo common.CgoCreateVDevRes) (common.CgoCreateVDevOut, error) {
 	return common.CgoCreateVDevOut{}, errors.New(errorMsg)
 }
 
@@ -241,4 +241,12 @@ func (d *DeviceManagerMockErr) GetBoardInfo(logicID int32) (common.BoardInfo, er
 // GetProductTypeArray test for get empty product type array
 func (d *DeviceManagerMockErr) GetProductTypeArray() []string {
 	return nil
+}
+
+func (d *DeviceManagerMockErr) SetIsTrainingCard() error {
+	return errors.New(errorMsg)
+}
+
+func (d *DeviceManagerMockErr) IsTrainingCard() bool {
+	return false
 }
