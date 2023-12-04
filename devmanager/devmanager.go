@@ -18,6 +18,7 @@ package devmanager
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"huawei.com/npu-exporter/v5/common-utils/hwlog"
@@ -67,6 +68,8 @@ type DeviceInterface interface {
 	GetDevProcessInfo(logicID int32) (*common.DevProcessInfo, error)
 	GetPCIeBusInfo(logicID int32) (string, error)
 	GetBoardInfo(logicID int32) (common.BoardInfo, error)
+	SetIsTrainingCard() error
+	IsTrainingCard() bool
 }
 
 var (
@@ -103,6 +106,8 @@ type DeviceManager struct {
 	DevType string
 	// ProductTypes product type in server, multi type will be in 310P mix scene
 	ProductTypes []string
+	// isTrainingCard whether the device is used for training
+	isTrainingCard bool
 }
 
 // GetProductTypeArray return product types
@@ -141,6 +146,10 @@ func AutoInit(dType string) (*DeviceManager, error) {
 			dType, devType)
 	}
 	devMgr.DevType = devType
+	if err := devMgr.SetIsTrainingCard(); err != nil {
+		hwlog.RunLog.Errorf("auto recognize training card failed, err: %s", err)
+	}
+
 	pTypes, err := devMgr.GetAllProductType()
 	if err != nil {
 		hwlog.RunLog.Debugf("auto init product types failed, err: %s", err)
@@ -649,4 +658,56 @@ func (d *DeviceManager) GetBoardInfo(logicID int32) (common.BoardInfo, error) {
 	}
 
 	return d.DcMgr.DcGetDeviceBoardInfo(cardID, deviceID)
+}
+
+// SetIsTrainingCard identifies whether it is a training card according to the usage of card
+func (d *DeviceManager) SetIsTrainingCard() error {
+	devType := d.GetDevType()
+	if strings.HasPrefix(devType, common.Ascend310) {
+		d.isTrainingCard = false
+		return nil
+	}
+
+	boardInfo := common.BoardInfo{}
+	cardNum, cardList, err := d.GetCardList()
+	if err != nil || cardNum == 0 {
+		hwlog.RunLog.Errorf("failed to get card list when set 'IsTrainingCard' err: %v", err)
+		return err
+	}
+	for _, cardID := range cardList {
+		devNum, err := d.GetDeviceNumInCard(cardID)
+		if err != nil {
+			hwlog.RunLog.Warnf("get device num by cardID(%d) failed when set 'IsTrainingCard', error: %v", cardID, err)
+			continue
+		}
+		if devNum == 0 {
+			hwlog.RunLog.Warnf("not found device on card %d when set 'IsTrainingCard',", cardID)
+			continue
+		}
+
+		for devID := int32(0); devID < devNum; devID++ {
+			boardInfo, err = d.DcMgr.DcGetDeviceBoardInfo(cardID, devID)
+			if err != nil {
+				hwlog.RunLog.Warnf("get board info by card %d deviceID %d failed, err: %v", cardID, devID, err)
+				continue
+			}
+			break
+		}
+		if err == nil {
+			break
+		}
+	}
+
+	if devType == common.Ascend910B && boardInfo.BoardId == common.A300IA2BoardId {
+		d.isTrainingCard = false
+		return nil
+	}
+
+	d.isTrainingCard = true
+	return nil
+}
+
+// IsTrainingCard return true if it is a training card
+func (d *DeviceManager) IsTrainingCard() bool {
+	return d.isTrainingCard
 }

@@ -101,7 +101,7 @@ func TestNewNpuCollector(t *testing.T) {
 			path: "testdata/prometheus_metrics",
 			mockFunc: func(ctx context.Context, n *npuCollector, dmgr devmanager.DeviceInterface) {
 				_ = n.devicesParser.Init()
-				npuInfo := mockGetNPUInfo(nil, "")
+				npuInfo := mockGetNPUInfo(nil)
 				if err := n.cache.Set(npuListCacheKey, npuInfo, n.cacheTime); err != nil {
 					t.Fatal(err)
 				}
@@ -170,7 +170,7 @@ func TestGetChipInfo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			chipInfo := packChipInfo(0, tt.mockPart.(devmanager.DeviceInterface), "")
+			chipInfo := packChipInfo(0, tt.mockPart.(devmanager.DeviceInterface))
 			t.Logf("%#v", chipInfo)
 			assert.NotNil(t, chipInfo)
 			if tt.wantErr {
@@ -233,7 +233,7 @@ func TestGetNPUInfo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getNPUInfo(tt.args, ""); len(got) != len(tt.want) {
+			if got := getNPUInfo(tt.args); len(got) != len(tt.want) {
 				t.Errorf("getNPUInfo() = %#v,want %#v", got, tt.want)
 			}
 		})
@@ -256,7 +256,7 @@ func newTestCase(name string, wantErr bool, mockPart interface{}) testCase {
 	}
 }
 
-func mockGetNPUInfo(dmgr devmanager.DeviceInterface, infoType string) []HuaWeiNPUCard {
+func mockGetNPUInfo(dmgr devmanager.DeviceInterface) []HuaWeiNPUCard {
 	var npuList []HuaWeiNPUCard
 	for devicePhysicID := int32(0); devicePhysicID < npuCount; devicePhysicID++ {
 		chipInfo := &HuaWeiAIChip{

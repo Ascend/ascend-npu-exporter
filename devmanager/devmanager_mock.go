@@ -241,3 +241,11 @@ func (d *DeviceManagerMock) GetBoardInfo(logicID int32) (common.BoardInfo, error
 func (d *DeviceManagerMock) GetProductTypeArray() []string {
 	return []string{common.Atlas200ISoc}
 }
+
+func (d *DeviceManagerMock) SetIsTrainingCard() error {
+	return nil
+}
+
+func (d *DeviceManagerMock) IsTrainingCard() bool {
+	return true
+}
