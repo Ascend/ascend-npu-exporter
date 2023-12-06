@@ -205,7 +205,7 @@ func (operator *RuntimeOperatorTool) GetContainers(ctx context.Context) ([]*Comm
 		return getContainersByIsulad(ctx, client)
 	}
 
-	hwlog.RunLog.Errorf("client %#v is unexpected", operator.criClient)
+	hwlog.RunLog.Errorf("client %v is unexpected", operator.criClient)
 	return nil, errors.New("unexpected client type")
 }
 
@@ -250,7 +250,7 @@ func (operator *RuntimeOperatorTool) GetIsulaContainerInfoByID(ctx context.Conte
 			return containerJsonInfo, err
 		}
 		if err = json.Unmarshal([]byte(resp.ContainerJSON), &containerJsonInfo); err != nil {
-			hwlog.RunLog.Errorf("unmarshal err: %#v", err)
+			hwlog.RunLog.Errorf("unmarshal err: %v", err)
 			return containerJsonInfo, err
 		}
 		return containerJsonInfo, nil

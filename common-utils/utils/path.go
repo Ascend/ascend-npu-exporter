@@ -166,18 +166,18 @@ func CheckOwnerAndPermission(verifyPath string, mode os.FileMode, uid uint32) (s
 	}
 	absPath, err := filepath.Abs(verifyPath)
 	if err != nil {
-		return "", fmt.Errorf("abs failed %#v", err)
+		return "", fmt.Errorf("abs failed %v", err)
 	}
 	resoledPath, err := filepath.EvalSymlinks(absPath)
 	if err != nil {
-		return "", fmt.Errorf("evalSymlinks failed %#v", err)
+		return "", fmt.Errorf("evalSymlinks failed %v", err)
 	}
 	// if symlinks
 	if absPath != resoledPath {
 		// check symlinks its self owner
 		pathInfo, err := os.Lstat(absPath)
 		if err != nil {
-			return "", fmt.Errorf("lstat failed, %#v", err)
+			return "", fmt.Errorf("lstat failed, %v", err)
 		}
 		stat, ok := pathInfo.Sys().(*syscall.Stat_t)
 		if !ok || stat.Uid != uid {
@@ -186,7 +186,7 @@ func CheckOwnerAndPermission(verifyPath string, mode os.FileMode, uid uint32) (s
 	}
 	pathInfo, err := os.Stat(resoledPath)
 	if err != nil {
-		return "", fmt.Errorf("stat failed %#v", err)
+		return "", fmt.Errorf("stat failed %v", err)
 	}
 	stat, ok := pathInfo.Sys().(*syscall.Stat_t)
 	if !ok || stat.Uid != uid || !CheckMode(pathInfo.Mode(), mode) {
@@ -298,7 +298,7 @@ func parseLibFromLdCmd(libraryName string) (string, error) {
 	}
 	defer func() {
 		if err := grepCmd.Wait(); err != nil {
-			log.Printf("command exec failed, %#v", err)
+			log.Printf("command exec failed, %v", err)
 		}
 	}()
 	reader := bufio.NewReader(stdout)

@@ -83,7 +83,7 @@ func GetDeviceManager() (*DeviceManager, error) {
 		// a common dcmi Manager is initiated for init dcmi interface, you can specify an specific manager in later
 		dcMgr := dcmi.DcManager{}
 		if err := dcMgr.DcInit(); err != nil {
-			hwlog.RunLog.Errorf("deviceManager init failed, prepare dcmi failed, err: %#v", err)
+			hwlog.RunLog.Errorf("deviceManager init failed, prepare dcmi failed, err: %v", err)
 			return
 		}
 		devManager = &DeviceManager{}
@@ -178,18 +178,18 @@ func getChipInfoForInit() (common.ChipInfo, error) {
 	for _, cardID := range cardList {
 		devNum, err := dcMgr.DcGetDeviceNumInCard(cardID)
 		if err != nil || devNum == 0 {
-			hwlog.RunLog.Debugf("get device num by cardID(%d) failed, error: %#v", cardID, err)
+			hwlog.RunLog.Debugf("get device num by cardID(%d) failed, error: %v", cardID, err)
 			continue
 		}
 		for devID := int32(0); devID < devNum; devID++ {
 			chipInfo, err := dcMgr.DcGetChipInfo(cardID, devID)
 			if err != nil {
-				hwlog.RunLog.Debugf("get chip info failed by cardID(%d), deviceID(%d), error: %#v", cardID, devID,
+				hwlog.RunLog.Debugf("get chip info failed by cardID(%d), deviceID(%d), error: %v", cardID, devID,
 					err)
 				continue
 			}
 			if !common.IsValidChipInfo(chipInfo) {
-				hwlog.RunLog.Debugf("invalid chip info by cardID(%d), deviceID(%d), error: %#v", cardID, devID,
+				hwlog.RunLog.Debugf("invalid chip info by cardID(%d), deviceID(%d), error: %v", cardID, devID,
 					err)
 				continue
 			}
@@ -505,13 +505,13 @@ func (d *DeviceManager) GetAllProductType() ([]string, error) {
 	var productTypes []string
 	cardNum, cardList, err := d.GetCardList()
 	if cardNum == 0 || err != nil {
-		hwlog.RunLog.Errorf("failed to get card list, err: %#v", err)
+		hwlog.RunLog.Errorf("failed to get card list, err: %v", err)
 		return productTypes, err
 	}
 	for _, cardID := range cardList {
 		devNum, err := d.GetDeviceNumInCard(cardID)
 		if err != nil {
-			hwlog.RunLog.Debugf("get device num by cardID(%d) failed, error: %#v", cardID, err)
+			hwlog.RunLog.Debugf("get device num by cardID(%d) failed, error: %v", cardID, err)
 			continue
 		}
 		if devNum == 0 {
@@ -521,7 +521,7 @@ func (d *DeviceManager) GetAllProductType() ([]string, error) {
 		for devID := int32(0); devID < devNum; devID++ {
 			productType, err := d.GetProductType(cardID, devID)
 			if err != nil {
-				hwlog.RunLog.Debugf("get product type by card %d deviceID %d failed, err: %#v", cardID, devID, err)
+				hwlog.RunLog.Debugf("get product type by card %d deviceID %d failed, err: %v", cardID, devID, err)
 				continue
 			}
 			productTypes = append(productTypes, productType)

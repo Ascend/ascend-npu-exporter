@@ -820,12 +820,12 @@ func (d *DcManager) DcCreateVDevice(logicID int32, vDevInfo common.CgoCreateVDev
 	}
 	cardID, deviceID, err := d.DcGetCardIDDeviceID(logicID)
 	if err != nil {
-		return common.CgoCreateVDevOut{}, fmt.Errorf("get card id and device id failed, error is: %#v", err)
+		return common.CgoCreateVDevOut{}, fmt.Errorf("get card id and device id failed, error is: %v", err)
 	}
 
 	createVDevOut, err := d.DcCreateVirtualDevice(cardID, deviceID, vDevInfo)
 	if err != nil {
-		return common.CgoCreateVDevOut{}, fmt.Errorf("create virtual device failed, error is: %#v", err)
+		return common.CgoCreateVDevOut{}, fmt.Errorf("create virtual device failed, error is: %v", err)
 	}
 	return createVDevOut, nil
 }
@@ -854,11 +854,11 @@ func (d *DcManager) DcDestroyVDevice(logicID int32, vDevID uint32) error {
 	}
 	cardID, deviceID, err := d.DcGetCardIDDeviceID(logicID)
 	if err != nil {
-		return fmt.Errorf("get card id and device id failed, error is: %#v", err)
+		return fmt.Errorf("get card id and device id failed, error is: %v", err)
 	}
 
 	if err = d.DcSetDestroyVirtualDevice(cardID, deviceID, vDevID); err != nil {
-		return fmt.Errorf("destroy virtual device failed, error is: %#v", err)
+		return fmt.Errorf("destroy virtual device failed, error is: %v", err)
 	}
 	return nil
 }
@@ -1014,7 +1014,7 @@ func (d *DcManager) DcGetDeviceErrorCode(cardID, deviceID int32) (int32, int64, 
 func (d *DcManager) DcGetDeviceCount() (int32, error) {
 	devNum, _, err := d.DcGetLogicIDList()
 	if err != nil {
-		return common.RetError, fmt.Errorf("get device count failed, error: %#v", err)
+		return common.RetError, fmt.Errorf("get device count failed, error: %v", err)
 	}
 	return devNum, nil
 }
@@ -1025,12 +1025,12 @@ func (d *DcManager) DcGetLogicIDList() (int32, []int32, error) {
 	var totalNum int32
 	_, cardList, err := d.DcGetCardList()
 	if err != nil {
-		return common.RetError, logicIDs, fmt.Errorf("get card list failed, error: %#v", err)
+		return common.RetError, logicIDs, fmt.Errorf("get card list failed, error: %v", err)
 	}
 	for _, cardID := range cardList {
 		devNumInCard, err := d.DcGetDeviceNumInCard(cardID)
 		if err != nil {
-			return common.RetError, logicIDs, fmt.Errorf("get device num by cardID: %d failed, error: %#v",
+			return common.RetError, logicIDs, fmt.Errorf("get device num by cardID: %d failed, error: %v",
 				cardID, err)
 		}
 		totalNum += devNumInCard
@@ -1042,7 +1042,7 @@ func (d *DcManager) DcGetLogicIDList() (int32, []int32, error) {
 			logicID, err := d.DcGetDeviceLogicID(cardID, devID)
 			if err != nil {
 				return common.RetError, nil, fmt.Errorf("get device (cardID: %d, deviceID: %d) logic id "+
-					"failed, error: %#v", cardID, devID, err)
+					"failed, error: %v", cardID, devID, err)
 			}
 			logicIDs = append(logicIDs, logicID)
 		}
