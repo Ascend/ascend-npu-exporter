@@ -121,7 +121,7 @@ func closeImmediately(c net.Conn, lruCache *cache.ConcurrencyLRUCache) net.Conn 
 	return &limitListenerConn{Conn: c, release: func() {}, ipCache: lruCache}
 }
 
-// close implement  net.Listener interface
+// Close implement  net.Listener interface
 func (l *localLimitListener) Close() error {
 	err := l.Listener.Close()
 	l.closeOnce.Do(func() { close(l.buckets) })

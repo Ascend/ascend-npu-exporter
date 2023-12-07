@@ -95,13 +95,13 @@ func (operator *RuntimeOperatorTool) Init() error {
 	if start != 0 {
 		err := syscall.Setuid(0)
 		if err != nil {
-			return errors.New("raise uid failed")
+			return fmt.Errorf("raise uid failed: %v", err)
 		}
 		hwlog.RunLog.Debugf("raise uid to:%d", 0)
 		defer func() {
 			err = syscall.Setuid(start)
 			if err != nil {
-				hwlog.RunLog.Error("recover uid failed")
+				hwlog.RunLog.Errorf("recover uid failed: %v", err)
 			}
 			hwlog.RunLog.Debugf("recover uid to:%d", start)
 		}()
@@ -124,7 +124,7 @@ func (operator *RuntimeOperatorTool) Init() error {
 func (operator *RuntimeOperatorTool) initCriClient() error {
 	criConn, err := GetConnection(operator.CriEndpoint)
 	if err != nil || criConn == nil {
-		hwlog.RunLog.Warn("connecting to CRI server failed")
+		hwlog.RunLog.Warnf("connecting to CRI server failed: %v", err)
 		if operator.UseBackup {
 			hwlog.RunLog.Warn("use cri-dockerd address to try again")
 			if utils.IsExist(strings.TrimPrefix(DefaultCRIDockerd, unixPre)) {
@@ -133,7 +133,7 @@ func (operator *RuntimeOperatorTool) initCriClient() error {
 		}
 	}
 	if err != nil {
-		return errors.New("connecting to CRI server failed")
+		return fmt.Errorf("connecting to CRI server failed: %v", err)
 	}
 	if operator.CriEndpoint == DefaultIsuladAddr {
 		operator.criClient = isula.NewRuntimeServiceClient(criConn)
@@ -147,7 +147,7 @@ func (operator *RuntimeOperatorTool) initCriClient() error {
 func (operator *RuntimeOperatorTool) initOciClient() error {
 	conn, err := GetConnection(operator.OciEndpoint)
 	if err != nil || conn == nil {
-		hwlog.RunLog.Warn("failed to get OCI connection")
+		hwlog.RunLog.Warnf("failed to get OCI connection: %v", err)
 		if operator.UseBackup {
 			hwlog.RunLog.Warn("use backup address to try again")
 			if utils.IsExist(strings.TrimPrefix(DefaultContainerdAddr, unixPre)) {
@@ -159,7 +159,7 @@ func (operator *RuntimeOperatorTool) initOciClient() error {
 		}
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("connecting to OCI server failed: %v", err)
 	}
 	if operator.OciEndpoint == DefaultIsuladAddr {
 		operator.client = isula.NewContainerServiceClient(conn)
@@ -205,7 +205,7 @@ func (operator *RuntimeOperatorTool) GetContainers(ctx context.Context) ([]*Comm
 		return getContainersByIsulad(ctx, client)
 	}
 
-	hwlog.RunLog.Errorf("client %#v is unexpected", operator.criClient)
+	hwlog.RunLog.Errorf("client %v is unexpected", operator.criClient)
 	return nil, errors.New("unexpected client type")
 }
 
@@ -250,7 +250,7 @@ func (operator *RuntimeOperatorTool) GetIsulaContainerInfoByID(ctx context.Conte
 			return containerJsonInfo, err
 		}
 		if err = json.Unmarshal([]byte(resp.ContainerJSON), &containerJsonInfo); err != nil {
-			hwlog.RunLog.Errorf("unmarshal err: %#v", err)
+			hwlog.RunLog.Errorf("unmarshal err: %v", err)
 			return containerJsonInfo, err
 		}
 		return containerJsonInfo, nil

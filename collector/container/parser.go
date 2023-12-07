@@ -164,7 +164,7 @@ func (dp *DevicesParser) parseDevicesInContainerd(ctx context.Context, c *Common
 
 	spec, err := dp.RuntimeOperator.GetContainerInfoByID(ctx, c.Id)
 	if err != nil {
-		return contactError(err, fmt.Sprintf("cannot get container devices by container id (%#v)", c.Id))
+		return contactError(err, fmt.Sprintf("cannot get container devices by container id (%s)", c.Id))
 	}
 	if spec.Linux == nil || spec.Linux.Resources == nil || len(spec.Linux.Resources.Devices) > maxDevicesNum {
 		return contactError(errors.New("device error"),
@@ -192,10 +192,10 @@ func (dp *DevicesParser) getDevicesWithoutAscendRuntime(spec v1.Spec, c *CommonC
 	deviceInfo := DevicesInfo{}
 	devicesIDs, err := filterNPUDevices(spec)
 	if err != nil {
-		hwlog.RunLog.Debugf("filter npu devices failed by container id (%#v), err is %v", c.Id, err)
+		hwlog.RunLog.Debugf("filter npu devices failed by container id (%s), err is %v", c.Id, err)
 		return DevicesInfo{}, nil
 	}
-	hwlog.RunLog.Debugf("filter npu devices %#v in container (%s)", devicesIDs, c.Id)
+	hwlog.RunLog.Debugf("filter npu devices %v in container (%s)", devicesIDs, c.Id)
 
 	if len(devicesIDs) != 0 {
 		if deviceInfo, err = makeUpDeviceInfo(c); err == nil {
@@ -210,10 +210,10 @@ func (dp *DevicesParser) getDevicesWithoutAscendRuntime(spec v1.Spec, c *CommonC
 }
 
 func (dp *DevicesParser) getDevicesWithAscendRuntime(ascendDevEnv string, c *CommonContainer) (DevicesInfo, error) {
-	hwlog.RunLog.Debugf("get device info by env (%#v) in %s", ascendDevEnv, c.Id)
+	hwlog.RunLog.Debugf("get device info by env (%s) in %s", ascendDevEnv, c.Id)
 	devInfo := strings.Split(ascendDevEnv, "=")
 	if len(devInfo) != ascendEnvPart {
-		return DevicesInfo{}, fmt.Errorf("an invalid %s env(%#v)", ascendDeviceInfo, ascendDevEnv)
+		return DevicesInfo{}, fmt.Errorf("an invalid %s env(%s)", ascendDeviceInfo, ascendDevEnv)
 	}
 	devList := strings.Split(devInfo[1], ",")
 
@@ -221,24 +221,24 @@ func (dp *DevicesParser) getDevicesWithAscendRuntime(ascendDevEnv string, c *Com
 	for _, devID := range devList {
 		id, err := strconv.Atoi(devID)
 		if err != nil {
-			hwlog.RunLog.Errorf("container (%#v) has an invalid device ID (%#v) in %s, error is %s", c.Id, devID,
+			hwlog.RunLog.Errorf("container (%s) has an invalid device ID (%v) in %s, error is %s", c.Id, devID,
 				ascendDeviceInfo, err)
 			continue
 		}
 		devicesIDs = append(devicesIDs, id)
 	}
 
-	if len(devicesIDs) != 0 {
-		var err error
-		if deviceInfo, err := makeUpDeviceInfo(c); err == nil {
-			deviceInfo.Devices = devicesIDs
-			return deviceInfo, nil
-		}
+	if len(devicesIDs) == 0 {
+		return DevicesInfo{}, nil
+	}
+
+	deviceInfo, err := makeUpDeviceInfo(c)
+	if err != nil {
 		hwlog.RunLog.Error(err)
 		return DevicesInfo{}, err
 	}
-
-	return DevicesInfo{}, nil
+	deviceInfo.Devices = devicesIDs
+	return deviceInfo, nil
 }
 
 func (dp *DevicesParser) getDevWithoutAscendRuntimeInIsula(containerInfo isula.ContainerJson,
@@ -246,21 +246,22 @@ func (dp *DevicesParser) getDevWithoutAscendRuntimeInIsula(containerInfo isula.C
 	deviceInfo := DevicesInfo{}
 	devicesIDs, err := filterNPUDevicesInIsula(containerInfo)
 	if err != nil {
-		hwlog.RunLog.Debugf("filter npu devices failed by container id (%#v), err is %v", c.Id, err)
+		hwlog.RunLog.Debugf("filter npu devices failed by container id (%s), err is %v", c.Id, err)
 		return DevicesInfo{}, nil
 	}
-	hwlog.RunLog.Debugf("filter npu devices %#v in container (%s)", devicesIDs, c.Id)
+	hwlog.RunLog.Debugf("filter npu devices %v in container (%s)", devicesIDs, c.Id)
 
-	if len(devicesIDs) != 0 {
-		if deviceInfo, err = makeUpDeviceInfo(c); err == nil {
-			deviceInfo.Devices = devicesIDs
-			return deviceInfo, nil
-		}
+	if len(devicesIDs) == 0 {
+		return DevicesInfo{}, nil
+	}
+
+	deviceInfo, err = makeUpDeviceInfo(c)
+	if err != nil {
 		hwlog.RunLog.Error(err)
 		return DevicesInfo{}, err
 	}
-
-	return DevicesInfo{}, nil
+	deviceInfo.Devices = devicesIDs
+	return deviceInfo, nil
 }
 
 func (dp *DevicesParser) parseDeviceInIsula(ctx context.Context, c *CommonContainer, rs chan<- DevicesInfo) error {
@@ -278,7 +279,7 @@ func (dp *DevicesParser) parseDeviceInIsula(ctx context.Context, c *CommonContai
 	}
 	containerInfo, err := dp.RuntimeOperator.GetIsulaContainerInfoByID(ctx, c.Id)
 	if err != nil {
-		return contactError(err, fmt.Sprintf("getting config of container(%#v) fail", c.Id))
+		return contactError(err, fmt.Sprintf("getting config of container(%s) fail", c.Id))
 	}
 	if containerInfo.HostConfig == nil || containerInfo.Config == nil {
 		return errors.New("empty container info")
@@ -365,7 +366,11 @@ func (dp *DevicesParser) doParse(resultOut chan<- DevicesInfos) {
 	}
 	ctx, cancelFn := context.WithTimeout(ctx, withDefault(dp.Timeout, parsingNpuDefaultTimeout))
 	defer cancelFn()
-	if result, err = dp.collect(ctx, r, int32(l)); result != nil && err == nil {
+	result, err = dp.collect(ctx, r, int32(l))
+	if err != nil {
+		hwlog.RunLog.Errorf("collect info error: %v", err)
+	}
+	if result != nil {
 		dp.result <- result
 	}
 	wg.Wait()
@@ -504,8 +509,8 @@ func filterNPUDevicesInIsula(containerInfo isula.ContainerJson) ([]int, error) {
 }
 
 func getDevIdFromPath(pattern, path string) (int, error) {
-	if match, err := regexp.MatchString(pattern, path); !match || err != nil {
-		return -1, fmt.Errorf("unexpected path of device: %#v", path)
+	if match, err := regexp.MatchString(pattern, path); err != nil || !match {
+		return -1, fmt.Errorf("unexpected path of device: %s or match error: %v", path, err)
 	}
 	number := regexp.MustCompile(`\d+`)
 	IdStr := number.FindString(path)

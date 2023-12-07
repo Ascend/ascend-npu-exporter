@@ -52,7 +52,7 @@ func ReadLimitBytes(path string, limitLength int) ([]byte, error) {
 	buf := make([]byte, limitLength, limitLength)
 	l, err := file.Read(buf)
 	if err != nil {
-		return nil, errors.New("read file failed")
+		return nil, fmt.Errorf("read file failed: %v", err)
 	}
 	return buf[0:l], nil
 }
@@ -64,7 +64,7 @@ func LoadFile(filePath string) ([]byte, error) {
 	}
 	absPath, err := filepath.Abs(filePath)
 	if err != nil {
-		return nil, errors.New("the filePath is invalid")
+		return nil, fmt.Errorf("the filePath is invalid: %v", err)
 	}
 	if !IsExist(absPath) {
 		return nil, nil

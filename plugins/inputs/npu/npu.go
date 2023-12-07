@@ -87,7 +87,7 @@ func (npu *NpuWatch) Init() error {
 		MaxBackups:  maxLogBackups}
 
 	if err := hwlog.InitRunLogger(hwLogConfig, context.Background()); err != nil {
-		fmt.Printf("hwlog init failed, error is %#v\n", err)
+		fmt.Printf("hwlog init failed, error is %v\n", err)
 		return err
 	}
 	dmgr, err := devmanager.AutoInit("")

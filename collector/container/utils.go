@@ -112,8 +112,8 @@ func validDNSRe(dnsContent string) error {
 		return errors.New("param len invalid")
 	}
 
-	if match, err := regexp.MatchString(DNSReWithDot, dnsContent); !match || err != nil {
-		return errors.New("param invalid, not meet requirement")
+	if match, err := regexp.MatchString(DNSReWithDot, dnsContent); err != nil || !match {
+		return fmt.Errorf("param invalid, not meet requirement or match error: %v", err)
 	}
 	return nil
 }

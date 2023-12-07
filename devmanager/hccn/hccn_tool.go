@@ -70,7 +70,7 @@ func GetNPULinkStatus(phyID int32) string {
 	// command example: hccn_tool -i 0 -link -g
 	// success result example is: link status: DOWN
 	outStr, err := hccnToolGetInfo(args...)
-	hwlog.RunLog.Debugf("hccn_tool command exec result: %#v", outStr)
+	hwlog.RunLog.Debugf("hccn_tool command exec result: %v", outStr)
 	if err != nil {
 		hwlog.RunLog.Errorf("get npu link status failed, %s", err)
 		return LinkDown
@@ -216,7 +216,7 @@ func GetNPUInterfaceTraffic(phyID int32) (float64, float64, error) {
 	// Bandwidth TX: 0.00 MB/sec
 	// Bandwidth RX: 0.00 MB/sec
 	outStr, err := hccnToolGetInfo(args...)
-	hwlog.RunLog.Debugf("hccn_tool command exec result: %#v", outStr)
+	hwlog.RunLog.Debugf("hccn_tool command exec result: %v", outStr)
 	if err != nil {
 		hwlog.RunLog.Errorf("get npu interface traffic failed, %s", err)
 		return noTraffic, noTraffic, err
@@ -234,20 +234,25 @@ func GetNPUInterfaceTraffic(phyID int32) (float64, float64, error) {
 		}
 
 		trafficArr := strings.Split(line, space)
-		hwlog.RunLog.Debugf("npu bandwidth split as: %#v", trafficArr)
+		hwlog.RunLog.Debugf("npu bandwidth split as: %v", trafficArr)
 		if len(trafficArr) != trafficPartLen {
 			continue
 		}
 		if strings.Contains(line, txStr) {
-			if tmpTx, err := strconv.ParseFloat(trafficArr[secondIndex], base64); err == nil {
-				tx = tmpTx
+			tmpTx, err := strconv.ParseFloat(trafficArr[secondIndex], base64)
+			if err != nil {
+				hwlog.RunLog.Errorf("get float data from Bandwidth TX err: %s", err)
+				continue
 			}
-			continue
+			tx = tmpTx
 		}
 		if strings.Contains(line, rxStr) {
-			if tmpRx, err := strconv.ParseFloat(trafficArr[secondIndex], base64); err == nil {
-				rx = tmpRx
+			tmpRx, err := strconv.ParseFloat(trafficArr[secondIndex], base64)
+			if err != nil {
+				hwlog.RunLog.Errorf("get float data from Bandwidth RX err: %s", err)
+				continue
 			}
+			rx = tmpRx
 		}
 	}
 	return tx, rx, nil

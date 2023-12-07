@@ -110,14 +110,14 @@ func CheckPath(path string) (string, error) {
 	}
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return "", errors.New("get the absolute path failed")
+		return "", fmt.Errorf("get the absolute path failed: %v", err)
 	}
 	resoledPath, err := filepath.EvalSymlinks(absPath)
 	if err != nil {
 		if strings.Contains(err.Error(), "no such file or directory") {
 			return "", os.ErrNotExist
 		}
-		return "", errors.New("get the symlinks path failed")
+		return "", fmt.Errorf("get the symlinks path failed: %v", err)
 	}
 	if absPath != resoledPath {
 		return "", errors.New("can't support symlinks")
@@ -125,7 +125,7 @@ func CheckPath(path string) (string, error) {
 	// get the original full path
 	absOrigin, err := filepath.Abs(origin)
 	if err != nil {
-		return "", errors.New("get the absolute path failed")
+		return "", fmt.Errorf("get the absolute path failed: %v", err)
 	}
 	return absOrigin, nil
 }
@@ -138,7 +138,7 @@ func MakeSureDir(path string) error {
 	}
 
 	if err := os.MkdirAll(dir, dirMode); err != nil {
-		return errors.New("create directory failed")
+		return fmt.Errorf("create directory failed: %v", err)
 	}
 
 	return nil
@@ -166,18 +166,18 @@ func CheckOwnerAndPermission(verifyPath string, mode os.FileMode, uid uint32) (s
 	}
 	absPath, err := filepath.Abs(verifyPath)
 	if err != nil {
-		return "", fmt.Errorf("abs failed %#v", err)
+		return "", fmt.Errorf("abs failed %v", err)
 	}
 	resoledPath, err := filepath.EvalSymlinks(absPath)
 	if err != nil {
-		return "", fmt.Errorf("evalSymlinks failed %#v", err)
+		return "", fmt.Errorf("evalSymlinks failed %v", err)
 	}
 	// if symlinks
 	if absPath != resoledPath {
 		// check symlinks its self owner
 		pathInfo, err := os.Lstat(absPath)
 		if err != nil {
-			return "", fmt.Errorf("lstat failed, %#v", err)
+			return "", fmt.Errorf("lstat failed, %v", err)
 		}
 		stat, ok := pathInfo.Sys().(*syscall.Stat_t)
 		if !ok || stat.Uid != uid {
@@ -186,7 +186,7 @@ func CheckOwnerAndPermission(verifyPath string, mode os.FileMode, uid uint32) (s
 	}
 	pathInfo, err := os.Stat(resoledPath)
 	if err != nil {
-		return "", fmt.Errorf("stat failed %#v", err)
+		return "", fmt.Errorf("stat failed %v", err)
 	}
 	stat, ok := pathInfo.Sys().(*syscall.Stat_t)
 	if !ok || stat.Uid != uid || !CheckMode(pathInfo.Mode(), mode) {
@@ -283,32 +283,34 @@ func parseLibFromLdCmd(libraryName string) (string, error) {
 	grepCmd := exec.Command(grepCommand, libraryName)
 	ldCmdStdout, err := ldCmd.StdoutPipe()
 	if err != nil {
-		return "", fmt.Errorf("command exec failed")
+		return "", fmt.Errorf("command exec failed: %v", err)
 	}
 	grepCmd.Stdin = ldCmdStdout
 	stdout, err := grepCmd.StdoutPipe()
 	if err != nil {
-		return "", fmt.Errorf("command exec failed")
+		return "", fmt.Errorf("get pipe failed: %v", err)
 	}
-	if err := grepCmd.Start(); err != nil {
-		return "", fmt.Errorf("command exec failed")
+	if err = grepCmd.Start(); err != nil {
+		return "", fmt.Errorf("command exec failed: %v", err)
 	}
-	if err := ldCmd.Run(); err != nil {
-		return "", fmt.Errorf("command exec failed")
+	if err = ldCmd.Run(); err != nil {
+		return "", fmt.Errorf("command exec failed: %v", err)
 	}
 	defer func() {
-		if err := grepCmd.Wait(); err != nil {
-			log.Printf("command exec failed, %#v", err)
+		if err = grepCmd.Wait(); err != nil {
+			log.Printf("command exec failed, %v", err)
 		}
 	}()
 	reader := bufio.NewReader(stdout)
 	count := 0
+	line := ""
 	for {
 		if count >= maxPathLength {
+			err = errors.New("too many items in command stdout")
 			break
 		}
 		count++
-		line, err := reader.ReadString('\n')
+		line, err = reader.ReadString('\n')
 		if err != nil || io.EOF == err {
 			break
 		}
@@ -316,7 +318,7 @@ func parseLibFromLdCmd(libraryName string) (string, error) {
 			return libPath, nil
 		}
 	}
-	return "", fmt.Errorf("can't find valid lib")
+	return "", fmt.Errorf("can't find valid lib: %v", err)
 }
 
 func getLibFromLdCmd(libraryName string) (string, error) {

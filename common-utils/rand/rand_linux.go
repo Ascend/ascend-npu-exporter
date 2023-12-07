@@ -58,7 +58,7 @@ func (r *randomReader) Read(b []byte) (int, error) {
 		return 0, errors.New("not supported")
 	}
 	f, err := os.Open("/dev/random")
-	if f == nil || err != nil {
+	if err != nil {
 		return 0, err
 	}
 	defer func() {
