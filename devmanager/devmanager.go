@@ -434,6 +434,7 @@ func (d *DeviceManager) GetPhysicIDFromLogicID(logicID int32) (int32, error) {
 func (d *DeviceManager) GetLogicIDFromPhysicID(physicID int32) (int32, error) {
 	logicID, err := d.DcMgr.DcGetLogicIDFromPhysicID(physicID)
 	if err != nil {
+		hwlog.RunLog.Error(err)
 		return common.RetError, fmt.Errorf("failed to get logicID by physicID(%d)", physicID)
 	}
 
@@ -504,7 +505,7 @@ func (d *DeviceManager) GetProductType(cardID, deviceID int32) (string, error) {
 func (d *DeviceManager) GetAllProductType() ([]string, error) {
 	var productTypes []string
 	cardNum, cardList, err := d.GetCardList()
-	if cardNum == 0 || err != nil {
+	if err != nil || cardNum == 0 {
 		hwlog.RunLog.Errorf("failed to get card list, err: %v", err)
 		return productTypes, err
 	}

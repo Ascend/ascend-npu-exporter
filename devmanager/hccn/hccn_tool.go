@@ -239,15 +239,20 @@ func GetNPUInterfaceTraffic(phyID int32) (float64, float64, error) {
 			continue
 		}
 		if strings.Contains(line, txStr) {
-			if tmpTx, err := strconv.ParseFloat(trafficArr[secondIndex], base64); err == nil {
-				tx = tmpTx
+			tmpTx, err := strconv.ParseFloat(trafficArr[secondIndex], base64)
+			if err != nil {
+				hwlog.RunLog.Errorf("get float data from Bandwidth TX err: %s", err)
+				continue
 			}
-			continue
+			tx = tmpTx
 		}
 		if strings.Contains(line, rxStr) {
-			if tmpRx, err := strconv.ParseFloat(trafficArr[secondIndex], base64); err == nil {
-				rx = tmpRx
+			tmpRx, err := strconv.ParseFloat(trafficArr[secondIndex], base64)
+			if err != nil {
+				hwlog.RunLog.Errorf("get float data from Bandwidth RX err: %s", err)
+				continue
 			}
+			rx = tmpRx
 		}
 	}
 	return tx, rx, nil

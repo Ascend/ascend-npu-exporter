@@ -100,7 +100,7 @@ func SafeChmod(path string, size int64, mode os.FileMode) error {
 	if err = VerifyFile(file, size); err != nil {
 		return err
 	}
-	if err := file.Chmod(mode); err != nil {
+	if err = file.Chmod(mode); err != nil {
 		return err
 	}
 	return nil
@@ -117,7 +117,7 @@ func realPathChecker(path string, checkParent, allowLink bool) (string, os.FileI
 	if !stringChecker(realPath, 0, DefaultPathLength) {
 		return notValidPath, nil, fmt.Errorf("invalid path")
 	}
-	if err := fileChecker(realPath, true, checkParent, allowLink, 0); err != nil {
+	if err = fileChecker(realPath, true, checkParent, allowLink, 0); err != nil {
 		return notValidPath, nil, err
 	}
 	fileInfo, err := os.Stat(realPath)

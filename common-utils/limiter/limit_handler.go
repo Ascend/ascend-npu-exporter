@@ -249,11 +249,11 @@ func NewLimitHandlerV2(handler http.Handler, conf *HandlerConfig) (http.Handler,
 	}
 	arr1, err := strconv.ParseInt(arr[1], 0, 0)
 	if err != nil {
-		return nil, errors.New("IPConCurrency parameter error, parse to int failed")
+		return nil, fmt.Errorf("IPConCurrency parameter(%s) error, parse to int failed: %v", arr[1], err)
 	}
 	arr0, err := strconv.ParseInt(arr[0], 0, 0)
 	if err != nil || arr0 == 0 {
-		return nil, errors.New("IPConCurrency parameter error,parse to int failed")
+		return nil, fmt.Errorf("IPConCurrency parameter(%s) error,parse to int failed: %v", arr[0], err)
 	}
 	h.ipExpiredTime = time.Duration(arr1 * int64(time.Second) / arr0)
 	h.ipCache = cache.New(DefaultCacheSize)

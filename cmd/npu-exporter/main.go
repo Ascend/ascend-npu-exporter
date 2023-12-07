@@ -138,7 +138,7 @@ func newServerAndListener(conf *limiter.HandlerConfig) (*http.Server, net.Listen
 	}
 	ln, err := net.Listen("tcp", s.Addr)
 	if err != nil {
-		hwlog.RunLog.Error(err)
+		hwlog.RunLog.Errorf("listen ip and port error: %v", err)
 		return nil, nil
 	}
 	limitLs, err := limiter.LimitListener(ln, limitTotalConn, limitIPConn, limiter.DefaultCacheSize)
@@ -214,16 +214,16 @@ func paramValidInPrometheus() error {
 		return errors.New("limitIPReq format error")
 	}
 	if limitIPConn < 1 || limitIPConn > maxIPConnLimit {
-		return errors.New("limitIPConn range error")
+		return errors.New("limitIPConn is invalid")
 	}
 	if limitTotalConn < 1 || limitTotalConn > maxConcurrency {
-		return errors.New("limitTotalConn range error")
+		return errors.New("limitTotalConn is invalid")
 	}
 	if cacheSize < 1 || cacheSize > limiter.DefaultCacheSize*tenDays {
-		return errors.New("cacheSize range error")
+		return errors.New("cacheSize is invalid")
 	}
 	if concurrency < 1 || concurrency > maxConcurrency {
-		return errors.New("concurrency range error")
+		return errors.New("concurrency is invalid")
 	}
 	cmdLine := strings.Join(os.Args[1:], "")
 	if strings.Contains(cmdLine, pollIntervalStr) {
@@ -234,10 +234,10 @@ func paramValidInPrometheus() error {
 
 func containerSockCheck() error {
 	if endpoint != "" && !strings.Contains(endpoint, ".sock") {
-		return errors.New("endpoint file not sock address")
+		return errors.New("endpoint file is not sock address")
 	}
 	if containerd != "" && !strings.Contains(containerd, ".sock") {
-		return errors.New("containerd file not sock address")
+		return errors.New("containerd file is not sock address")
 	}
 	if endpoint != "" && !strings.Contains(endpoint, unixPre) {
 		endpoint = unixPre + endpoint
@@ -301,7 +301,7 @@ func indexHandler(w http.ResponseWriter, _ *http.Request) {
 			</body>
 			</html>`))
 	if err != nil {
-		hwlog.RunLog.Error("Write to response error")
+		hwlog.RunLog.Errorf("Write to response error: %v", err)
 	}
 }
 
@@ -326,7 +326,7 @@ func prometheusProcess() {
 	opts := readCntMonitoringFlags()
 	reg, err := regPrometheus(opts)
 	if err != nil {
-		hwlog.RunLog.Errorf("register prometheus failed")
+		hwlog.RunLog.Errorf("register prometheus failed: %v", err)
 		return
 	}
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
@@ -338,7 +338,7 @@ func prometheusProcess() {
 	}
 	hwlog.RunLog.Warn("enable unsafe http server")
 	if err := s.Serve(limitLs); err != nil {
-		hwlog.RunLog.Error("Http server error and stopped")
+		hwlog.RunLog.Error("Http server error: %v and stopped", err)
 	}
 }
 

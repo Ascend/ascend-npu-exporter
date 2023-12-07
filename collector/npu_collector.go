@@ -311,7 +311,7 @@ func startToGetNetInfo(dmgr devmanager.DeviceInterface, updateTime time.Duration
 func getNPUInfo(dmgr devmanager.DeviceInterface) []HuaWeiNPUCard {
 	var npuList []HuaWeiNPUCard
 	cardNum, cards, err := dmgr.GetCardList()
-	if cardNum == 0 || err != nil {
+	if err != nil || cardNum == 0 {
 		hwlog.RunLog.Errorf("failed to get npu info, error is: %v", err)
 		return npuList
 	}
